@@ -1,0 +1,6733 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "TrainningAssistantMain模块",
+    "description": "提供WebAPI接口",
+    "version": "TrainningAssistant.Main"
+  },
+  "paths": {
+    "/MainAPI/AfterClassAssignment/Add": {
+      "post": {
+        "tags": [
+          "AfterClassAssignment"
+        ],
+        "summary": "添加课后作业",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAfterClassAssignmentRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAfterClassAssignmentRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAfterClassAssignmentRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAfterClassAssignmentRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/AfterClassAssignment/GetInfo": {
+      "get": {
+        "tags": [
+          "AfterClassAssignment"
+        ],
+        "summary": "获取课后作业",
+        "parameters": [
+          {
+            "name": "appointmentRecordID",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AfterClassAssignmentDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AfterClassAssignmentDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AfterClassAssignmentDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/AfterClassAssignment/GetList": {
+      "get": {
+        "tags": [
+          "AfterClassAssignment"
+        ],
+        "summary": "获取课后作业列表",
+        "parameters": [
+          {
+            "name": "classID",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AfterClassAssignmentDTOListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AfterClassAssignmentDTOListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AfterClassAssignmentDTOListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/AfterClassAssignment/Complete": {
+      "get": {
+        "tags": [
+          "AfterClassAssignment"
+        ],
+        "summary": "完成课后作业",
+        "parameters": [
+          {
+            "name": "afterClassAssignmentID",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Appointment/Add": {
+      "post": {
+        "tags": [
+          "Appointment"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAppointmentRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAppointmentRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAppointmentRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAppointmentRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Appointment/Edit": {
+      "put": {
+        "tags": [
+          "Appointment"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditAppointmentRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditAppointmentRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditAppointmentRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditAppointmentRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Appointment/Delete": {
+      "delete": {
+        "tags": [
+          "Appointment"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Appointment/GetInfo": {
+      "get": {
+        "tags": [
+          "Appointment"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Appointment/GetList": {
+      "post": {
+        "tags": [
+          "Appointment"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/AppointmentRecord/Add": {
+      "post": {
+        "tags": [
+          "AppointmentRecord"
+        ],
+        "summary": "添加预约记录",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAppointmentRecordRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAppointmentRecordRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAppointmentRecordRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAppointmentRecordRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/AppointmentRecord/Cancel": {
+      "delete": {
+        "tags": [
+          "AppointmentRecord"
+        ],
+        "summary": "取消预约记录",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/AppointmentRecord/GetLastRecordInfo": {
+      "get": {
+        "tags": [
+          "AppointmentRecord"
+        ],
+        "summary": "获取最后一次预约记录信息",
+        "parameters": [
+          {
+            "name": "classID",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/AppointmentRecord/GetLastRecordInfos": {
+      "post": {
+        "tags": [
+          "AppointmentRecord"
+        ],
+        "summary": "获取最新的预约记录信息",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRecordRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRecordRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRecordRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRecordRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/AppointmentRecord/GetList": {
+      "post": {
+        "tags": [
+          "AppointmentRecord"
+        ],
+        "summary": "获取预约记录列表",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRecordRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRecordRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRecordRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAppointmentRecordRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentRecordListDTOListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Course/Add": {
+      "post": {
+        "tags": [
+          "Course"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Course/Edit": {
+      "put": {
+        "tags": [
+          "Course"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Course/Delete": {
+      "delete": {
+        "tags": [
+          "Course"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Course/GetInfo": {
+      "get": {
+        "tags": [
+          "Course"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Course/GetList": {
+      "post": {
+        "tags": [
+          "Course"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseType/ExchangeParent": {
+      "put": {
+        "tags": [
+          "CourseType"
+        ],
+        "summary": "更改父级",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeParentRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeParentRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeParentRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeParentRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseType/GetTreeList": {
+      "post": {
+        "tags": [
+          "CourseType"
+        ],
+        "summary": "查询树列表",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseTypeTreeListRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseTypeTreeListRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseTypeTreeListRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseTypeTreeListRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeTreeListDTOListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeTreeListDTOListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeTreeListDTOListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseType/Add": {
+      "post": {
+        "tags": [
+          "CourseType"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseTypeRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseTypeRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseTypeRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseTypeRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseType/Edit": {
+      "put": {
+        "tags": [
+          "CourseType"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseTypeRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseTypeRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseTypeRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseTypeRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseType/Delete": {
+      "delete": {
+        "tags": [
+          "CourseType"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseType/GetInfo": {
+      "get": {
+        "tags": [
+          "CourseType"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseType/GetList": {
+      "post": {
+        "tags": [
+          "CourseType"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseTypeRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseTypeRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseTypeRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseTypeRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseTypeListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWork/Add": {
+      "post": {
+        "tags": [
+          "CourseWork"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseWorkRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseWorkRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseWorkRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseWorkRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWork/Edit": {
+      "put": {
+        "tags": [
+          "CourseWork"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseWorkRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseWorkRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseWorkRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseWorkRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWork/Delete": {
+      "delete": {
+        "tags": [
+          "CourseWork"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWork/GetInfo": {
+      "get": {
+        "tags": [
+          "CourseWork"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWork/GetList": {
+      "post": {
+        "tags": [
+          "CourseWork"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseWorkRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseWorkRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseWorkRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseWorkRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWorkPackage/Add": {
+      "post": {
+        "tags": [
+          "CourseWorkPackage"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseWorkPackageRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseWorkPackageRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseWorkPackageRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseWorkPackageRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWorkPackage/Edit": {
+      "put": {
+        "tags": [
+          "CourseWorkPackage"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseWorkPackageRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseWorkPackageRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseWorkPackageRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCourseWorkPackageRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWorkPackage/Delete": {
+      "delete": {
+        "tags": [
+          "CourseWorkPackage"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWorkPackage/GetInfo": {
+      "get": {
+        "tags": [
+          "CourseWorkPackage"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkPackageDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkPackageDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkPackageDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/CourseWorkPackage/GetList": {
+      "post": {
+        "tags": [
+          "CourseWorkPackage"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseWorkPackageRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseWorkPackageRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseWorkPackageRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryCourseWorkPackageRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkPackageListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkPackageListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseWorkPackageListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllAppointmentCompleteCategory": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有预约完成类别枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentCompleteCategoryKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentCompleteCategoryKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentCompleteCategoryKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllAppointmentState": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有预约状态枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentStateKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentStateKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentStateKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllJapaneseLevel": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有日语等级枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JapaneseLevelKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JapaneseLevelKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JapaneseLevelKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllSex": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有性别枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SexKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SexKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SexKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllSocialProperty": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有社会属性枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPropertyKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPropertyKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialPropertyKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllStudentClassHourStatementCategory": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有学生课时流水枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourStatementCategoryKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourStatementCategoryKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourStatementCategoryKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllStudentSource": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有学生来源枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentSourceKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentSourceKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentSourceKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllTeachingMethod": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有授课方式枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeachingMethodKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeachingMethodKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeachingMethodKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Enums/GetAllUpRecordStateCategory": {
+      "get": {
+        "tags": [
+          "Enums"
+        ],
+        "summary": "获取所有上次预约记录状态类别枚举",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpRecordStateCategoryKeyValueModelListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpRecordStateCategoryKeyValueModelListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpRecordStateCategoryKeyValueModelListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/RegistrationForm/SingleRegistration": {
+      "post": {
+        "tags": [
+          "RegistrationForm"
+        ],
+        "summary": "单人报名",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSingleRegistrationFormRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSingleRegistrationFormRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSingleRegistrationFormRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSingleRegistrationFormRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/RegistrationForm/GetList": {
+      "post": {
+        "tags": [
+          "RegistrationForm"
+        ],
+        "summary": "获取报名表列表",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRegistrationFormRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRegistrationFormRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRegistrationFormRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRegistrationFormRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationFormListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationFormListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationFormListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Student/Add": {
+      "post": {
+        "tags": [
+          "Student"
+        ],
+        "summary": "添加",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStudentRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStudentRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStudentRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStudentRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentAddResultDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentAddResultDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentAddResultDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Student/Edit": {
+      "put": {
+        "tags": [
+          "Student"
+        ],
+        "summary": "编辑",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditStudentRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditStudentRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditStudentRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditStudentRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Student/GetInfo": {
+      "get": {
+        "tags": [
+          "Student"
+        ],
+        "summary": "获得信息",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Student/GetInfoByAccount": {
+      "get": {
+        "tags": [
+          "Student"
+        ],
+        "summary": "获得信息",
+        "parameters": [
+          {
+            "name": "account",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/Student/GetList": {
+      "post": {
+        "tags": [
+          "Student"
+        ],
+        "summary": "获得列表",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/StudentClassHour/GetList": {
+      "post": {
+        "tags": [
+          "StudentClassHour"
+        ],
+        "summary": "查询学生课时列表",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentClassHourRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentClassHourRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentClassHourRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentClassHourRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/ResetPassword": {
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "summary": "重置密码",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/GetLoginUserInfo": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "summary": "获得登录用户信息",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/Login": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "summary": "登录",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResultDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResultDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResultDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/ChangePassword": {
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "summary": "修改密码",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/Add": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddUserRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddUserRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddUserRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddUserRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/Edit": {
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditUserRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditUserRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditUserRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditUserRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/Delete": {
+      "delete": {
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/GetInfo": {
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTOResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTOResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/GetList": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryUserRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryUserRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryUserRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryUserRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddAfterClassAssignmentRequestModel": {
+        "type": "object",
+        "properties": {
+          "AppointmentRecordID": {
+            "type": "string",
+            "description": "预约记录唯一标识",
+            "format": "uuid"
+          },
+          "CourseWorkPackageID": {
+            "type": "string",
+            "description": "课程作业包唯一标识",
+            "format": "uuid"
+          },
+          "EndTime": {
+            "type": "string",
+            "description": "结束时间",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false,
+        "description": "课后作业添加请求模型"
+      },
+      "AddAppointmentRecordRequestModel": {
+        "required": [
+          "TeachingMethod"
+        ],
+        "type": "object",
+        "properties": {
+          "AppointmentID": {
+            "type": "string",
+            "description": "预约时间唯一标识",
+            "format": "uuid"
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "预约班级唯一标识",
+            "format": "uuid"
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          }
+        },
+        "additionalProperties": false,
+        "description": "预约记录添加请求模型"
+      },
+      "AddAppointmentRequestModel": {
+        "required": [
+          "EndTime",
+          "StartTime"
+        ],
+        "type": "object",
+        "properties": {
+          "StartTime": {
+            "type": "string",
+            "description": "开始时间",
+            "format": "date-time"
+          },
+          "EndTime": {
+            "type": "string",
+            "description": "结束时间",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false,
+        "description": "预约添加请求模型"
+      },
+      "AddCourseRequestModel": {
+        "required": [
+          "CourseTypeIDs",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ClassHour": {
+            "type": "number",
+            "description": "课时",
+            "format": "double"
+          },
+          "ClassHourPeriod": {
+            "type": "number",
+            "description": "课时周期",
+            "format": "double"
+          },
+          "Price": {
+            "type": "number",
+            "description": "单价",
+            "format": "double"
+          },
+          "Remark": {
+            "type": "string",
+            "description": "备注",
+            "nullable": true
+          },
+          "CourseTypeIDs": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "课程类型唯一标识组"
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程添加请求模型"
+      },
+      "AddCourseTypeRequestModel": {
+        "required": [
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ParentID": {
+            "type": "string",
+            "description": "父级唯一标识",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程类别添加请求模型"
+      },
+      "AddCourseWorkPackageRequestModel": {
+        "required": [
+          "CourseID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "CourseID": {
+            "type": "string",
+            "description": "课程唯一标识",
+            "format": "uuid"
+          },
+          "Name": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "FileUrl": {
+            "type": "string",
+            "description": "文件地址",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业包添加请求模型"
+      },
+      "AddCourseWorkRequestModel": {
+        "required": [
+          "Content",
+          "Description"
+        ],
+        "type": "object",
+        "properties": {
+          "CourseWorkPackageID": {
+            "type": "string",
+            "description": "课程作业包唯一标识",
+            "format": "uuid"
+          },
+          "Content": {
+            "minLength": 1,
+            "type": "string",
+            "description": "内容"
+          },
+          "Description": {
+            "minLength": 1,
+            "type": "string",
+            "description": "说明"
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业添加请求模型"
+      },
+      "AddSingleRegistrationFormRequestModel": {
+        "required": [
+          "CourseID",
+          "Price",
+          "StudentID"
+        ],
+        "type": "object",
+        "properties": {
+          "StudentID": {
+            "type": "string",
+            "description": "学生ID",
+            "format": "uuid"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程ID",
+            "format": "uuid"
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "Price": {
+            "type": "number",
+            "description": "价格",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false,
+        "description": "添加单人报名请求模型"
+      },
+      "AddStudentRequestModel": {
+        "required": [
+          "JapaneseLevel",
+          "Name",
+          "Sex",
+          "Source"
+        ],
+        "type": "object",
+        "properties": {
+          "JapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "Source": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "SocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "Employer": {
+            "type": "string",
+            "description": "学校/单位",
+            "nullable": true
+          },
+          "Birthday": {
+            "type": "string",
+            "description": "生日",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IDCardNumber": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          },
+          "Address": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "description": "地址",
+            "nullable": true
+          },
+          "Remark": {
+            "type": "string",
+            "description": "备注信息",
+            "nullable": true
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生添加请求模型"
+      },
+      "AddUserRequestModel": {
+        "required": [
+          "Account",
+          "Name",
+          "Sex"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "Account": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          }
+        },
+        "additionalProperties": false,
+        "description": "用户添加请求模型"
+      },
+      "AfterClassAssignmentDTO": {
+        "required": [
+          "CreateTime",
+          "ID"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "AppointmentRecordID": {
+            "type": "string",
+            "description": "预约记录唯一标识",
+            "format": "uuid"
+          },
+          "CourseWorkPackageID": {
+            "type": "string",
+            "description": "课程作业包唯一标识",
+            "format": "uuid"
+          },
+          "EndTime": {
+            "type": "string",
+            "description": "结束时间",
+            "format": "date-time"
+          },
+          "RecordInfo": {
+            "$ref": "#/components/schemas/AppointmentRecordListDTO"
+          },
+          "CourseWorkPackageInfo": {
+            "$ref": "#/components/schemas/CourseWorkPackageDTO"
+          },
+          "CourseWorkInfos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseWorkSimplenessDTO"
+            },
+            "description": "课后作业信息",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课后作业数据传输模型"
+      },
+      "AfterClassAssignmentDTOListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AfterClassAssignmentDTO"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AfterClassAssignmentDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/AfterClassAssignmentDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentCompleteCategory": {
+        "enum": [
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "description": "预约完成类别",
+        "format": "int32"
+      },
+      "AppointmentCompleteCategoryKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/AppointmentCompleteCategory"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentCompleteCategoryKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppointmentCompleteCategoryKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentDTO": {
+        "required": [
+          "CreateTime",
+          "EndTime",
+          "ID",
+          "StartTime"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "StartTime": {
+            "type": "string",
+            "description": "开始时间",
+            "format": "date-time"
+          },
+          "EndTime": {
+            "type": "string",
+            "description": "结束时间",
+            "format": "date-time"
+          },
+          "State": {
+            "$ref": "#/components/schemas/AppointmentState"
+          },
+          "CompleteCategory": {
+            "$ref": "#/components/schemas/AppointmentCompleteCategory"
+          },
+          "CompleteTime": {
+            "type": "string",
+            "description": "完成时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "预约班级唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程ID",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "ClassName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "班级名称",
+            "nullable": true
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          }
+        },
+        "additionalProperties": false,
+        "description": "预约数据传输模型"
+      },
+      "AppointmentDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/AppointmentDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentListDTO": {
+        "required": [
+          "CreateTime",
+          "EndTime",
+          "ID",
+          "StartTime"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "StartTime": {
+            "type": "string",
+            "description": "开始时间",
+            "format": "date-time"
+          },
+          "EndTime": {
+            "type": "string",
+            "description": "结束时间",
+            "format": "date-time"
+          },
+          "State": {
+            "$ref": "#/components/schemas/AppointmentState"
+          },
+          "CompleteCategory": {
+            "$ref": "#/components/schemas/AppointmentCompleteCategory"
+          },
+          "CompleteTime": {
+            "type": "string",
+            "description": "完成时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "预约班级唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程ID",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "ClassName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "班级名称",
+            "nullable": true
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          }
+        },
+        "additionalProperties": false,
+        "description": "预约列表数据传输模型"
+      },
+      "AppointmentListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppointmentListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentRecordListDTO": {
+        "required": [
+          "ClassName",
+          "CourseID",
+          "CourseName",
+          "CreateTime",
+          "EndTime",
+          "ID",
+          "StartTime",
+          "TeachingMethod"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "AppointmentID": {
+            "type": "string",
+            "description": "预约时间唯一标识",
+            "format": "uuid"
+          },
+          "StartTime": {
+            "type": "string",
+            "description": "开始时间",
+            "format": "date-time"
+          },
+          "EndTime": {
+            "type": "string",
+            "description": "结束时间",
+            "format": "date-time"
+          },
+          "State": {
+            "$ref": "#/components/schemas/AppointmentState"
+          },
+          "StateText": {
+            "type": "string",
+            "description": "状态文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "CompleteCategory": {
+            "$ref": "#/components/schemas/AppointmentCompleteCategory"
+          },
+          "CompleteCategoryText": {
+            "type": "string",
+            "description": "完成类型文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "CompleteTime": {
+            "type": "string",
+            "description": "完成时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "预约班级唯一标识",
+            "format": "uuid"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程ID",
+            "format": "uuid"
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称"
+          },
+          "ClassName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "班级名称"
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "CancelTime": {
+            "type": "string",
+            "description": "取消时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "UpRecordState": {
+            "$ref": "#/components/schemas/UpRecordStateCategory"
+          },
+          "UpRecordStateText": {
+            "type": "string",
+            "description": "上次记录状态文本",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "预约记录列表数据传输模型"
+      },
+      "AppointmentRecordListDTOListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppointmentRecordListDTO"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentRecordListDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/AppointmentRecordListDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentState": {
+        "enum": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          255
+        ],
+        "type": "integer",
+        "description": "预约状态",
+        "format": "int32"
+      },
+      "AppointmentStateKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/AppointmentState"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppointmentStateKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppointmentStateKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChangePasswordRequestModel": {
+        "required": [
+          "NewPassword",
+          "OldPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "OldPassword": {
+            "minLength": 1,
+            "type": "string",
+            "description": "旧密码"
+          },
+          "NewPassword": {
+            "minLength": 1,
+            "type": "string",
+            "description": "新密码"
+          }
+        },
+        "additionalProperties": false,
+        "description": "更改密码请求模型"
+      },
+      "CourseDTO": {
+        "required": [
+          "CreateTime",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "CourseTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseTypeListDTO"
+            },
+            "description": "课程类型",
+            "nullable": true
+          },
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ClassHour": {
+            "type": "number",
+            "description": "课时",
+            "format": "double"
+          },
+          "ClassHourPeriod": {
+            "type": "number",
+            "description": "课时周期",
+            "format": "double"
+          },
+          "Price": {
+            "type": "number",
+            "description": "单价",
+            "format": "double"
+          },
+          "Remark": {
+            "type": "string",
+            "description": "备注",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程数据传输模型"
+      },
+      "CourseDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/CourseDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseListDTO": {
+        "required": [
+          "CreateTime",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "CourseTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseTypeListDTO"
+            },
+            "description": "课程类型",
+            "nullable": true
+          },
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ClassHour": {
+            "type": "number",
+            "description": "课时",
+            "format": "double"
+          },
+          "ClassHourPeriod": {
+            "type": "number",
+            "description": "课时周期",
+            "format": "double"
+          },
+          "Price": {
+            "type": "number",
+            "description": "单价",
+            "format": "double"
+          },
+          "Remark": {
+            "type": "string",
+            "description": "备注",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程列表数据传输模型"
+      },
+      "CourseListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseTypeDTO": {
+        "required": [
+          "CreateTime",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ParentID": {
+            "type": "string",
+            "description": "父级唯一标识",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程类别数据传输模型"
+      },
+      "CourseTypeDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/CourseTypeDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseTypeListDTO": {
+        "required": [
+          "CreateTime",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ParentID": {
+            "type": "string",
+            "description": "父级唯一标识",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程类别列表数据传输模型"
+      },
+      "CourseTypeListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseTypeListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseTypeTreeListDTO": {
+        "required": [
+          "CreateTime",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ParentID": {
+            "type": "string",
+            "description": "父级唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "Children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseTypeTreeListDTO"
+            },
+            "description": "子级",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程类别树列表数据传输模型"
+      },
+      "CourseTypeTreeListDTOListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseTypeTreeListDTO"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseWorkDTO": {
+        "required": [
+          "Content",
+          "CourseID",
+          "CourseName",
+          "CourseWorkPackageName",
+          "CreateTime",
+          "Description",
+          "ID"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "CourseWorkPackageID": {
+            "type": "string",
+            "description": "课程作业包唯一标识",
+            "format": "uuid"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程唯一标识",
+            "format": "uuid"
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称"
+          },
+          "CourseWorkPackageName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程作业包名称"
+          },
+          "Content": {
+            "minLength": 1,
+            "type": "string",
+            "description": "内容"
+          },
+          "Description": {
+            "minLength": 1,
+            "type": "string",
+            "description": "说明"
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业数据传输模型"
+      },
+      "CourseWorkDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/CourseWorkDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseWorkListDTO": {
+        "required": [
+          "Content",
+          "CourseID",
+          "CourseName",
+          "CourseWorkPackageName",
+          "CreateTime",
+          "Description",
+          "ID"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "CourseWorkPackageID": {
+            "type": "string",
+            "description": "课程作业包唯一标识",
+            "format": "uuid"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程唯一标识",
+            "format": "uuid"
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称"
+          },
+          "CourseWorkPackageName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程作业包名称"
+          },
+          "Content": {
+            "minLength": 1,
+            "type": "string",
+            "description": "内容"
+          },
+          "Description": {
+            "minLength": 1,
+            "type": "string",
+            "description": "说明"
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业列表数据传输模型"
+      },
+      "CourseWorkListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseWorkListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseWorkPackageDTO": {
+        "required": [
+          "CourseID",
+          "CourseName",
+          "CreateTime",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程唯一标识",
+            "format": "uuid"
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称"
+          },
+          "Name": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "FileUrl": {
+            "type": "string",
+            "description": "文件地址",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业包数据传输模型"
+      },
+      "CourseWorkPackageDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/CourseWorkPackageDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseWorkPackageListDTO": {
+        "required": [
+          "CourseID",
+          "CourseName",
+          "CreateTime",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程唯一标识",
+            "format": "uuid"
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称"
+          },
+          "Name": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "FileUrl": {
+            "type": "string",
+            "description": "文件地址",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业包列表数据传输模型"
+      },
+      "CourseWorkPackageListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseWorkPackageListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseWorkSimplenessDTO": {
+        "required": [
+          "Content",
+          "CreateTime",
+          "Description",
+          "ID"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Content": {
+            "minLength": 1,
+            "type": "string",
+            "description": "内容"
+          },
+          "Description": {
+            "minLength": 1,
+            "type": "string",
+            "description": "说明"
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业列表数据传输模型"
+      },
+      "EditAppointmentRequestModel": {
+        "required": [
+          "EndTime",
+          "ID",
+          "StartTime"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "StartTime": {
+            "type": "string",
+            "description": "开始时间",
+            "format": "date-time"
+          },
+          "EndTime": {
+            "type": "string",
+            "description": "结束时间",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false,
+        "description": "预约修改请求模型"
+      },
+      "EditCourseRequestModel": {
+        "required": [
+          "CourseTypeIDs",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "Name": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ClassHour": {
+            "type": "number",
+            "description": "课时",
+            "format": "double"
+          },
+          "ClassHourPeriod": {
+            "type": "number",
+            "description": "课时周期",
+            "format": "double"
+          },
+          "Price": {
+            "type": "number",
+            "description": "单价",
+            "format": "double"
+          },
+          "Remark": {
+            "type": "string",
+            "description": "备注",
+            "nullable": true
+          },
+          "CourseTypeIDs": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "课程类型唯一标识组"
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程修改请求模型"
+      },
+      "EditCourseTypeRequestModel": {
+        "required": [
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "Name": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "ParentID": {
+            "type": "string",
+            "description": "父级唯一标识",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程类别修改请求模型"
+      },
+      "EditCourseWorkPackageRequestModel": {
+        "required": [
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "Name": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          },
+          "FileUrl": {
+            "type": "string",
+            "description": "文件地址",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业包修改请求模型"
+      },
+      "EditCourseWorkRequestModel": {
+        "required": [
+          "Content",
+          "Description",
+          "ID"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "Content": {
+            "minLength": 1,
+            "type": "string",
+            "description": "内容"
+          },
+          "Description": {
+            "minLength": 1,
+            "type": "string",
+            "description": "说明"
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业修改请求模型"
+      },
+      "EditStudentRequestModel": {
+        "required": [
+          "ID",
+          "JapaneseLevel",
+          "Name",
+          "Sex",
+          "Source"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "JapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "Source": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "SocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "Employer": {
+            "type": "string",
+            "description": "学校/单位",
+            "nullable": true
+          },
+          "Birthday": {
+            "type": "string",
+            "description": "生日",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IDCardNumber": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          },
+          "Address": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "description": "地址",
+            "nullable": true
+          },
+          "Remark": {
+            "type": "string",
+            "description": "备注信息",
+            "nullable": true
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生修改请求模型"
+      },
+      "EditUserRequestModel": {
+        "required": [
+          "Account",
+          "ID",
+          "Name",
+          "Sex"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "Account": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          }
+        },
+        "additionalProperties": false,
+        "description": "用户修改请求模型"
+      },
+      "ExchangeParentRequestModel": {
+        "required": [
+          "SourceID"
+        ],
+        "type": "object",
+        "properties": {
+          "SourceID": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "TargetID": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GuidResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "JapaneseLevel": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          255
+        ],
+        "type": "integer",
+        "description": "日语等级",
+        "format": "int32"
+      },
+      "JapaneseLevelKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "JapaneseLevelKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JapaneseLevelKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginRequestModel": {
+        "required": [
+          "Account",
+          "Password"
+        ],
+        "type": "object",
+        "properties": {
+          "Account": {
+            "minLength": 1,
+            "type": "string",
+            "description": "账号"
+          },
+          "Password": {
+            "minLength": 1,
+            "type": "string",
+            "description": "密码"
+          }
+        },
+        "additionalProperties": false,
+        "description": "登录请求模型"
+      },
+      "LoginResultDTO": {
+        "type": "object",
+        "properties": {
+          "Token": {
+            "type": "string",
+            "description": "Token",
+            "nullable": true
+          },
+          "ExpiredTime": {
+            "type": "integer",
+            "description": "有效时间",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false,
+        "description": "登录返回数据传输模型"
+      },
+      "LoginResultDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/LoginResultDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PageModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageCount": {
+            "type": "integer",
+            "format": "int64",
+            "readOnly": true
+          },
+          "StartIndex": {
+            "type": "integer",
+            "format": "int64",
+            "readOnly": true
+          },
+          "DataCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "QueryAppointmentRecordRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程ID",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseName": {
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "班级ID",
+            "format": "uuid",
+            "nullable": true
+          },
+          "ClassName": {
+            "type": "string",
+            "description": "班级名称",
+            "nullable": true
+          },
+          "State": {
+            "$ref": "#/components/schemas/AppointmentState"
+          },
+          "UpRecordState": {
+            "$ref": "#/components/schemas/UpRecordStateCategory"
+          }
+        },
+        "additionalProperties": false,
+        "description": "预约记录查询请求模型"
+      },
+      "QueryAppointmentRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "MinStartTime": {
+            "type": "string",
+            "description": "最小开始时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxStartTime": {
+            "type": "string",
+            "description": "最大开始时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MinEndTime": {
+            "type": "string",
+            "description": "最小结束时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxEndTime": {
+            "type": "string",
+            "description": "最大结束时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "CourseName": {
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "ClassName": {
+            "type": "string",
+            "description": "班级名称",
+            "nullable": true
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "预约查询请求模型"
+      },
+      "QueryCourseRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Name": {
+            "type": "string",
+            "description": "名称",
+            "nullable": true
+          },
+          "MinClassHour": {
+            "type": "number",
+            "description": "最小课时",
+            "format": "double",
+            "nullable": true
+          },
+          "MaxClassHour": {
+            "type": "number",
+            "description": "最大课时",
+            "format": "double",
+            "nullable": true
+          },
+          "MinClassHourPeriod": {
+            "type": "number",
+            "description": "最小课时周期",
+            "format": "double",
+            "nullable": true
+          },
+          "MaxClassHourPeriod": {
+            "type": "number",
+            "description": "最大课时周期",
+            "format": "double",
+            "nullable": true
+          },
+          "MinPrice": {
+            "type": "number",
+            "description": "最小单价",
+            "format": "double",
+            "nullable": true
+          },
+          "MaxPrice": {
+            "type": "number",
+            "description": "最大单价",
+            "format": "double",
+            "nullable": true
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程查询请求模型"
+      },
+      "QueryCourseTypeRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Name": {
+            "type": "string",
+            "description": "名称",
+            "nullable": true
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程类别查询请求模型"
+      },
+      "QueryCourseTypeTreeListRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "ParentID": {
+            "type": "string",
+            "description": "父级唯一标识",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程类别树查询请求模型"
+      },
+      "QueryCourseWorkPackageRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseName": {
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "Name": {
+            "type": "string",
+            "description": "名称",
+            "nullable": true
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业包查询请求模型"
+      },
+      "QueryCourseWorkRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "CourseWorkPackageID": {
+            "type": "string",
+            "description": "课程作业包唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseName": {
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "CourseWorkPackageName": {
+            "type": "string",
+            "description": "课程作业包名称",
+            "nullable": true
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课程作业查询请求模型"
+      },
+      "QueryRegistrationFormRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "StudentID": {
+            "type": "string",
+            "description": "学生ID",
+            "format": "uuid",
+            "nullable": true
+          },
+          "StudentName": {
+            "type": "string",
+            "description": "学生姓名",
+            "nullable": true
+          },
+          "StudentSex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "StudentAccount": {
+            "type": "string",
+            "description": "学生账号",
+            "nullable": true
+          },
+          "StudentJapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "StudentSource": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "StudentSocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "StudentIDCardNumber": {
+            "type": "string",
+            "description": "学生身份证号",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "班级ID",
+            "format": "uuid",
+            "nullable": true
+          },
+          "ClassName": {
+            "type": "string",
+            "description": "班级名称",
+            "nullable": true
+          },
+          "CourseName": {
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "MinClassHourPeriod": {
+            "type": "number",
+            "description": "最小课时周期",
+            "format": "double",
+            "nullable": true
+          },
+          "MaxClassHourPeriod": {
+            "type": "number",
+            "description": "最大课时周期",
+            "format": "double",
+            "nullable": true
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "MinOriginalPrice": {
+            "type": "number",
+            "description": "最小原价",
+            "format": "double",
+            "nullable": true
+          },
+          "MaxOriginalPrice": {
+            "type": "number",
+            "description": "最大原价",
+            "format": "double",
+            "nullable": true
+          },
+          "MinPrice": {
+            "type": "number",
+            "description": "最小价格",
+            "format": "double",
+            "nullable": true
+          },
+          "MaxPrice": {
+            "type": "number",
+            "description": "最大价格",
+            "format": "double",
+            "nullable": true
+          },
+          "MinClassHour": {
+            "type": "number",
+            "description": "最小课时",
+            "format": "double",
+            "nullable": true
+          },
+          "MaxClassHour": {
+            "type": "number",
+            "description": "最大课时",
+            "format": "double",
+            "nullable": true
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "报名表查询请求模型"
+      },
+      "QueryStudentClassHourRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "StudentID": {
+            "type": "string",
+            "description": "学生ID",
+            "format": "uuid",
+            "nullable": true
+          },
+          "Name": {
+            "type": "string",
+            "description": "姓名",
+            "nullable": true
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "Account": {
+            "type": "string",
+            "description": "账号",
+            "nullable": true
+          },
+          "JapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "Source": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "SocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "IDCardNumber": {
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "班级ID",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseName": {
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "ClassName": {
+            "type": "string",
+            "description": "班级名称",
+            "nullable": true
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "MinClassHour": {
+            "type": "number",
+            "description": "最小课时",
+            "format": "double",
+            "nullable": true
+          },
+          "MaxClassHour": {
+            "type": "number",
+            "description": "最大课时",
+            "format": "double",
+            "nullable": true
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生课时查询请求模型"
+      },
+      "QueryStudentRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Name": {
+            "type": "string",
+            "description": "姓名",
+            "nullable": true
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "Account": {
+            "type": "string",
+            "description": "账号",
+            "nullable": true
+          },
+          "JapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "Source": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "SocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "IDCardNumber": {
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生查询请求模型"
+      },
+      "QueryUserRequestModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "PageIndex": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "PageSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Name": {
+            "type": "string",
+            "description": "姓名",
+            "nullable": true
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "Account": {
+            "type": "string",
+            "description": "账号",
+            "nullable": true
+          },
+          "IDs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "唯一标识组",
+            "nullable": true
+          },
+          "MinCreateTime": {
+            "type": "string",
+            "description": "最小创建时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxCreateTime": {
+            "type": "string",
+            "description": "最大创建时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "用户查询请求模型"
+      },
+      "RangeModel": {
+        "type": "object",
+        "properties": {
+          "SortPropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsAsc": {
+            "type": "boolean"
+          },
+          "Skip": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Take": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "DataCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegistrationFormListDTO": {
+        "required": [
+          "ClassHour",
+          "ClassID",
+          "ClassName",
+          "CourseID",
+          "CourseName",
+          "CreateTime",
+          "ID",
+          "OriginalPrice",
+          "Price",
+          "StudentAccount",
+          "StudentID",
+          "StudentJapaneseLevel",
+          "StudentName",
+          "StudentSex",
+          "StudentSource",
+          "TeachingMethod"
+        ],
+        "type": "object",
+        "properties": {
+          "IsDiscount": {
+            "type": "boolean",
+            "description": "优惠标识",
+            "readOnly": true
+          },
+          "DiscountPrice": {
+            "type": "number",
+            "description": "优惠金额",
+            "format": "double",
+            "readOnly": true
+          },
+          "ClassHourPrice": {
+            "type": "number",
+            "description": "课时价格",
+            "format": "double",
+            "readOnly": true
+          },
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "StudentID": {
+            "type": "string",
+            "description": "学生ID",
+            "format": "uuid"
+          },
+          "StudentName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "学生姓名"
+          },
+          "StudentSex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "StudentSexText": {
+            "type": "string",
+            "description": "学生性别文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "StudentAccount": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "学生账号"
+          },
+          "StudentJapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "StudentJapaneseLevelText": {
+            "type": "string",
+            "description": "学生日语水平文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "StudentSource": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "StudentSourceText": {
+            "type": "string",
+            "description": "学生来源文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "StudentSocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "StudentSocialPropertyText": {
+            "type": "string",
+            "description": "学生社会属性文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "StudentBirthday": {
+            "type": "string",
+            "description": "学生生日",
+            "format": "date-time",
+            "nullable": true
+          },
+          "StudentIDCardNumber": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "学生身份证号",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "班级ID",
+            "format": "uuid"
+          },
+          "ClassName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "班级名称"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程ID",
+            "format": "uuid"
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称"
+          },
+          "ClassHourPeriod": {
+            "type": "number",
+            "description": "课时周期",
+            "format": "double"
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "TeachingMethodText": {
+            "type": "string",
+            "description": "授课方式文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "OriginalPrice": {
+            "type": "number",
+            "description": "原价",
+            "format": "double"
+          },
+          "Price": {
+            "type": "number",
+            "description": "价格",
+            "format": "double"
+          },
+          "ClassHour": {
+            "type": "number",
+            "description": "课时",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false,
+        "description": "报名表列表数据传输模型"
+      },
+      "RegistrationFormListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistrationFormListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResultTypeEnum": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "Sex": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "description": "性别",
+        "format": "int32"
+      },
+      "SexKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SexKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SexKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SocialProperty": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "description": "社会属性",
+        "format": "int32"
+      },
+      "SocialPropertyKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SocialPropertyKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SocialPropertyKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StringResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentAddResultDTO": {
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "Account": {
+            "type": "string",
+            "description": "帐号/学号",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生添加返回数据传输模型"
+      },
+      "StudentAddResultDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/StudentAddResultDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentClassHourListDTO": {
+        "required": [
+          "Account",
+          "ClassID",
+          "ClassName",
+          "CourseID",
+          "CourseName",
+          "CreateTime",
+          "ID",
+          "JapaneseLevel",
+          "Name",
+          "Sex",
+          "Source",
+          "StudentID",
+          "TeachingMethod"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "StudentID": {
+            "type": "string",
+            "description": "学生ID",
+            "format": "uuid"
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "SexText": {
+            "type": "string",
+            "description": "性别文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Account": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          },
+          "JapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "JapaneseLevelText": {
+            "type": "string",
+            "description": "日语水平文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Source": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "SourceText": {
+            "type": "string",
+            "description": "来源文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "SocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "SocialPropertyText": {
+            "type": "string",
+            "description": "社会属性文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Employer": {
+            "type": "string",
+            "description": "学校/单位",
+            "nullable": true
+          },
+          "Birthday": {
+            "type": "string",
+            "description": "生日",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IDCardNumber": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "班级ID",
+            "format": "uuid"
+          },
+          "CourseID": {
+            "type": "string",
+            "description": "课程ID",
+            "format": "uuid"
+          },
+          "CourseName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "课程名称"
+          },
+          "ClassName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "班级名称"
+          },
+          "TeachingMethod": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "ClassHour": {
+            "type": "number",
+            "description": "课时",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生课时列表数据传输模型"
+      },
+      "StudentClassHourListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentClassHourListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentClassHourStatementCategory": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "description": "学生课时流水",
+        "format": "int32"
+      },
+      "StudentClassHourStatementCategoryKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/StudentClassHourStatementCategory"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentClassHourStatementCategoryKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentClassHourStatementCategoryKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentDTO": {
+        "required": [
+          "Account",
+          "CreateTime",
+          "ID",
+          "JapaneseLevel",
+          "Name",
+          "Sex",
+          "Source"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "SexText": {
+            "type": "string",
+            "description": "性别文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Account": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          },
+          "JapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "JapaneseLevelText": {
+            "type": "string",
+            "description": "日语水平文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Source": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "SourceText": {
+            "type": "string",
+            "description": "来源文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "SocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "SocialPropertyText": {
+            "type": "string",
+            "description": "社会属性文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Employer": {
+            "type": "string",
+            "description": "学校/单位",
+            "nullable": true
+          },
+          "Birthday": {
+            "type": "string",
+            "description": "生日",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IDCardNumber": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          },
+          "Address": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "description": "地址",
+            "nullable": true
+          },
+          "Remark": {
+            "type": "string",
+            "description": "备注信息",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生数据传输模型"
+      },
+      "StudentDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/StudentDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentListDTO": {
+        "required": [
+          "Account",
+          "CreateTime",
+          "ID",
+          "JapaneseLevel",
+          "Name",
+          "Sex",
+          "Source"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "SexText": {
+            "type": "string",
+            "description": "性别文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Account": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          },
+          "JapaneseLevel": {
+            "$ref": "#/components/schemas/JapaneseLevel"
+          },
+          "JapaneseLevelText": {
+            "type": "string",
+            "description": "日语水平文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Source": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "SourceText": {
+            "type": "string",
+            "description": "来源文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "SocialProperty": {
+            "$ref": "#/components/schemas/SocialProperty"
+          },
+          "SocialPropertyText": {
+            "type": "string",
+            "description": "社会属性文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Employer": {
+            "type": "string",
+            "description": "学校/单位",
+            "nullable": true
+          },
+          "Birthday": {
+            "type": "string",
+            "description": "生日",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IDCardNumber": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生列表数据传输模型"
+      },
+      "StudentListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentSource": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          255
+        ],
+        "type": "integer",
+        "description": "学生来源",
+        "format": "int32"
+      },
+      "StudentSourceKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/StudentSource"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentSourceKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentSourceKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TeachingMethod": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "description": "授课方式",
+        "format": "int32"
+      },
+      "TeachingMethodKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TeachingMethodKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeachingMethodKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpRecordStateCategory": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "description": "上次预约记录状态类别",
+        "format": "int32"
+      },
+      "UpRecordStateCategoryKeyValueModel": {
+        "type": "object",
+        "properties": {
+          "Key": {
+            "$ref": "#/components/schemas/UpRecordStateCategory"
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpRecordStateCategoryKeyValueModelListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpRecordStateCategoryKeyValueModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserDTO": {
+        "required": [
+          "Account",
+          "CreateTime",
+          "ID",
+          "Name",
+          "Sex"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "SexText": {
+            "type": "string",
+            "description": "性别文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Account": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          }
+        },
+        "additionalProperties": false,
+        "description": "用户数据传输模型"
+      },
+      "UserDTOResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "$ref": "#/components/schemas/UserDTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserListDTO": {
+        "required": [
+          "Account",
+          "CreateTime",
+          "ID",
+          "Name",
+          "Sex"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/Sex"
+          },
+          "SexText": {
+            "type": "string",
+            "description": "性别文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Account": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          }
+        },
+        "additionalProperties": false,
+        "description": "用户列表数据传输模型"
+      },
+      "UserListDTOCollectionResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserListDTO"
+            },
+            "nullable": true
+          },
+          "PageModel": {
+            "$ref": "#/components/schemas/PageModel"
+          },
+          "RangeModel": {
+            "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "apiKey",
+        "description": "在请求头部加入JWT授权。例子:Authorization:Bearer {token}",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": [ ]
+    }
+  ]
+}

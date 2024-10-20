@@ -1,0 +1,10 @@
+use serde::{Deserialize, Serialize};
+
+use super::{ReferenceObject, RequestBodyObject};
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OperationObjectRequestBody {
+    RequestBody(RequestBodyObject),
+    Reference(ReferenceObject),
+}
