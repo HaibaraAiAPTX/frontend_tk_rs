@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::SchemaObject;
+use super::SchemaEnum;
 
 #[derive(Debug,Serialize,Deserialize)]
 pub struct MediaTypeObject {
-  pub schema: SchemaObject
+  pub schema: SchemaEnum
 }

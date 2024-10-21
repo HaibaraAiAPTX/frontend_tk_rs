@@ -1,2 +1,4 @@
 pub mod model;
-pub mod utils;
+pub mod getter;
+pub mod gen;
+pub mod gen_type;

@@ -36,6 +36,9 @@ mod components_parameters;
 mod components_headers;
 mod components_path_items;
 mod components_callbacks;
+mod schema_object_additional_properties;
+mod schema_object_enum;
+mod schema;
 
 pub use components_object::*;
 pub use contact::*;
@@ -75,3 +78,6 @@ pub use components_parameters::*;
 pub use components_headers::*;
 pub use components_path_items::*;
 pub use components_callbacks::*;
+pub use schema_object_additional_properties::*;
+pub use schema_object_enum::*;
+pub use schema::*;

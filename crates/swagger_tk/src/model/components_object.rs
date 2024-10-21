@@ -1,4 +1,4 @@
-use super::SchemaObject;
+use super::SchemaEnum;
 use super::{
     ComponentsCallbacks, ComponentsHeaders, ComponentsParameters, ComponentsPathItems,
     ComponentsResponses,
@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ComponentsObject {
-    pub schemas: Option<HashMap<String, SchemaObject>>,
+    pub schemas: Option<HashMap<String, SchemaEnum>>,
 
     pub responses: Option<HashMap<String, ComponentsResponses>>,
 

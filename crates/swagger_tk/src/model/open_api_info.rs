@@ -2,13 +2,13 @@ use super::{OpenAPIInfoContact, OpenAPIInfoLicense};
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OpenAPIInfo {
-    // 标题
+    /// 标题
     pub title: String,
 
-    // 简介
+    /// 简介
     pub summary: Option<String>,
 
-    // 详细介绍
+    /// 详细介绍
     pub description: Option<String>,
 
     #[serde(rename = "termsOfService")]
@@ -18,6 +18,6 @@ pub struct OpenAPIInfo {
 
     pub license: Option<OpenAPIInfoLicense>,
 
-    // 版本号
+    /// 版本号
     pub version: String,
 }

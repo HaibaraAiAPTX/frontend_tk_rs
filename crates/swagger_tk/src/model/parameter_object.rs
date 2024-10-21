@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{ParameterObjectIn, SchemaObject};
+use super::{ParameterObjectIn, SchemaEnum};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ParameterObject {
@@ -24,5 +24,5 @@ pub struct ParameterObject {
     #[serde(rename = "allowReserved")]
     pub allow_reserved: Option<bool>,
 
-    pub schema: Option<SchemaObject>
+    // pub schema: Option<SchemalsEnum>
 }
