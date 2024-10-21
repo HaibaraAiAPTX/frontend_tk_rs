@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use super::MediaTypeObject;
 
-#[derive(Debug,Deserialize,Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RequestBodyObject {
-  pub description: Option<String>,
+    pub description: Option<String>,
 
-  pub content: HashMap<String, MediaTypeObject>,
+    pub content: HashMap<String, MediaTypeObject>,
 
-  pub required: Option<bool>,
+    pub required: Option<bool>,
 }

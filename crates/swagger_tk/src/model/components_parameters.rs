@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::{ParameterObject, ReferenceObject};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]

@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{CallbackValue, ExternalDocumentationObject, OperationObjectParameters, OperationObjectRequestBody, ResponsesValue, ServerObject};
+use super::{
+    CallbackValue, ExternalDocumentationObject, OperationObjectParameters,
+    OperationObjectRequestBody, ResponsesValue, ServerObject,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OperationObject {

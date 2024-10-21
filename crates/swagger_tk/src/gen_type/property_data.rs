@@ -20,13 +20,13 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PropertyData {
-  pub name: String,
+    pub name: String,
 
-  pub description: Option<String>,
+    pub description: Option<String>,
 
-  pub required: Option<bool>,
+    pub required: Option<bool>,
 
-  /// 类型的字符串，如 Array\<TestDTO\>  
-  /// 但是这个不一定有，因为 Enum 类型在部分语言中可以不指定类型，此时就为空
-  pub r#type: Option<String>
+    /// 类型的字符串，如 Array\<TestDTO\>  
+    /// 但是这个不一定有，因为 Enum 类型在部分语言中可以不指定类型，此时就为空
+    pub r#type: Option<String>,
 }

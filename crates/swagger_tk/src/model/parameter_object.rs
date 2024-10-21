@@ -24,5 +24,5 @@ pub struct ParameterObject {
     #[serde(rename = "allowReserved")]
     pub allow_reserved: Option<bool>,
 
-    // pub schema: Option<SchemalsEnum>
+    pub schema: Option<SchemaEnum>,
 }

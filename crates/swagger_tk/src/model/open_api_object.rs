@@ -22,7 +22,7 @@ pub struct OpenAPIObject {
     pub webhooks: Option<HashMap<String, OpenAPIWebhooks>>,
 
     pub components: Option<ComponentsObject>,
-    
+
     pub security: Option<Vec<HashMap<String, Vec<String>>>>,
 
     pub tags: Option<Vec<TagObject>>,

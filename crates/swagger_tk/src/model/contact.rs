@@ -5,6 +5,6 @@ pub struct OpenAPIInfoContact {
     pub name: Option<String>,
 
     pub url: Option<String>,
-    
+
     pub email: Option<String>,
 }

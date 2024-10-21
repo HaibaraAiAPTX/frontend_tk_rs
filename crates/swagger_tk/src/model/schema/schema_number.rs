@@ -1,12 +1,9 @@
 use serde::{Deserialize, Serialize};
-use swagger_macro::schema_base_attributes;
 
 use super::SchemaTypeEnum;
 
-#[schema_base_attributes]
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SchemaString {
-    #[serde(rename = "type")]
+pub struct SchemaNumber {
     pub r#type: SchemaTypeEnum,
 
     pub format: Option<String>,

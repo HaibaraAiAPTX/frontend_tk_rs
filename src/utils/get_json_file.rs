@@ -1,4 +1,8 @@
-use std::{env::current_dir, fs::File, io::{BufReader, Read}};
+use std::{
+    env::current_dir,
+    fs::File,
+    io::{BufReader, Read},
+};
 
 pub fn get_json_file(name: &str) -> Option<String> {
     let file_dir = current_dir().expect("获取工作目录失败");
