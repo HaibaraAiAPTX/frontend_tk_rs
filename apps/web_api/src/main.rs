@@ -1,13 +1,12 @@
-use swagger_tk::model::OpenAPIObject;
+use actix_web::{App, HttpServer};
 
-fn main() {
-    let open_api = OpenAPIObject::from_str(r#"{
-        "openapi": "3.0.0",
-        "info": {
-            "title": "测试",
-            "version": "1.0.0"
-        }
-    }"#).unwrap();
+mod doamins;
 
-    println!("{:#?}", open_api);
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    HttpServer::new(|| {
+        App::new()
+    }).bind(("0.0.0.0", 3090))?
+    .run()
+    .await
 }

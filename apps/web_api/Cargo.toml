@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 actix-web = "4.9.0"
 swagger_tk = { version = "0.1.0", path = "../../crates/swagger_tk" }
+uuid = { version = "1.11.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
