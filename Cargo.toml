@@ -1,12 +1,5 @@
-[package]
-name = "swt-demo"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-swagger_tk = { version = "0.1.0", path = "crates/swagger_tk" }
-
 [workspace]
 members = [
-  "crates/*"
+  "crates/*",
+  "apps/*"
 ]
