@@ -16,6 +16,17 @@ pub fn schema_base_attributes(_attrs: TokenStream, item: TokenStream) -> TokenSt
                 #(#attrs)*
                 pub struct #input_name {
                     #(#old_fields,)*
+
+                    /// 是否可以为空
+                    pub nullable: Option<bool>,
+
+                    /// 是否只读
+                    #[serde(rename = "readOnly")]
+                    pub read_only: Option<bool>,
+
+                    /// 是否只写
+                    #[serde(rename = "writeOnly")]
+                    pub write_only: Option<bool>,
                 }
             }
         }

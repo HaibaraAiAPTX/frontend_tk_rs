@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use super::SchemaEnum;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SchemaObjectAdditionalProperties {
     Boolean(bool),
-    Schema(SchemaEnum),
+    Schema(Box<SchemaEnum>),
 }

@@ -5,7 +5,6 @@ use super::{SchemaArray, SchemaBool, SchemaInteger, SchemaNumber, SchemaObject, 
 use crate::model::ReferenceObject;
 
 #[derive(Debug, Serialize)]
-#[serde(untagged)]
 pub enum SchemaEnum {
     Ref(ReferenceObject),
     Object(SchemaObject),
