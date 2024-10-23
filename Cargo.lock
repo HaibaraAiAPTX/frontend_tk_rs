@@ -186,6 +186,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix_extension"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+]
+
+[[package]]
+name = "actix_macro"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "actix_extension",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1196,6 +1213,8 @@ name = "web_api"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "actix_extension",
+ "actix_macro",
  "swagger_tk",
  "uuid",
 ]

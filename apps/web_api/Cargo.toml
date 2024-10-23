@@ -5,5 +5,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.9.0"
+actix_extension = { version = "0.1.0", path = "../../crates/actix_extension" }
+actix_macro = { version = "0.1.0", path = "../../crates/actix_macro" }
 swagger_tk = { version = "0.1.0", path = "../../crates/swagger_tk" }
 uuid = { version = "1.11.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
