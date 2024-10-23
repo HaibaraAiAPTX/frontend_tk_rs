@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{response_lihk::ResponseLink, MediaTypeObject, ResponseHeaders};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ResponseObject {
     pub description: String,
 

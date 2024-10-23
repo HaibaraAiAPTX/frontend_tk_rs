@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::MediaTypeObject;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct RequestBodyObject {
     pub description: Option<String>,
 

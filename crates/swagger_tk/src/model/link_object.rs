@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::ServerObject;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LinkObject {
     #[serde(rename = "operationRef")]
     pub operation_ref: Option<String>,

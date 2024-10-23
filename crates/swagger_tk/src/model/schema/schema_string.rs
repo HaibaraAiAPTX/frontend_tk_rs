@@ -4,7 +4,7 @@ use swagger_macro::schema_base_attributes;
 use super::{SchemaStringFormat, SchemaTypeEnum};
 
 #[schema_base_attributes]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SchemaString {
     #[serde(rename = "type")]
     pub r#type: SchemaTypeEnum,

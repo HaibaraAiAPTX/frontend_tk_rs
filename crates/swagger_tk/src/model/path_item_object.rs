@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{operation_object::OperationObject, PathItemParameters, ServerObject};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PathItemObject {
     #[serde(rename = "$ref")]
     pub r#ref: Option<String>,

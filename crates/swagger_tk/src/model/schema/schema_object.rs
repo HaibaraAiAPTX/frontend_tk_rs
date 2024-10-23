@@ -6,7 +6,7 @@ use swagger_macro::schema_base_attributes;
 use super::{SchemaEnum, SchemaObjectAdditionalProperties, SchemaTypeEnum};
 
 #[schema_base_attributes]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SchemaObject {
     #[serde(rename = "type")]
     pub r#type: SchemaTypeEnum,

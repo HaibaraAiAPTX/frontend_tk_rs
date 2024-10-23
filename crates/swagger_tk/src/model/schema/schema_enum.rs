@@ -4,7 +4,7 @@ use serde_json::Value;
 use super::{SchemaArray, SchemaBool, SchemaInteger, SchemaNumber, SchemaObject, SchemaString};
 use crate::model::ReferenceObject;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub enum SchemaEnum {
     Ref(ReferenceObject),
     Object(SchemaObject),

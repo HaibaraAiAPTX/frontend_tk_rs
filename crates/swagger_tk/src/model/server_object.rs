@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::ServerVariableObject;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ServerObject {
     pub url: String,
 

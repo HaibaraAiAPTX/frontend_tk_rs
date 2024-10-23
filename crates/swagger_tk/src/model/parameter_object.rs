@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{ParameterObjectIn, SchemaEnum};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ParameterObject {
     pub name: String,
 

@@ -7,7 +7,7 @@ use super::{
     OperationObjectRequestBody, ResponsesValue, ServerObject,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OperationObject {
     pub tags: Option<Vec<String>>,
 
