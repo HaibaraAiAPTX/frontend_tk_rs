@@ -1,0 +1,10 @@
+[package]
+name = "ts_runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+oxc_resolver = "2.0.0"
+swc = "1.0.1"
+swc_common = { version = "1.0.0", features = ["tty-emitter"] }
+swc_ecma_parser = "1.0.1"
