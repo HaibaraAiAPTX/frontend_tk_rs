@@ -1,6 +1,6 @@
 use crate::{
     gen_type::PropertyData,
-    model::{OperationObjectParameters, SchemaEnum},
+    model::{OperationObjectParameters, ParameterObject, ReferenceObject, SchemaEnum},
 };
 
 pub fn get_property_data_list_from_parameters(
@@ -10,7 +10,6 @@ pub fn get_property_data_list_from_parameters(
         Some(
             data.iter()
                 .map(|v| get_property_data_from_operation_object_parameters(v))
-                .filter_map(|v| v)
                 .collect::<Vec<PropertyData>>(),
         )
     } else {
@@ -20,44 +19,52 @@ pub fn get_property_data_list_from_parameters(
 
 pub fn get_property_data_from_operation_object_parameters(
     data: &OperationObjectParameters,
-) -> Option<PropertyData> {
+) -> PropertyData {
     match data {
-        OperationObjectParameters::Parameter(v) => {
-            let schema = v.schema.as_ref();
-            let r#type = schema.map_or(None, |v| get_type_from_schema(v));
-            Some(PropertyData {
-                name: v.name.clone(),
-                description: v.description.clone(),
-                required: v.required,
-                r#type: r#type.clone(),
-                children_type: {
-                    if r#type != Some("array".to_string()) {
-                        return None;
-                    }
-                    if let Some(SchemaEnum::Array(array_data)) = schema {
-                        let child_schema = array_data.items.as_ref();
-                        let a: Option<String> = get_type_from_schema(child_schema);
-                        Some(Box::new(PropertyData {
-                            name: String::new(),
-                            description: None,
-                            required: None,
-                            r#type: a,
-                            children_type: None,
-                        }))
-                    } else {
-                        None
-                    }
-                },
-            })
+        OperationObjectParameters::Parameter(v) => get_property_data_from_parameter(v),
+        OperationObjectParameters::Reference(v) => get_property_data_from_reference(v),
+    }
+}
+
+pub fn get_property_data_from_parameter(data: &ParameterObject) -> PropertyData {
+    let schema = data.schema.as_ref().expect("schema is none");
+    let mut result = get_property_data_from_schema(schema);
+    result.name = Some(data.name.clone());
+    result.description = data.description.clone();
+    result.required = data.required.clone();
+    result
+}
+
+pub fn get_property_data_from_schema(data: &SchemaEnum) -> PropertyData {
+    let r#type = get_type_from_schema(data);
+
+    let mut result = PropertyData {
+        name: None,
+        description: None,
+        required: None,
+        r#type: r#type.clone(),
+        children_type: None,
+    };
+
+    if r#type == Some("array".to_string()) {
+        if let SchemaEnum::Array(array_data) = data {
+            result.children_type = Some(Box::new(get_property_data_from_schema(
+                array_data.items.as_ref(),
+            )))
         }
-        OperationObjectParameters::Reference(v) => Some(PropertyData {
-            name: String::new(),
-            description: None,
-            required: None,
-            r#type: get_interface_name_from_schema_name(&v.r#ref)
-                .map_or(None, |v| Some(v.to_string())),
-            children_type: None,
-        }),
+    }
+
+    result
+}
+
+pub fn get_property_data_from_reference(data: &ReferenceObject) -> PropertyData {
+    PropertyData {
+        name: None,
+        description: None,
+        required: None,
+        r#type: get_interface_name_from_schema_name(&data.r#ref)
+            .map_or(None, |v| Some(v.to_string())),
+        children_type: None,
     }
 }
 
@@ -67,7 +74,7 @@ pub fn get_interface_name_from_schema_name(name: &str) -> Option<&str> {
     name_list.last()
 }
 
-/// 根据 schema 获取类型
+/// 根据 schema 获取类型名称
 pub fn get_type_from_schema(schema: &SchemaEnum) -> Option<String> {
     match schema {
         SchemaEnum::Ref(v) => {

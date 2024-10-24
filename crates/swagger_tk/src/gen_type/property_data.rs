@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PropertyData {
-    pub name: String,
+    pub name: Option<String>,
 
     pub description: Option<String>,
 
