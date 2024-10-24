@@ -3,6 +3,7 @@ use crate::{
     model::{OperationObjectParameters, ParameterObject, ReferenceObject, SchemaEnum},
 };
 
+/// 从操作对象参数列表中获取属性数据列表
 pub fn get_property_data_list_from_parameters(
     data: &Option<Vec<OperationObjectParameters>>,
 ) -> Option<Vec<PropertyData>> {
@@ -17,6 +18,7 @@ pub fn get_property_data_list_from_parameters(
     }
 }
 
+/// 从操作对象参数中获取属性数据
 pub fn get_property_data_from_operation_object_parameters(
     data: &OperationObjectParameters,
 ) -> PropertyData {
@@ -26,6 +28,7 @@ pub fn get_property_data_from_operation_object_parameters(
     }
 }
 
+/// 从参数对象中获取属性数据
 pub fn get_property_data_from_parameter(data: &ParameterObject) -> PropertyData {
     let schema = data.schema.as_ref().expect("schema is none");
     let mut result = get_property_data_from_schema(schema);
@@ -35,6 +38,7 @@ pub fn get_property_data_from_parameter(data: &ParameterObject) -> PropertyData 
     result
 }
 
+/// 从 schema 中获取属性数据
 pub fn get_property_data_from_schema(data: &SchemaEnum) -> PropertyData {
     let r#type = get_type_from_schema(data);
 
@@ -57,6 +61,7 @@ pub fn get_property_data_from_schema(data: &SchemaEnum) -> PropertyData {
     result
 }
 
+/// 从引用对象中获取属性数据
 pub fn get_property_data_from_reference(data: &ReferenceObject) -> PropertyData {
     PropertyData {
         name: None,
