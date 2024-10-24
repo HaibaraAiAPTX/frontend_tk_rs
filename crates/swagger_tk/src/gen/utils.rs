@@ -1,22 +1,10 @@
 use crate::{
     gen_type::PropertyData,
-    model::{OperationObjectParameters, ParameterObject, ReferenceObject, SchemaEnum},
+    model::{
+        OperationObjectParameters, ParameterObject, ReferenceObject, RequestBodyObject,
+        ResponseObject, SchemaEnum,
+    },
 };
-
-/// 从操作对象参数列表中获取属性数据列表
-pub fn get_property_data_list_from_parameters(
-    data: &Option<Vec<OperationObjectParameters>>,
-) -> Option<Vec<PropertyData>> {
-    if let Some(data) = data {
-        Some(
-            data.iter()
-                .map(|v| get_property_data_from_operation_object_parameters(v))
-                .collect::<Vec<PropertyData>>(),
-        )
-    } else {
-        None
-    }
-}
 
 /// 从操作对象参数中获取属性数据
 pub fn get_property_data_from_operation_object_parameters(
@@ -92,4 +80,18 @@ pub fn get_type_from_schema(schema: &SchemaEnum) -> Option<String> {
         SchemaEnum::Array(v) => Some(v.r#type.to_string()),
         SchemaEnum::Object(v) => Some(v.r#type.to_string()),
     }
+}
+
+/// 从请求体对象中获取属性数据
+pub fn get_property_data_from_request_body_object(
+    data: &RequestBodyObject,
+) -> Option<PropertyData> {
+    let content = data.content.values().next()?;
+    Some(get_property_data_from_schema(&content.schema))
+}
+
+/// 从响应对象中获取属性数据
+pub fn get_property_data_from_response_object(data: &ResponseObject) -> Option<PropertyData> {
+    let content = data.content.as_ref().and_then(|v| v.values().next())?;
+    Some(get_property_data_from_schema(&content.schema))
 }
