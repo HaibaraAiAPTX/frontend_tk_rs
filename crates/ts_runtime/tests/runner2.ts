@@ -1,4 +1,5 @@
 import { sleep } from "./utils";
 
-
-sleep().then(() => "hello world async result");
+sleep().then(() => {
+  globalThis.result = "hello world async result";
+});

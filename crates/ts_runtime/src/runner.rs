@@ -29,12 +29,15 @@ pub async fn run_main_file(main_file_path: &PathBuf) -> Result<serde_json::Value
         .await
         .unwrap();
     let f = worker.js_runtime.mod_evaluate(module_id);
-    let module_namespace = worker.js_runtime.get_module_namespace(module_id).unwrap();
     f.await.unwrap();
     worker.run_event_loop(false).await.unwrap();
+    let context = worker.js_runtime.main_context();
     let scope = &mut worker.js_runtime.handle_scope();
-    let local = v8::Local::new(scope, module_namespace);
-    let deserialized_value = serde_v8::from_v8::<serde_json::Value>(scope, local.into())
+    let context_local = v8::Local::new(scope, context);
+    let global = context_local.global(scope);
+    let result_key = v8::String::new(scope, "result").unwrap();
+    let result = global.get(scope, result_key.into()).unwrap();
+    let deserialized_value = serde_v8::from_v8::<serde_json::Value>(scope, result.into())
         .map_err(|e| format!("failed to deserialize value: {}", e))?;
     Ok(deserialized_value)
 }
@@ -91,11 +94,9 @@ pub async fn run_func(
         v8::PromiseState::Rejected => {
             let error = promise.result(scope);
             let error_str = error.to_rust_string_lossy(scope);
-            return Err(error_str);
+            Err(error_str)
         }
-        v8::PromiseState::Pending => {
-            return Err("promise is still pending".to_string());
-        }
+        v8::PromiseState::Pending => Err("promise is still pending".to_string()),
     }
 }
 

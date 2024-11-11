@@ -1,2 +1,2 @@
 let a = 1+4; 
-a*2;
+globalThis.result = a*2;
