@@ -2,7 +2,7 @@ use crate::compile;
 use deno_core::{
     anyhow::Result,
     serde_json, serde_v8,
-    v8::{self, Global},
+    v8::{self, Global, Local},
     FsModuleLoader, ModuleSpecifier,
 };
 use deno_runtime::{
@@ -45,6 +45,7 @@ pub async fn run_main_file(main_file_path: &PathBuf) -> Result<serde_json::Value
 pub async fn run_func(
     main_file_path: &PathBuf,
     func_name: &str,
+    get_args: impl Fn(&mut v8::HandleScope<'_>) -> Vec<v8::Global<v8::Value>>,
 ) -> Result<serde_json::Value, String> {
     let compiled_file_path = get_compiled_file_path(main_file_path).unwrap();
     let specifier = ModuleSpecifier::from_file_path(&compiled_file_path).unwrap();
@@ -61,7 +62,7 @@ pub async fn run_func(
     f.await.unwrap();
 
     let promise = {
-        let scope: &mut v8::HandleScope<'_> = &mut worker.js_runtime.handle_scope();
+        let scope = &mut worker.js_runtime.handle_scope();
         let module_namespace = v8::Local::new(scope, &module_namespace);
 
         let key = v8::String::new(scope, func_name).unwrap();
@@ -70,8 +71,11 @@ pub async fn run_func(
         let js_function = v8::Local::<v8::Function>::try_from(value)
             .map_err(|_| format!("{} is not a function", func_name))?;
 
+        let args_globals = get_args(scope);
+        let args_locals = args_globals.iter().map(|arg| v8::Local::new(scope, arg)).collect::<Vec<Local<v8::Value>>>();
+
         let result = js_function
-            .call(scope, module_namespace.into(), &[])
+            .call(scope, module_namespace.into(), &args_locals)
             .ok_or_else(|| "function call failed".to_string())?;
         if !result.is_promise() {
             return serde_v8::from_v8::<serde_json::Value>(scope, result)
