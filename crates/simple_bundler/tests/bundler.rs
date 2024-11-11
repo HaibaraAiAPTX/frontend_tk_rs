@@ -8,6 +8,6 @@ fn bundler_test() {
     let bundler = SimpleBundler::new();
     let main_name = bundler.bundle(&root.join("./test.ts").clean());
     let output = root.join("dist");
-    bundler.write(output.clone());
+    bundler.write(&output);
     assert!(main_name.contains("test"));
 }

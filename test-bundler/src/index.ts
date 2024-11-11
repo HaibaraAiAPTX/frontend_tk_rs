@@ -1,3 +1,13 @@
 import { sum } from 'lodash-es'
 
-console.log(sum([1, 2, 3]));
+export function getSum() {
+  return sum([1, 2, 3])
+}
+
+export function asyncGetSum() {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve(getSum())
+    }, 1000)
+  })
+}

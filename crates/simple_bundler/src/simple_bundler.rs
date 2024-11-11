@@ -64,9 +64,9 @@ impl SimpleBundler {
                 ))
                 .clone();
         }
-        let r = self._bundle(entry, &resolution.path());
+        let file_name = self._bundle(entry, &resolution.path());
         self.processed_modules.borrow_mut().insert(full_path);
-        r
+        format!("{}.js", file_name)
     }
 
     fn _bundle(&self, entry: &PathBuf, resolution: &Path) -> String {
@@ -143,12 +143,12 @@ impl SimpleBundler {
         new_file_name
     }
 
-    pub fn write(&self, path: PathBuf) {
+    pub fn write(&self, path: &PathBuf) {
         if !path.exists() {
-            fs::create_dir_all(&path).unwrap();
+            fs::create_dir_all(path).unwrap();
         }
         self.module_map.borrow().iter().for_each(|(k, v)| {
-            let p = path.clone().join(format!("{k}.js"));
+            let p = path.join(format!("{k}.js"));
             fs::write(p, v).unwrap();
         });
     }
