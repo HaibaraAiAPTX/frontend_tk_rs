@@ -24,9 +24,7 @@ pub fn get_property_data_from_request_body(
     data: &OperationObjectRequestBody,
 ) -> Option<PropertyData> {
     match data {
-        OperationObjectRequestBody::RequestBody(data) => {
-            get_property_data_from_request_body_object(data)
-        }
+        OperationObjectRequestBody::RequestBody(data) => get_property_data_from_request_body_object(data),
         OperationObjectRequestBody::Reference(data) => Some(get_property_data_from_reference(data)),
     }
 }

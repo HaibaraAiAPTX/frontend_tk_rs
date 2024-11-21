@@ -5,7 +5,7 @@ mod utils;
 
 #[test]
 fn get_property_data_list_from_parameters_test() {
-    let open_api_object = get_open_api_object();
+    let open_api_object = get_open_api_object(None);
     let path_item = get_path_item(&open_api_object, "/pet/findByTags").unwrap();
     let list = get_property_data_list_from_parameters(&path_item.get.as_ref().unwrap().parameters.as_ref().unwrap());
     assert!(!list.is_empty(), "寻找参数失败");

@@ -5,7 +5,7 @@ mod utils;
 
 #[test]
 fn tags_test() {
-    let open_api_object = get_open_api_object();
+    let open_api_object = get_open_api_object(None);
     let paths = &open_api_object.paths;
     assert!(paths.is_some(), "paths 不能为空");
     let paths = paths.as_ref().unwrap();

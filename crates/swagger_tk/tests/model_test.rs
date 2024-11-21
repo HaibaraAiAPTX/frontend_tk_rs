@@ -5,7 +5,7 @@ mod utils;
 
 #[test]
 fn model_test() {
-    let text = get_open_api_text().unwrap();
+    let text = get_open_api_text(None).unwrap();
     let open_api = OpenAPIObject::from_str(&text);
     assert!(open_api.is_ok(), "{}", open_api.unwrap_err());
 }

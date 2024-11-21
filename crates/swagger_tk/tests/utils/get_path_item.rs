@@ -1,6 +1,10 @@
 use swagger_tk::model::{OpenAPIObject, PathItemObject};
 
-pub fn get_path_item<'a>(data: &'a OpenAPIObject, filter_path: &'a str) -> Option<&'a PathItemObject> {
+#[allow(dead_code)]
+pub fn get_path_item<'a>(
+    data: &'a OpenAPIObject,
+    filter_path: &'a str,
+) -> Option<&'a PathItemObject> {
     let paths = data.paths.as_ref().unwrap();
     let (_path, path_item) = paths
         .iter()

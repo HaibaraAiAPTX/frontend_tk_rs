@@ -5,7 +5,7 @@ mod utils;
 
 #[test]
 fn get_schema_test() {
-    let open_api_object = get_open_api_object();
+    let open_api_object = get_open_api_object(None);
     let schema = get_schema(&open_api_object, "Order");
     assert!(schema.is_some());
 }

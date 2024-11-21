@@ -1,10 +1,10 @@
 use path_clean::PathClean;
 use std::env::current_dir;
-use ts_runtime::{compile, get_ts_runtime_cache_dir};
+use ts_runtime::{compile, get_js_output_cache_dir};
 
 #[test]
 fn cache_test() {
-    let cache_dir = get_ts_runtime_cache_dir();
+    let cache_dir = get_js_output_cache_dir();
     assert!(cache_dir.is_ok());
     println!("{:?}", cache_dir.unwrap().display());
 }
