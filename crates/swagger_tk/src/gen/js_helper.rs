@@ -102,7 +102,7 @@ impl<'a> ApiContext<'a> {
             operation,
             func_name: get_func_name(url, method, operation),
             func_parameters: None,
-            response_type: get_response_type(operation),
+            response_type: get_raw_response_type(operation),
             query_params_list: None,
             path_params_list: None,
             cookie_params_list: None,
@@ -322,7 +322,7 @@ impl FuncParameterObject {
     }
 }
 
-fn get_response_type(operation: &OperationObject) -> Option<String> {
+fn get_raw_response_type(operation: &OperationObject) -> Option<String> {
     operation.responses.as_ref().and_then(|v| {
         v.get("200")
             .or_else(|| v.get("default"))

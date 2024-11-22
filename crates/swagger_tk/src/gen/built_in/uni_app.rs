@@ -1,6 +1,5 @@
 use inflector::cases::pascalcase::to_pascal_case;
-
-use crate::gen::{format_ts_code, js_helper::ApiContext, GenApi};
+use crate::gen::{format_ts_code, js_helper::ApiContext, GenApi, JsApiContextHelper};
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -13,113 +12,30 @@ pub struct UniAppGen {
 
 impl UniAppGen {
     fn gen_code(&mut self, api_context: &ApiContext) -> Result<String, String> {
-        // 初始化方法参数
-        let parameters = api_context
-            .func_parameters
-            .as_ref()
-            .and_then(|v| {
-                let mut data = v.clone();
-                data.sort_by(|a, b| b.required.cmp(&a.required));
-                Some(
-                    data.iter()
-                        .map(|p| {
-                            format!(
-                                "{}{}{}",
-                                p.name,
-                                if p.required { ":" } else { "?:" },
-                                p.r#type
-                            )
-                        })
-                        .collect::<Vec<String>>()
-                        .join(", "),
-                )
-            })
-            .unwrap_or_default();
+        let helper = JsApiContextHelper::new(api_context);
 
-        let mut is_format = false;
-        // 初始化 path 变量
-        let mut url = {
-            if let Some(v) = &api_context.path_params_list {
-                is_format = true;
-                let mut url = format!("{}", api_context.url);
-                v.iter().for_each(|v| {
-                    url = url.replace(
-                        &format!("{{{}}}", v.name),
-                        &format!("${{{}}}", v.value_expression),
-                    );
-                });
-                url
-            } else {
-                format!("{}", api_context.url)
-            }
-        };
+        // 初始化方法参数request_data
+        let parameters = helper.get_parameters_string().unwrap_or_default();
 
-        // 初始化 query search
-        if let Some(v) = &api_context.query_params_list {
-            if !v.is_empty() {
-                let mut data = String::from("{");
-                self.need_import_qs = true;
-                for i in v {
-                    if i.name == i.value_expression {
-                        data += &format!("{},", i.name);
-                    } else {
-                        data += &format!("{}:{},", i.name, i.value_expression);
-                    }
-                }
-                let data = format!("{}}}", &data[..data.len() - 1]);
-                url += &format!("?${{qs.stringify({})}}", data);
-                is_format = true;
-            }
+        // 请求的完整url及是否需要引入qs库
+        let (url, import_qs) = helper.get_url_has_query();
+        if import_qs {
+            self.need_import_qs = import_qs;
         }
 
-        // 初始化请求 data
-        let request_data = match (
-            &api_context.request_body_name,
-            &api_context.request_body_list,
-        ) {
-            (None, None) => None,
-            (None, Some(list)) => {
-                if !list.is_empty() {
-                    let mut result = String::from("{");
-                    for v in list {
-                        if v.name == v.value_expression {
-                            result += &v.name;
-                        } else {
-                            result += &format!("{}:{}", v.name, v.value_expression);
-                        }
-                    }
-                    Some(format!("{}}}", &result[..result.len() - 1]))
-                } else {
-                    None
-                }
-            }
-            (Some(name), None) => Some(name.to_string()),
-            (Some(_), Some(_)) => {
-                panic!("这是不可能出现的情况，api_context的初始化出问题了");
-            }
-        };
+        // 请求体
+        let request_data = helper.get_request_config_data();
+
+        // 返回类型
+        let response_type = helper.get_response_type();
+
+        let func_name = &api_context.func_name;
+        let method = &api_context.method;
 
         let api_fun = format!(
-            r#"{}({}) {{
-  return this.{}<{}>({}{});
-}}"#,
-            api_context.func_name,
-            parameters,
-            api_context.method,
-            api_context
-                .response_type
-                .as_ref()
-                .unwrap_or(&"void".to_string()),
-            if is_format {
-                format!("`{}`", url)
-            } else {
-                format!("\"{}\"", url)
-            },
-            if let Some(v) = request_data {
-                format!(",{}", v)
-            } else {
-                "".to_string()
-            }
+            r#"{func_name}({parameters}) {{
+  return this.{method}<{response_type}>({url}{request_data});
+}}"#
         );
         Ok(api_fun)
     }
@@ -145,7 +61,8 @@ impl GenApi for UniAppGen {
         for (controller, apis) in self.controller_apis_map.iter() {
             let content = format!(
                 r#"import {{ singleton }} from "tsyringe";
-import {{ BaseService }} from "./BaseService";{}
+import {{ BaseService }} from "./BaseService";
+{}
 
 @singleton()
 export class {}Service extends BaseService {{
@@ -153,7 +70,7 @@ export class {}Service extends BaseService {{
 }}
 "#,
                 if self.need_import_qs {
-                    "\nimport qs from \"qs\";"
+                    "import qs from \"qs\";"
                 } else {
                     ""
                 },
