@@ -12,4 +12,8 @@ impl GenApi for AxiosTs {
     fn gen_name_content_map(&mut self) -> HashMap<String, String> {
         todo!()
     }
+    
+    fn clear(&mut self) {
+        todo!()
+    }
 }

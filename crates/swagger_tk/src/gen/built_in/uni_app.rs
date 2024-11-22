@@ -82,4 +82,9 @@ export class {}Service extends BaseService {{
         }
         v
     }
+    
+    fn clear(&mut self) {
+        self.need_import_qs = false;
+        self.controller_apis_map.clear();
+    }
 }

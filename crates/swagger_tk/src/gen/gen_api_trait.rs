@@ -4,6 +4,8 @@ use crate::{gen::js_helper::ApiContext, model::OpenAPIObject};
 
 pub trait GenApi {
     fn gen_apis(&mut self, data: &OpenAPIObject) -> Result<HashMap<String, String>, String> {
+        self.clear();
+        
         let paths = data.paths.as_ref().ok_or("paths not found".to_string())?;
 
         for (url, path_item) in paths.iter() {
@@ -29,4 +31,6 @@ pub trait GenApi {
     fn gen_name_content_map(&mut self) -> HashMap<String, String>;
 
     fn gen_api(&mut self, api_context: &ApiContext) -> Result<(), String>;
+
+    fn clear(&mut self);
 }
