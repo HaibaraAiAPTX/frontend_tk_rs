@@ -3,7 +3,7 @@ use regex::Regex;
 
 use crate::model::{
     OpenAPIObject, OperationObject, OperationObjectParameters, OperationObjectRequestBody,
-    ParameterObjectIn, PathItemObject, ReferenceObject, ResponsesValue, SchemaEnum,
+    ParameterObjectIn, PathItemObject, ResponsesValue,
 };
 
 #[derive(Debug)]
@@ -237,7 +237,7 @@ fn get_func_parameters_object(operation: &OperationObject) -> FuncParameterObjec
                     },
                     OperationObjectParameters::Reference(r) => FuncParameter {
                         name: String::new(),
-                        r#type: get_type_from_reference(r),
+                        r#type: r.get_type_name(),
                         required: true,
                         default: None,
                         r#in: None,
@@ -262,7 +262,7 @@ fn get_func_parameters_object(operation: &OperationObject) -> FuncParameterObjec
         }
         OperationObjectRequestBody::Reference(v) => Some(FuncParameter {
             name: String::new(),
-            r#type: get_type_from_reference(v),
+            r#type: v.get_type_name(),
             required: true,
             default: None,
             r#in: None,
@@ -273,27 +273,6 @@ fn get_func_parameters_object(operation: &OperationObject) -> FuncParameterObjec
         parameters,
         request_body,
     }
-}
-
-impl SchemaEnum {
-    fn get_ts_type(&self) -> String {
-        match self {
-            SchemaEnum::Ref(schema) => get_type_from_reference(schema),
-            SchemaEnum::Object(_schema) => "object".to_string(),
-            SchemaEnum::String(_schema) => "string".to_string(),
-            SchemaEnum::Integer(_schema) => "number".to_string(),
-            SchemaEnum::Number(_schema) => "number".to_string(),
-            SchemaEnum::Boolean(_schema) => "boolean".to_string(),
-            SchemaEnum::Array(schema) => {
-                let child_type = schema.items.as_ref().get_ts_type();
-                format!("Array<{}>", child_type)
-            }
-        }
-    }
-}
-
-fn get_type_from_reference(schema: &ReferenceObject) -> String {
-    schema.r#ref.split("/").last().unwrap().to_string()
 }
 
 #[derive(Debug)]
@@ -332,7 +311,7 @@ fn get_raw_response_type(operation: &OperationObject) -> Option<String> {
                     .as_ref()
                     .and_then(|x| x.iter().next())
                     .map(|(_, data)| data.schema.get_ts_type()),
-                ResponsesValue::Reference(v) => Some(get_type_from_reference(v)),
+                ResponsesValue::Reference(v) => Some(v.get_type_name()),
             })
     })
 }
