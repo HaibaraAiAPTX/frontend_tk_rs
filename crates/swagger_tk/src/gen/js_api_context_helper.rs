@@ -1,4 +1,4 @@
-use super::js_helper::ApiContext;
+use super::{js_helper::ApiContext, AttributeData};
 
 pub struct JsApiContextHelper<'a> {
     api_context: &'a ApiContext<'a>,
@@ -90,7 +90,7 @@ impl<'a> JsApiContextHelper<'a> {
     }
 
     /// 获取请求配置里面的请求体
-    pub fn get_request_config_data(&self) -> String {
+    pub fn get_request_config_data(&self) -> Option<String> {
         // 初始化请求 data
         let request_data = match (
             &self.api_context.request_body_name,
@@ -99,15 +99,7 @@ impl<'a> JsApiContextHelper<'a> {
             (None, None) => None,
             (None, Some(list)) => {
                 if !list.is_empty() {
-                    let mut result = String::from("{");
-                    for v in list {
-                        if v.name == v.value_expression {
-                            result += &v.name;
-                        } else {
-                            result += &format!("{}:{}", v.name, v.value_expression);
-                        }
-                    }
-                    Some(format!("{}}}", &result[..result.len() - 1]))
+                    Some(self.get_object_text_from_attribute_data_list(list))
                 } else {
                     None
                 }
@@ -119,9 +111,33 @@ impl<'a> JsApiContextHelper<'a> {
         };
 
         if let Some(v) = request_data {
-            format!(",{}", v)
+            Some(format!("{}", v))
         } else {
-            "".to_string()
+            None
         }
+    }
+
+    pub fn get_request_config_params(&self) -> Option<String> {
+        if let Some(list) = &self.api_context.query_params_list {
+            if !list.is_empty() {
+                Some(self.get_object_text_from_attribute_data_list(list))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_object_text_from_attribute_data_list(&self, list: &Vec<AttributeData>) -> String {
+        let mut result = String::from("{");
+        for v in list {
+            if v.name == v.value_expression {
+                result += &format!("{},", v.name);
+            } else {
+                result += &format!("{}:{},", v.name, v.value_expression);
+            }
+        }
+        format!("{}}}", &result[..result.len() - 1])
     }
 }

@@ -10,7 +10,7 @@ pub struct TypescriptDeclarationGen<'a> {
 }
 
 impl<'a> TypescriptDeclarationGen<'a> {
-    pub fn gen_declaration_by_name(&self, name: &str) -> Result<String, String> {
+    pub fn gen_declaration_by_name(&self, name: &str) -> Result<(String, bool), String> {
         let schema = self.get_schema(name)?;
         self.gen_declaration_by_schema(schema, name)
     }
@@ -19,13 +19,19 @@ impl<'a> TypescriptDeclarationGen<'a> {
         let schemas = self.get_schemas()?;
         let mut result = HashMap::<String, String>::new();
         for (name, schema) in schemas {
-            result.insert(name.clone(), self.gen_declaration_by_schema(schema, name)?);
+            let (content, is_enum) = self.gen_declaration_by_schema(schema, name)?;
+            let new_name = if is_enum {
+                format!("{name}.ts")
+            } else {
+                format!("{name}.d.ts")
+            };
+            result.insert(new_name, content);
         }
         Ok(result)
     }
 
     /// 生成声明
-    fn gen_declaration_by_schema(&self, schema: &SchemaEnum, name: &str) -> Result<String, String> {
+    fn gen_declaration_by_schema(&self, schema: &SchemaEnum, name: &str) -> Result<(String, bool), String> {
         match schema {
             SchemaEnum::Ref(v) => {
                 let ref_name = v.r#ref.split("/").last().unwrap();
@@ -46,7 +52,8 @@ impl<'a> TypescriptDeclarationGen<'a> {
                             .unwrap_or("?:");
                         let mut r#type = {
                             if v.is_enum(&self.open_api) {
-                                format!("import(\"./{}\").{}", k, k)
+                                let file_name = v.get_ts_type();
+                                format!("import(\"./{}\").{}", file_name, file_name)
                             } else {
                                 v.get_ts_type()
                             }
@@ -68,16 +75,16 @@ impl<'a> TypescriptDeclarationGen<'a> {
     }}"#
                 );
 
-                Ok(format_ts_code(&result)?)
+                Ok((format_ts_code(&result)?, false))
             }
             SchemaEnum::String(v) => {
-                return v.try_gen_enum(name);
+                Ok((v.try_gen_enum(name)?, true))
             }
             SchemaEnum::Integer(v) => {
-                return v.try_gen_enum(name);
+                Ok((v.try_gen_enum(name)?, true))
             }
             SchemaEnum::Number(v) => {
-                return v.try_gen_enum(name);
+                Ok((v.try_gen_enum(name)?, true))
             }
             SchemaEnum::Boolean(_) => {
                 return Err(format!("{} 不支持布尔类型", name));

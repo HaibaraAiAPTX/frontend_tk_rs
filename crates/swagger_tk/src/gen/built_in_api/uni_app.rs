@@ -24,7 +24,7 @@ impl UniAppGen {
         }
 
         // 请求体
-        let request_data = helper.get_request_config_data();
+        let request_data = helper.get_request_config_data().map(|s| format!(", {}", s)).unwrap_or_default();
 
         // 返回类型
         let response_type = helper.get_response_type();
