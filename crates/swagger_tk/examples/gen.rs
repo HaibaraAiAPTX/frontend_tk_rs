@@ -4,8 +4,8 @@ use swagger_tk::{gen::{AxiosTsGen, GenApi, TypescriptDeclarationGen}, model::Ope
 
 fn main() {
     let open_api = get_open_api_object("打卡.json");
-    // gen_api(&open_api);
-    gen_model(&open_api);
+    gen_api(&open_api);
+    // gen_model(&open_api);
 }
 
 fn get_open_api_object(filename: &str) -> OpenAPIObject {

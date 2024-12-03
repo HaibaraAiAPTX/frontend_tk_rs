@@ -69,12 +69,9 @@ import {{ BaseService }} from "./BaseService";
 
 @singleton()
 export class {}Service extends BaseService {{
-Controller = "{}";
-
 {}
 }}
 "#,
-                to_pascal_case(controller),
                 to_pascal_case(controller),
                 apis.join("\n\n")
             );
