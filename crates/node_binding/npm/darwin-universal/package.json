@@ -1,0 +1,15 @@
+{
+  "name": "@aptx/frontend-tk-binding-darwin-universal",
+  "version": "0.0.0",
+  "os": [
+    "darwin"
+  ],
+  "main": "frontend-tk-binding.darwin-universal.node",
+  "files": [
+    "frontend-tk-binding.darwin-universal.node"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">= 10"
+  }
+}

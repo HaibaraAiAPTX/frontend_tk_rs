@@ -4,5 +4,4 @@ members = [
   "crates/*"
 ]
 exclude = [
-  "frontend-tk/apps/desktop-frontend/src-tauri"
 ]

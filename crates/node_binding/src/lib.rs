@@ -1,0 +1,96 @@
+#![deny(clippy::all)]
+
+use std::{fs, path::Path};
+
+use swagger_tk::{
+  gen::{AxiosTsGen, GenApi, TypescriptDeclarationGen, UniAppGen},
+  model::OpenAPIObject,
+};
+
+#[macro_use]
+extern crate napi_derive;
+
+// 生成工具箱配置项
+#[napi(object)]
+#[derive(Debug)]
+pub struct FrontendTkGenOps {
+  // swagger json 入口路径
+  pub input: String,
+
+  // 服务输出路径
+  pub service_output: Option<Vec<String>>,
+
+  // 模型输出路径
+  pub model_output: Option<String>,
+
+  // service 模式
+  pub service_mode: Option<String>,
+}
+
+#[napi]
+pub fn frontend_tk_gen(options: FrontendTkGenOps) {
+  let text = std::fs::read_to_string(&options.input).unwrap();
+  let open_api = OpenAPIObject::from_str(&text).unwrap();
+
+  if let Some(outpus) = &options.service_output {
+    let service_output = outpus
+      .iter()
+      .map(|path_str| Path::new(path_str))
+      .collect::<Vec<&Path>>();
+    gen_api(
+      &open_api,
+      options.service_mode.unwrap_or(String::from("axios")),
+      service_output,
+    );
+  }
+
+  if let Some(output) = &options.model_output {
+    gen_model(&open_api, Path::new(output));
+  }
+}
+
+fn get_gen_by_string(mode: &str) -> Result<Box<dyn GenApi>, String> {
+  match mode {
+    "axios" => Ok(Box::new(AxiosTsGen::default())),
+    "uniapp" => Ok(Box::new(UniAppGen::default())),
+    _ => Err(format!("未知的生成模式: {}", mode)),
+  }
+}
+
+fn gen_api(open_api: &OpenAPIObject, mode: String, outputs: Vec<&Path>) {
+  let mut service_gen = get_gen_by_string(&mode).unwrap();
+  let apis = service_gen.gen_apis(&open_api);
+
+  outputs.iter().for_each(|&o| {
+    ensure_path(o);
+  });
+
+  if let Ok(apis) = apis {
+    for (name, content) in apis {
+      for output in &outputs {
+        let file_path = output.join(format!("{}Service.ts", name));
+        std::fs::write(file_path, content.clone()).unwrap();
+      }
+    }
+  }
+}
+
+fn gen_model(open_api: &OpenAPIObject, output: &Path) {
+  let model_gen = TypescriptDeclarationGen { open_api };
+
+  ensure_path(&output);
+
+  let models = model_gen.gen_declarations();
+  if let Ok(models) = models {
+    for (name, content) in models {
+      let file_path = output.join(name);
+      std::fs::write(file_path, content).unwrap();
+    }
+  }
+}
+
+fn ensure_path(p: &Path) {
+  if !p.exists() {
+    fs::create_dir(p).unwrap()
+  }
+}

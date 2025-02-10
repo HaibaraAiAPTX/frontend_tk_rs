@@ -1,0 +1,28 @@
+{
+  "name": "@aptx/frontend-tk-cli",
+  "version": "0.1.0",
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bin": {
+    "aptx-ft": "./bin/aptx.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@aptx/frontend-tk-binding": "workspace:*",
+    "chalk": "^5.4.1",
+    "yargs-parser": "^21.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/yargs-parser": "^21.0.3",
+    "typescript": "^5.7.3"
+  }
+}

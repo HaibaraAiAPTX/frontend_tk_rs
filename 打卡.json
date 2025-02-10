@@ -66,7 +66,7 @@
         "tags": [
           "AfterClassAssignment"
         ],
-        "summary": "获取课后作业",
+        "summary": "获取课后作业信息",
         "parameters": [
           {
             "name": "appointmentRecordID",
@@ -2066,7 +2066,7 @@
         "tags": [
           "RegistrationForm"
         ],
-        "summary": "获取报名表列表",
+        "summary": "获得列表",
         "requestBody": {
           "description": "",
           "content": {
@@ -2231,7 +2231,7 @@
         "tags": [
           "Student"
         ],
-        "summary": "获得信息",
+        "summary": "获取信息",
         "parameters": [
           {
             "name": "id",
@@ -2272,7 +2272,7 @@
         "tags": [
           "Student"
         ],
-        "summary": "获得信息",
+        "summary": "获取信息",
         "parameters": [
           {
             "name": "account",
@@ -2312,7 +2312,7 @@
         "tags": [
           "Student"
         ],
-        "summary": "获得列表",
+        "summary": "获取列表",
         "requestBody": {
           "description": "",
           "content": {
@@ -2355,6 +2355,61 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StudentListDTOCollectionResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/StudentClassHour/GetListByLoginUser": {
+      "post": {
+        "tags": [
+          "StudentClassHour"
+        ],
+        "summary": "获取登录用户学生课时列表",
+        "requestBody": {
+          "description": "",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentClassHourRequestModel"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentClassHourRequestModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentClassHourRequestModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryStudentClassHourRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourListDTOCollectionResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourListDTOCollectionResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentClassHourListDTOCollectionResultModel"
                 }
               }
             }
@@ -2367,7 +2422,7 @@
         "tags": [
           "StudentClassHour"
         ],
-        "summary": "查询学生课时列表",
+        "summary": "获取学生课时列表",
         "requestBody": {
           "description": "",
           "content": {
@@ -2417,18 +2472,47 @@
         }
       }
     },
-    "/MainAPI/User/ResetPassword": {
-      "put": {
+    "/MainAPI/StudentSchedule/GetStudentScheduleListByLoginUser": {
+      "post": {
         "tags": [
-          "User"
+          "StudentSchedule"
         ],
-        "summary": "重置密码",
+        "summary": "根据登录用户查询学生待办事项",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentScheduleDTOListResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentScheduleDTOListResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentScheduleDTOListResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/StudentSchedule/GetStudentScheduleList": {
+      "get": {
+        "tags": [
+          "StudentSchedule"
+        ],
+        "summary": "查询学生待办事项",
         "parameters": [
           {
-            "name": "id",
+            "name": "studentID",
             "in": "query",
             "description": "",
-            "required": true,
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -2441,17 +2525,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringResultModel"
+                  "$ref": "#/components/schemas/StudentScheduleDTOListResultModel"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringResultModel"
+                  "$ref": "#/components/schemas/StudentScheduleDTOListResultModel"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringResultModel"
+                  "$ref": "#/components/schemas/StudentScheduleDTOListResultModel"
                 }
               }
             }
@@ -2537,6 +2621,47 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LoginResultDTOResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/MainAPI/User/ResetPassword": {
+      "put": {
+        "tags": [
+          "User"
+        ],
+        "summary": "重置密码",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringResultModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringResultModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringResultModel"
                 }
               }
             }
@@ -3308,6 +3433,12 @@
           "State": {
             "$ref": "#/components/schemas/AppointmentState"
           },
+          "StateText": {
+            "type": "string",
+            "description": "状态文本",
+            "nullable": true,
+            "readOnly": true
+          },
           "CompleteCategory": {
             "$ref": "#/components/schemas/AppointmentCompleteCategory"
           },
@@ -3397,6 +3528,12 @@
           },
           "State": {
             "$ref": "#/components/schemas/AppointmentState"
+          },
+          "StateText": {
+            "type": "string",
+            "description": "状态文本",
+            "nullable": true,
+            "readOnly": true
           },
           "CompleteCategory": {
             "$ref": "#/components/schemas/AppointmentCompleteCategory"
@@ -3567,6 +3704,11 @@
             "description": "上次记录状态文本",
             "nullable": true,
             "readOnly": true
+          },
+          "BeforClassHour": {
+            "type": "number",
+            "description": "预约前课时",
+            "format": "double"
           }
         },
         "additionalProperties": false,
@@ -4816,6 +4958,18 @@
           },
           "UpRecordState": {
             "$ref": "#/components/schemas/UpRecordStateCategory"
+          },
+          "MinStartTime": {
+            "type": "string",
+            "description": "最小开始时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "MaxStartTime": {
+            "type": "string",
+            "description": "最大开始时间",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false,
@@ -5433,14 +5587,14 @@
             "format": "uuid",
             "nullable": true
           },
-          "CourseName": {
-            "type": "string",
-            "description": "课程名称",
-            "nullable": true
-          },
           "ClassName": {
             "type": "string",
             "description": "班级名称",
+            "nullable": true
+          },
+          "CourseName": {
+            "type": "string",
+            "description": "课程名称",
             "nullable": true
           },
           "TeachingMethod": {
@@ -6020,6 +6174,13 @@
         ],
         "type": "object",
         "properties": {
+          "StudiedDay": {
+            "type": "number",
+            "description": "学习天数",
+            "format": "double",
+            "nullable": true,
+            "readOnly": true
+          },
           "ID": {
             "type": "string",
             "description": "唯一标识",
@@ -6106,6 +6267,12 @@
             "description": "班级ID",
             "format": "uuid"
           },
+          "ClassName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "班级名称"
+          },
           "CourseID": {
             "type": "string",
             "description": "课程ID",
@@ -6117,19 +6284,35 @@
             "type": "string",
             "description": "课程名称"
           },
-          "ClassName": {
-            "maxLength": 50,
-            "minLength": 0,
-            "type": "string",
-            "description": "班级名称"
-          },
           "TeachingMethod": {
             "$ref": "#/components/schemas/TeachingMethod"
+          },
+          "CourseClassHour": {
+            "type": "number",
+            "description": "课程课时",
+            "format": "double"
+          },
+          "CourseClassHourPeriod": {
+            "type": "number",
+            "description": "课时周期",
+            "format": "double"
           },
           "ClassHour": {
             "type": "number",
             "description": "课时",
             "format": "double"
+          },
+          "FirstAppointmentTime": {
+            "type": "string",
+            "description": "首次预约时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "FinishingTime": {
+            "type": "string",
+            "description": "结课时间",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false,
@@ -6439,6 +6622,71 @@
           },
           "RangeModel": {
             "$ref": "#/components/schemas/RangeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentScheduleDTO": {
+        "type": "object",
+        "properties": {
+          "CourseID": {
+            "type": "string",
+            "description": "课程唯一标识",
+            "format": "uuid"
+          },
+          "CourseName": {
+            "type": "string",
+            "description": "课程名称",
+            "nullable": true
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "班级唯一标识",
+            "format": "uuid"
+          },
+          "ClassHour": {
+            "type": "number",
+            "description": "课时",
+            "format": "double"
+          },
+          "AfterClassAssignmentID": {
+            "type": "string",
+            "description": "课后作业唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "CourseWorkPackageID": {
+            "type": "string",
+            "description": "作业包唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "AfterClassAssignmentEndTime": {
+            "type": "string",
+            "description": "课后作业截止时间",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "学生待办事项数据传输模型"
+      },
+      "StudentScheduleDTOListResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultTypeEnum"
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentScheduleDTO"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
