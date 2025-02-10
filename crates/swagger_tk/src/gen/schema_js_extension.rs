@@ -44,6 +44,50 @@ impl SchemaEnum {
             SchemaEnum::Array(v) => v.nullable.unwrap_or_default(),
         }
     }
+
+    /// 根据类型判断枚举是不是原始枚举（原始枚举不生成新的枚举文件）
+    pub fn is_raw_enum(&self, r#type: &str) -> bool {
+        match r#type {
+            "string" | "number" => true,
+            _ => false,
+        }
+    }
+
+    /// 如果是原始枚举，则获取类型的字符串
+    pub fn get_raw_enum_type(&self) -> Result<String, String> {
+        fn process_enum<T: ToString>(values: &[T], add_quotes: bool) -> String {
+            values
+                .iter()
+                .map(|v| {
+                    if add_quotes {
+                        format!("\"{}\"", v.to_string())
+                    } else {
+                        v.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" | ")
+        }
+
+        match self {
+            SchemaEnum::String(v) => v
+                .r#enum
+                .as_ref()
+                .map(|values| process_enum(values, true)) // 对 String 类型添加双引号
+                .ok_or_else(|| "not found enum".to_string()),
+            SchemaEnum::Integer(v) => v
+                .r#enum
+                .as_ref()
+                .map(|values| process_enum(values, false)) // 对 Integer 类型不添加双引号
+                .ok_or_else(|| "not found enum".to_string()),
+            SchemaEnum::Number(v) => v
+                .r#enum
+                .as_ref()
+                .map(|values| process_enum(values, false)) // 对 Number 类型不添加双引号
+                .ok_or_else(|| "not found enum".to_string()),
+            _ => Err("not found enum".to_string()),
+        }
+    }
 }
 
 impl ReferenceObject {

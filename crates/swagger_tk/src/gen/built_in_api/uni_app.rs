@@ -78,7 +78,7 @@ export class {}Service extends BaseService {{
                 apis.join("\n\n")
             );
             let content = format_ts_code(&content).unwrap();
-            v.insert(controller.to_string(), content);
+            v.insert(to_pascal_case(controller), content);
         }
         v
     }

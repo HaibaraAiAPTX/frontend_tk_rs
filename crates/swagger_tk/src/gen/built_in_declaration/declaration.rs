@@ -31,7 +31,11 @@ impl<'a> TypescriptDeclarationGen<'a> {
     }
 
     /// 生成声明
-    fn gen_declaration_by_schema(&self, schema: &SchemaEnum, name: &str) -> Result<(String, bool), String> {
+    fn gen_declaration_by_schema(
+        &self,
+        schema: &SchemaEnum,
+        name: &str,
+    ) -> Result<(String, bool), String> {
         match schema {
             SchemaEnum::Ref(v) => {
                 let ref_name = v.r#ref.split("/").last().unwrap();
@@ -53,7 +57,11 @@ impl<'a> TypescriptDeclarationGen<'a> {
                         let mut r#type = {
                             if v.is_enum(&self.open_api) {
                                 let file_name = v.get_ts_type();
-                                format!("import(\"./{}\").{}", file_name, file_name)
+                                if v.is_raw_enum(&file_name) {
+                                    v.get_raw_enum_type().unwrap()
+                                } else {
+                                    format!("import(\"./{}\").{}", file_name, file_name)
+                                }
                             } else {
                                 v.get_ts_type()
                             }
@@ -77,15 +85,9 @@ impl<'a> TypescriptDeclarationGen<'a> {
 
                 Ok((format_ts_code(&result)?, false))
             }
-            SchemaEnum::String(v) => {
-                Ok((v.try_gen_enum(name)?, true))
-            }
-            SchemaEnum::Integer(v) => {
-                Ok((v.try_gen_enum(name)?, true))
-            }
-            SchemaEnum::Number(v) => {
-                Ok((v.try_gen_enum(name)?, true))
-            }
+            SchemaEnum::String(v) => Ok((v.try_gen_enum(name)?, true)),
+            SchemaEnum::Integer(v) => Ok((v.try_gen_enum(name)?, true)),
+            SchemaEnum::Number(v) => Ok((v.try_gen_enum(name)?, true)),
             SchemaEnum::Boolean(_) => {
                 return Err(format!("{} 不支持布尔类型", name));
             }
