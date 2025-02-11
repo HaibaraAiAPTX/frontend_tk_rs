@@ -1,9 +1,6 @@
 use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
-
 use super::{ComponentsObject, OpenAPIWebhooks};
-
 use super::{ExternalDocumentationObject, OpenAPIInfo, PathItemObject, ServerObject, TagObject};
 
 #[derive(Debug, Serialize, Deserialize)]

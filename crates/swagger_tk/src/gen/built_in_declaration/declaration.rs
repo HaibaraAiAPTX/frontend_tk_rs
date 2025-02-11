@@ -50,12 +50,22 @@ impl<'a> TypescriptDeclarationGen<'a> {
             SchemaEnum::Object(v) => {
                 let description = v.description.as_ref().map(|s| s.as_str());
                 let required = v.required.as_ref();
+
                 let properties = v
                     .properties
                     .as_ref()
-                    .ok_or("没有找到object的属性值".to_string())?
+                    .ok_or("can't find object properties".to_string())?;
+
+                let mut properties_keys = properties.keys().collect::<Vec<_>>();
+                properties_keys.sort();
+
+                let properties = properties_keys
                     .iter()
-                    .map(|(k, v)| {
+                    .map(|&k| {
+                        let v = properties
+                            .get(k)
+                            .ok_or(format!("can't find {k} attribute"))
+                            .unwrap();
                         let description = v
                             .get_description()
                             .map(|v| format!("\n/** {} */\n", v))
@@ -83,12 +93,11 @@ impl<'a> TypescriptDeclarationGen<'a> {
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
+
                 let description = description
                     .map(|v| format!("/** {v} */\n"))
                     .unwrap_or_default();
-                let result = format!(
-                    r#"{description}declare interface {name} {{{properties}}}"#
-                );
+                let result = format!(r#"{description}declare interface {name} {{{properties}}}"#);
 
                 Ok((format_ts_code(&result)?, false))
             }
