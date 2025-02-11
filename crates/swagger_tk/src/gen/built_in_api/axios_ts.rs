@@ -1,13 +1,18 @@
-use crate::gen::{format_ts_code, js_helper::ApiContext, GenApi, JsApiContextHelper};
+use crate::{
+    gen::{format_ts_code, js_helper::ApiContext, GenApi, JsApiContextHelper},
+    getter::get_controller_description,
+    model::OpenAPIObject,
+};
 use inflector::cases::pascalcase::to_pascal_case;
 use std::collections::HashMap;
 
 #[derive(Default)]
-pub struct AxiosTsGen {
+pub struct AxiosTsGen<'a> {
     controller_apis_map: HashMap<String, Vec<String>>,
+    open_api: Option<&'a OpenAPIObject>,
 }
 
-impl AxiosTsGen {
+impl<'a> AxiosTsGen<'a> {
     fn gen_code(&mut self, api_context: &ApiContext) -> Result<String, String> {
         let helper = JsApiContextHelper::new(api_context);
 
@@ -35,9 +40,14 @@ impl AxiosTsGen {
 
         let func_name = &api_context.func_name;
         let method = &api_context.method;
+        let description = api_context
+            .description
+            .map(|v| format!("/** {} */\n", v))
+            .unwrap_or_default();
 
         let api_fun = format!(
-            r#"{func_name}({parameters}) {{
+            r#"
+            {description}{func_name}({parameters}) {{
   return this.{method}<{response_type}>({base_url}{other_params});
 }}"#
         );
@@ -45,7 +55,7 @@ impl AxiosTsGen {
     }
 }
 
-impl GenApi for AxiosTsGen {
+impl<'a> GenApi<'a> for AxiosTsGen<'a> {
     fn gen_api(&mut self, api_context: &ApiContext) -> Result<(), String> {
         if let Some(tags) = &api_context.operation.tags {
             let api_fun = self.gen_code(api_context)?;
@@ -63,10 +73,19 @@ impl GenApi for AxiosTsGen {
     fn gen_name_content_map(&mut self) -> HashMap<String, String> {
         let mut v: HashMap<String, String> = HashMap::<String, String>::new();
         for (controller, apis) in self.controller_apis_map.iter() {
+            let description = if let Some(open_api) = self.open_api {
+                get_controller_description(open_api, controller)
+            } else {
+                None
+            }
+            .map(|s| format!("\n/** {} */", s))
+            .unwrap_or_else(|| Default::default());
+
             let content = format!(
                 r#"import {{ singleton }} from "tsyringe";
 import {{ BaseService }} from "./BaseService";
 
+{description}
 @singleton()
 export class {}Service extends BaseService {{
 {}
@@ -83,5 +102,9 @@ export class {}Service extends BaseService {{
 
     fn clear(&mut self) {
         self.controller_apis_map.clear();
+    }
+
+    fn set_open_api(&mut self, open_api: &'a OpenAPIObject) {
+        self.open_api = Some(open_api);
     }
 }

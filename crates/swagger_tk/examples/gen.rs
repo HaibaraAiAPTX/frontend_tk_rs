@@ -21,6 +21,7 @@ fn gen_api(open_api: &OpenAPIObject) {
         Path::new("F:\\工作室\\TrainningAssistant\\Client\\apps\\wechat-account-offical\\src\\services")
     ];
     let mut axios_gen = AxiosTsGen::default();
+    axios_gen.set_open_api(&open_api);
     let apis = axios_gen.gen_apis(&open_api);
     if let Ok(apis) = apis {
         for (name, content) in apis {

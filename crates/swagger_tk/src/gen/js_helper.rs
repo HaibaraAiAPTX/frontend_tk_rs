@@ -14,6 +14,8 @@ pub struct ApiContext<'a> {
     pub url: &'a str,
     /// 接口方法
     pub method: &'a str,
+    /// 接口的备注
+    pub description: Option<&'a String>,
     /// 原始数据
     pub path_item: &'a PathItemObject,
     /// 具体接口定义的原始数据
@@ -109,6 +111,7 @@ impl<'a> ApiContext<'a> {
             header_params_list: None,
             request_body_name: None,
             request_body_list: None,
+            description: operation.summary.as_ref(),
         };
         result.init_data(open_api_object);
         result

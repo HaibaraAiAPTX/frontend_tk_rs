@@ -1,5 +1,5 @@
 use crate::{
-    getter::get_schema,
+    getter::get_schema_by_name,
     model::{OpenAPIObject, ReferenceObject, SchemaEnum},
 };
 
@@ -25,7 +25,7 @@ impl SchemaEnum {
             SchemaEnum::Integer(v) => v.r#enum.is_some(),
             SchemaEnum::Number(v) => v.r#enum.is_some(),
             SchemaEnum::Ref(v) => {
-                get_schema(open_api, &v.get_type_name()).map_or(false, |x| x.is_enum(open_api))
+                get_schema_by_name(open_api, &v.get_type_name()).map_or(false, |x| x.is_enum(open_api))
             }
             _ => false,
         }
@@ -34,7 +34,7 @@ impl SchemaEnum {
     pub fn can_be_null(&self, open_api: &OpenAPIObject) -> bool {
         match self {
             SchemaEnum::Ref(v) => {
-                get_schema(open_api, &v.get_type_name()).map_or(false, |x| x.can_be_null(open_api))
+                get_schema_by_name(open_api, &v.get_type_name()).map_or(false, |x| x.can_be_null(open_api))
             }
             SchemaEnum::Object(v) => v.nullable.unwrap_or_default(),
             SchemaEnum::String(v) => v.nullable.unwrap_or_default(),

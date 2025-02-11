@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     gen::format_ts_code,
+    getter::{get_all_schema, get_schema_by_name},
     model::{OpenAPIObject, SchemaEnum, SchemaInteger, SchemaNumber, SchemaString},
 };
 
@@ -11,12 +12,13 @@ pub struct TypescriptDeclarationGen<'a> {
 
 impl<'a> TypescriptDeclarationGen<'a> {
     pub fn gen_declaration_by_name(&self, name: &str) -> Result<(String, bool), String> {
-        let schema = self.get_schema(name)?;
+        let schema = get_schema_by_name(&self.open_api, name)
+            .ok_or(format!("{} schema is not found", name))?;
         self.gen_declaration_by_schema(schema, name)
     }
 
     pub fn gen_declarations(&self) -> Result<HashMap<String, String>, String> {
-        let schemas = self.get_schemas()?;
+        let schemas = get_all_schema(&self.open_api).ok_or("get all schema fail")?;
         let mut result = HashMap::<String, String>::new();
         for (name, schema) in schemas {
             let (content, is_enum) = self.gen_declaration_by_schema(schema, name)?;
@@ -38,7 +40,11 @@ impl<'a> TypescriptDeclarationGen<'a> {
     ) -> Result<(String, bool), String> {
         match schema {
             SchemaEnum::Ref(v) => {
-                let ref_name = v.r#ref.split("/").last().unwrap();
+                let ref_name = v
+                    .r#ref
+                    .split("/")
+                    .last()
+                    .ok_or(format!("get ref name fail: {}", v.r#ref))?;
                 return self.gen_declaration_by_name(ref_name);
             }
             SchemaEnum::Object(v) => {
@@ -47,9 +53,13 @@ impl<'a> TypescriptDeclarationGen<'a> {
                 let properties = v
                     .properties
                     .as_ref()
-                    .ok_or_else(|| "没有找到object的属性值".to_string())?
+                    .ok_or("没有找到object的属性值".to_string())?
                     .iter()
                     .map(|(k, v)| {
+                        let description = v
+                            .get_description()
+                            .map(|v| format!("\n/** {} */\n", v))
+                            .unwrap_or(Default::default());
                         let symbol = required
                             .map(|v| v.contains(k))
                             .map(|v| if v { ":" } else { "?:" })
@@ -69,18 +79,15 @@ impl<'a> TypescriptDeclarationGen<'a> {
                         if v.can_be_null(&self.open_api) {
                             r#type = format!("{} | null", r#type);
                         }
-                        format!("{}{}{}", k, symbol, r#type)
+                        format!("{description}{k}{symbol}{}", r#type)
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
                 let description = description
-                    .map(|v| format!("/* {v} */"))
+                    .map(|v| format!("/** {v} */\n"))
                     .unwrap_or_default();
                 let result = format!(
-                    r#"{description}
-            declare interface {name} {{
-                {properties}
-    }}"#
+                    r#"{description}declare interface {name} {{{properties}}}"#
                 );
 
                 Ok((format_ts_code(&result)?, false))
@@ -88,30 +95,9 @@ impl<'a> TypescriptDeclarationGen<'a> {
             SchemaEnum::String(v) => Ok((v.try_gen_enum(name)?, true)),
             SchemaEnum::Integer(v) => Ok((v.try_gen_enum(name)?, true)),
             SchemaEnum::Number(v) => Ok((v.try_gen_enum(name)?, true)),
-            SchemaEnum::Boolean(_) => {
-                return Err(format!("{} 不支持布尔类型", name));
-            }
-            SchemaEnum::Array(_) => {
-                return Err(format!("{} 不支持数组类型", name));
-            }
+            SchemaEnum::Boolean(_) => Err(format!("{} unsupported enum type", name)),
+            SchemaEnum::Array(_) => Err(format!("{} unsupported enum type", name)),
         }
-    }
-
-    /// 获取 schemas
-    fn get_schemas(&self) -> Result<&HashMap<String, SchemaEnum>, String> {
-        self.open_api
-            .components
-            .as_ref()
-            .ok_or_else(|| "components is not found".to_string())?
-            .schemas
-            .as_ref()
-            .ok_or_else(|| "schemas is not found".to_string())
-    }
-
-    /// 获取 schema
-    fn get_schema(&self, name: &str) -> Result<&SchemaEnum, String> {
-        let schemas = self.get_schemas()?;
-        schemas.get(name).ok_or_else(|| format!("{} 未找到", name))
     }
 }
 
@@ -130,12 +116,10 @@ where
     T: HasEnum,
 {
     fn try_gen_enum(&self, name: &str) -> Result<String, String> {
-        if self.get_enum().is_none() {
-            return Err(format!("{} enum is not found", name));
-        }
-
+        let enum_list = self
+            .get_enum()
+            .ok_or(format!("{} enum is not found", name))?;
         let description = self.get_description();
-        let enum_list = self.get_enum().unwrap();
         let mut count: u16 = 1;
         let enum_body = enum_list
             .iter()
@@ -148,7 +132,7 @@ where
             .join(",\n");
         let description = {
             if let Some(v) = description {
-                format!("/* {v} */")
+                format!("/** {v} */")
             } else {
                 String::new()
             }

@@ -39,7 +39,7 @@ pub fn frontend_tk_gen(options: FrontendTkGenOps) {
       .collect::<Vec<&Path>>();
     gen_api(
       &open_api,
-      options.service_mode.unwrap_or(String::from("axios")),
+      options.service_mode.as_ref().unwrap_or(&"axios".to_string()),
       service_output,
     );
   }
@@ -49,7 +49,7 @@ pub fn frontend_tk_gen(options: FrontendTkGenOps) {
   }
 }
 
-fn get_gen_by_string(mode: &str) -> Result<Box<dyn GenApi>, String> {
+fn get_gen_by_string(mode: &str) -> Result<Box<dyn GenApi + '_>, String> {
   match mode {
     "axios" => Ok(Box::new(AxiosTsGen::default())),
     "uniapp" => Ok(Box::new(UniAppGen::default())),
@@ -57,8 +57,9 @@ fn get_gen_by_string(mode: &str) -> Result<Box<dyn GenApi>, String> {
   }
 }
 
-fn gen_api(open_api: &OpenAPIObject, mode: String, outputs: Vec<&Path>) {
-  let mut service_gen = get_gen_by_string(&mode).unwrap();
+fn gen_api(open_api: &OpenAPIObject, mode: &str, outputs: Vec<&Path>) {
+  let mut service_gen = get_gen_by_string(mode).unwrap();
+  service_gen.set_open_api(open_api);
   let apis = service_gen.gen_apis(&open_api);
 
   outputs.iter().for_each(|&o| {

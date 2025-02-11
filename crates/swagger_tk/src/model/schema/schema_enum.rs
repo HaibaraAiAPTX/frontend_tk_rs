@@ -55,3 +55,18 @@ impl<'de> Deserialize<'de> for SchemaEnum {
         }
     }
 }
+
+impl SchemaEnum {
+    /// 获取描述
+    pub fn get_description(&self) -> Option<&String> {
+        match self {
+            SchemaEnum::Ref(v) => v.description.as_ref(),
+            SchemaEnum::Object(v) => v.description.as_ref(),
+            SchemaEnum::String(v) => v.description.as_ref(),
+            SchemaEnum::Integer(v) => v.description.as_ref(),
+            SchemaEnum::Number(v) => v.description.as_ref(),
+            SchemaEnum::Boolean(_) => None,
+            SchemaEnum::Array(v) => v.description.as_ref(),
+        }
+    }
+}

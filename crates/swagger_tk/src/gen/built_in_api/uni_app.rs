@@ -1,16 +1,18 @@
 use inflector::cases::pascalcase::to_pascal_case;
-use crate::gen::{format_ts_code, js_helper::ApiContext, GenApi, JsApiContextHelper};
+use crate::{gen::{format_ts_code, js_helper::ApiContext, GenApi, JsApiContextHelper}, model::OpenAPIObject};
 use std::collections::HashMap;
 
 #[derive(Default)]
-pub struct UniAppGen {
+pub struct UniAppGen<'a> {
     controller_apis_map: HashMap<String, Vec<String>>,
 
     /// 是否需要引入qs处理库
     need_import_qs: bool,
+
+    open_api: Option<&'a OpenAPIObject>
 }
 
-impl UniAppGen {
+impl<'a> UniAppGen<'a> {
     fn gen_code(&mut self, api_context: &ApiContext) -> Result<String, String> {
         let helper = JsApiContextHelper::new(api_context);
 
@@ -41,7 +43,7 @@ impl UniAppGen {
     }
 }
 
-impl GenApi for UniAppGen {
+impl<'a> GenApi<'a> for UniAppGen<'a> {
     fn gen_api(&mut self, api_context: &ApiContext) -> Result<(), String> {
         if let Some(tags) = &api_context.operation.tags {
             let api_fun = self.gen_code(api_context)?;
@@ -86,5 +88,9 @@ export class {}Service extends BaseService {{
     fn clear(&mut self) {
         self.need_import_qs = false;
         self.controller_apis_map.clear();
+    }
+
+    fn set_open_api(&mut self, open_api: &'a OpenAPIObject) {
+        self.open_api = Some(open_api);
     }
 }

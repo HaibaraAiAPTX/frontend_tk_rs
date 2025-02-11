@@ -11,6 +11,8 @@ pub struct SchemaArray {
 
     pub items: Box<SchemaEnum>,
 
+    pub description: Option<String>,
+
     /// 是否唯一
     #[serde(rename = "uniqueItems")]
     pub unique_items: Option<bool>,

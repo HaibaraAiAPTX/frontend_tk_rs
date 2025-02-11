@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{gen::js_helper::ApiContext, model::OpenAPIObject};
 
-pub trait GenApi {
+pub trait GenApi<'a> {
     fn gen_apis(&mut self, data: &OpenAPIObject) -> Result<HashMap<String, String>, String> {
         self.clear();
         
@@ -33,4 +33,6 @@ pub trait GenApi {
     fn gen_api(&mut self, api_context: &ApiContext) -> Result<(), String>;
 
     fn clear(&mut self);
+
+    fn set_open_api(&mut self, open_api: &'a OpenAPIObject);
 }
