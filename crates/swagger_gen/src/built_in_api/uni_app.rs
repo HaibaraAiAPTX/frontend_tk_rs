@@ -1,61 +1,55 @@
-use crate::{
-    gen::{format_ts_code, js_helper::ApiContext, GenApi, JsApiContextHelper},
-    getter::get_controller_description,
-    model::OpenAPIObject,
-};
 use inflector::cases::pascalcase::to_pascal_case;
 use std::collections::HashMap;
+use swagger_tk::model::OpenAPIObject;
+use crate::{build_in_api_trait::GenApi, core::{ApiContext, JsApiContextHelper}, utils::format_ts_code};
 
 #[derive(Default)]
-pub struct AxiosTsGen<'a> {
+pub struct UniAppGen<'a> {
     controller_apis_map: HashMap<String, Vec<String>>,
+
+    /// 是否需要引入qs处理库
+    need_import_qs: bool,
+
     open_api: Option<&'a OpenAPIObject>,
+
+    outputs: HashMap<String, String>,
 }
 
-impl<'a> AxiosTsGen<'a> {
+impl<'a> UniAppGen<'a> {
     fn gen_code(&mut self, api_context: &ApiContext) -> Result<String, String> {
         let helper = JsApiContextHelper::new(api_context);
 
         // 初始化方法参数request_data
         let parameters = helper.get_parameters_string().unwrap_or_default();
 
-        // 获取基础URL，不包含查询参数
-        let base_url = helper.get_url();
+        // 请求的完整url及是否需要引入qs库
+        let (url, import_qs) = helper.get_url_has_query();
+        if import_qs {
+            self.need_import_qs = import_qs;
+        }
 
         // 请求体
-        let request_data = helper.get_request_config_data();
-
-        // 查询参数
-        let request_params = helper.get_request_config_params();
-
-        let other_params = match (request_data, request_params) {
-            (None, None) => String::new(),
-            (None, Some(v)) => format!(", {}", v),
-            (Some(v), None) => format!(", {}", v),
-            (Some(v1), Some(v2)) => format!(r#", undefined, {{ params: {v2}, data: {v1} }}"#),
-        };
+        let request_data = helper
+            .get_request_config_data()
+            .map(|s| format!(", {}", s))
+            .unwrap_or_default();
 
         // 返回类型
         let response_type = helper.get_response_type();
 
         let func_name = &api_context.func_name;
         let method = &api_context.method;
-        let description = api_context
-            .description
-            .map(|v| format!("/** {} */\n", v))
-            .unwrap_or_default();
 
         let api_fun = format!(
-            r#"
-            {description}{func_name}({parameters}) {{
-  return this.{method}<{response_type}>({base_url}{other_params});
+            r#"{func_name}({parameters}) {{
+  return this.{method}<{response_type}>({url}{request_data});
 }}"#
         );
         Ok(api_fun)
     }
 }
 
-impl<'a> GenApi<'a> for AxiosTsGen<'a> {
+impl<'a> GenApi<'a> for UniAppGen<'a> {
     fn gen_api(&mut self, api_context: &ApiContext) -> Result<(), String> {
         if let Some(tags) = &api_context.operation.tags {
             let api_fun = self.gen_code(api_context)?;
@@ -70,41 +64,46 @@ impl<'a> GenApi<'a> for AxiosTsGen<'a> {
         Ok(())
     }
 
-    fn gen_name_content_map(&mut self) -> HashMap<String, String> {
-        let mut v: HashMap<String, String> = HashMap::<String, String>::new();
+    fn gen_name_content_map(&mut self) {
         for (controller, apis) in self.controller_apis_map.iter() {
-            let description = if let Some(open_api) = self.open_api {
-                get_controller_description(open_api, controller)
-            } else {
-                None
-            }
-            .map(|s| format!("\n/** {} */", s))
-            .unwrap_or_else(|| Default::default());
-
             let content = format!(
                 r#"import {{ singleton }} from "tsyringe";
 import {{ BaseService }} from "./BaseService";
+{}
 
-{description}
 @singleton()
 export class {}Service extends BaseService {{
 {}
 }}
 "#,
+                if self.need_import_qs {
+                    "import qs from \"qs\";"
+                } else {
+                    ""
+                },
                 to_pascal_case(controller),
                 apis.join("\n\n")
             );
             let content = format_ts_code(&content).unwrap();
-            v.insert(to_pascal_case(controller), content);
+            self.outputs
+                .insert(format!("{}Service.ts", to_pascal_case(controller)), content);
         }
-        v
     }
 
     fn clear(&mut self) {
+        self.need_import_qs = false;
         self.controller_apis_map.clear();
     }
 
     fn set_open_api(&mut self, open_api: &'a OpenAPIObject) {
         self.open_api = Some(open_api);
+    }
+
+    fn gen_base_service(&mut self) {
+        // todo!()
+    }
+
+    fn get_outputs(&self) -> &HashMap<String, String> {
+        &self.outputs
     }
 }

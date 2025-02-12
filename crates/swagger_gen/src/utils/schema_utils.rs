@@ -1,10 +1,26 @@
-use crate::{
+use swagger_tk::{
     getter::get_schema_by_name,
-    model::{OpenAPIObject, ReferenceObject, SchemaEnum},
+    model::{OpenAPIObject, SchemaEnum},
 };
 
-impl SchemaEnum {
-    pub fn get_ts_type(&self) -> String {
+use super::reference_object_utils::ReferenceObjectExtension;
+
+pub trait SchemaEnumExtension {
+    fn get_ts_type(&self) -> String;
+
+    fn can_be_null(&self, open_api: &OpenAPIObject) -> bool;
+
+    fn is_enum(&self, open_api: &OpenAPIObject) -> bool;
+
+    /// 根据类型判断枚举是不是原始枚举（原始枚举不生成新的枚举文件）
+    fn is_raw_type_enum(&self, r#type: &str) -> bool;
+
+    /// 如果是原始枚举，则获取类型的字符串
+    fn get_raw_enum_type(&self) -> Result<String, String>;
+}
+
+impl SchemaEnumExtension for SchemaEnum {
+    fn get_ts_type(&self) -> String {
         match self {
             SchemaEnum::Ref(schema) => schema.get_type_name(),
             SchemaEnum::Object(_schema) => "object".to_string(),
@@ -19,23 +35,10 @@ impl SchemaEnum {
         }
     }
 
-    pub fn is_enum(&self, open_api: &OpenAPIObject) -> bool {
+    fn can_be_null(&self, open_api: &OpenAPIObject) -> bool {
         match self {
-            SchemaEnum::String(v) => v.r#enum.is_some(),
-            SchemaEnum::Integer(v) => v.r#enum.is_some(),
-            SchemaEnum::Number(v) => v.r#enum.is_some(),
-            SchemaEnum::Ref(v) => {
-                get_schema_by_name(open_api, &v.get_type_name()).map_or(false, |x| x.is_enum(open_api))
-            }
-            _ => false,
-        }
-    }
-
-    pub fn can_be_null(&self, open_api: &OpenAPIObject) -> bool {
-        match self {
-            SchemaEnum::Ref(v) => {
-                get_schema_by_name(open_api, &v.get_type_name()).map_or(false, |x| x.can_be_null(open_api))
-            }
+            SchemaEnum::Ref(v) => get_schema_by_name(open_api, &v.get_type_name())
+                .map_or(false, |x| x.can_be_null(open_api)),
             SchemaEnum::Object(v) => v.nullable.unwrap_or_default(),
             SchemaEnum::String(v) => v.nullable.unwrap_or_default(),
             SchemaEnum::Integer(v) => v.nullable.unwrap_or_default(),
@@ -45,16 +48,25 @@ impl SchemaEnum {
         }
     }
 
-    /// 根据类型判断枚举是不是原始枚举（原始枚举不生成新的枚举文件）
-    pub fn is_raw_enum(&self, r#type: &str) -> bool {
+    fn is_enum(&self, open_api: &OpenAPIObject) -> bool {
+        match self {
+            SchemaEnum::String(v) => v.r#enum.is_some(),
+            SchemaEnum::Integer(v) => v.r#enum.is_some(),
+            SchemaEnum::Number(v) => v.r#enum.is_some(),
+            SchemaEnum::Ref(v) => get_schema_by_name(open_api, &v.get_type_name())
+                .map_or(false, |x| x.is_enum(open_api)),
+            _ => false,
+        }
+    }
+
+    fn is_raw_type_enum(&self, r#type: &str) -> bool {
         match r#type {
             "string" | "number" => true,
             _ => false,
         }
     }
 
-    /// 如果是原始枚举，则获取类型的字符串
-    pub fn get_raw_enum_type(&self) -> Result<String, String> {
+    fn get_raw_enum_type(&self) -> Result<String, String> {
         fn process_enum<T: ToString>(values: &[T], add_quotes: bool) -> String {
             values
                 .iter()
@@ -87,11 +99,5 @@ impl SchemaEnum {
                 .ok_or_else(|| "not found enum".to_string()),
             _ => Err("not found enum".to_string()),
         }
-    }
-}
-
-impl ReferenceObject {
-    pub fn get_type_name(&self) -> String {
-        self.r#ref.split("/").last().unwrap().to_string()
     }
 }

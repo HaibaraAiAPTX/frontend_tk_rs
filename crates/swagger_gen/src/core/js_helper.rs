@@ -1,10 +1,12 @@
 use inflector::cases::pascalcase::to_pascal_case;
 use regex::Regex;
 
-use crate::model::{
+use swagger_tk::model::{
     OpenAPIObject, OperationObject, OperationObjectParameters, OperationObjectRequestBody,
     ParameterObjectIn, PathItemObject, ResponsesValue,
 };
+
+use crate::utils::{ReferenceObjectExtension, SchemaEnumExtension};
 
 #[derive(Debug)]
 pub struct ApiContext<'a> {

@@ -4,10 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-Inflector = "0.11.4"
-dprint-core = "0.67.2"
-dprint-plugin-typescript = "0.93.2"
-regex = "1.11.1"
 serde = { version = "1.0.210", features = ["derive"]}
 serde_json = "1.0.131"
 swagger_macro = { version = "0.1.0", path = "../swagger_macro" }

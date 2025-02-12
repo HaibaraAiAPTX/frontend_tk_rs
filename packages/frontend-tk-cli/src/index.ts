@@ -9,12 +9,14 @@ interface RunOps {
   modelOutput?: string
   serviceOutput?: string[]
   serviceMode?: string
+  baseService?: boolean
 }
 
 export async function run(args: string[]) {
   const ops = parser(args, {
     string: ['input', 'modelOutput', 'serviceMode'],
-    array: ['serviceOutput']
+    array: ['serviceOutput'],
+    boolean: ['baseService']
   }) as RunOps
 
   let input: string | undefined = ops.input
@@ -46,7 +48,8 @@ export async function run(args: string[]) {
     input: input!,
     modelOutput,
     serviceOutput,
-    serviceMode: ops.serviceMode
+    serviceMode: ops.serviceMode,
+    genBaseService: ops.baseService
   })
 
   console.log('生成已完成');

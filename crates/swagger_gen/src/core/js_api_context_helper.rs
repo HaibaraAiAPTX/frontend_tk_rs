@@ -1,4 +1,4 @@
-use super::{js_helper::ApiContext, AttributeData};
+use super::js_helper::{ApiContext, AttributeData};
 
 pub struct JsApiContextHelper<'a> {
     api_context: &'a ApiContext<'a>,

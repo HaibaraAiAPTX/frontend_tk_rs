@@ -1,10 +1,10 @@
 use std::{collections::HashMap, fmt::Display};
-
-use crate::{
-    gen::format_ts_code,
+use swagger_tk::{
     getter::{get_all_schema, get_schema_by_name},
     model::{OpenAPIObject, SchemaEnum, SchemaInteger, SchemaNumber, SchemaString},
 };
+
+use crate::utils::{format_ts_code, SchemaEnumExtension};
 
 pub struct TypescriptDeclarationGen<'a> {
     pub open_api: &'a OpenAPIObject,
@@ -77,7 +77,7 @@ impl<'a> TypescriptDeclarationGen<'a> {
                         let mut r#type = {
                             if v.is_enum(&self.open_api) {
                                 let file_name = v.get_ts_type();
-                                if v.is_raw_enum(&file_name) {
+                                if v.is_raw_type_enum(&file_name) {
                                     v.get_raw_enum_type().unwrap()
                                 } else {
                                     format!("import(\"./{}\").{}", file_name, file_name)

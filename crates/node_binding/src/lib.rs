@@ -1,30 +1,34 @@
 #![deny(clippy::all)]
-
 use std::{fs, path::Path};
 
-use swagger_tk::{
-  gen::{AxiosTsGen, GenApi, TypescriptDeclarationGen, UniAppGen},
-  model::OpenAPIObject,
+use swagger_gen::{
+  build_in_api_trait::GenApi,
+  built_in_api::{AxiosTsGen, UniAppGen},
+  built_in_declaration::TypescriptDeclarationGen,
 };
+use swagger_tk::model::OpenAPIObject;
 
 #[macro_use]
 extern crate napi_derive;
 
-// 生成工具箱配置项
+/// 生成工具箱配置项
 #[napi(object)]
 #[derive(Debug)]
 pub struct FrontendTkGenOps {
-  // swagger json 入口路径
+  /// swagger json 入口路径
   pub input: String,
 
-  // 服务输出路径
+  /// 服务输出路径
   pub service_output: Option<Vec<String>>,
 
-  // 模型输出路径
+  /// 模型输出路径
   pub model_output: Option<String>,
 
-  // service 模式
+  /// service 模式
   pub service_mode: Option<String>,
+
+  /// 是否生成基础文件
+  pub gen_base_service: Option<bool>,
 }
 
 #[napi]
@@ -39,7 +43,11 @@ pub fn frontend_tk_gen(options: FrontendTkGenOps) {
       .collect::<Vec<&Path>>();
     gen_api(
       &open_api,
-      options.service_mode.as_ref().unwrap_or(&"axios".to_string()),
+      options
+        .service_mode
+        .as_ref()
+        .unwrap_or(&"axios".to_string()),
+      options.gen_base_service,
       service_output,
     );
   }
@@ -57,21 +65,24 @@ fn get_gen_by_string(mode: &str) -> Result<Box<dyn GenApi + '_>, String> {
   }
 }
 
-fn gen_api(open_api: &OpenAPIObject, mode: &str, outputs: Vec<&Path>) {
+fn gen_api(open_api: &OpenAPIObject, mode: &str, gen_base: Option<bool>, outputs: Vec<&Path>) {
   let mut service_gen = get_gen_by_string(mode).unwrap();
   service_gen.set_open_api(open_api);
-  let apis = service_gen.gen_apis(&open_api);
+  service_gen.gen_apis(&open_api).unwrap();
+  if let Some(true) = gen_base {
+    service_gen.gen_base_service();
+  }
+
+  let apis = service_gen.get_outputs();
 
   outputs.iter().for_each(|&o| {
     ensure_path(o);
   });
 
-  if let Ok(apis) = apis {
-    for (name, content) in apis {
-      for output in &outputs {
-        let file_path = output.join(format!("{}Service.ts", name));
-        std::fs::write(file_path, content.clone()).unwrap();
-      }
+  for (name, content) in apis {
+    for output in &outputs {
+      let file_path = output.join(name);
+      std::fs::write(file_path, content.clone()).unwrap();
     }
   }
 }
