@@ -44,7 +44,7 @@ pub fn frontend_tk_gen(options: FrontendTkGenOps) {
       let service = load_gen_service_plugin(&path);
       gen_api(service.service, &open_api, service_output)
     } else {
-      let mode = options.service_mode.as_ref().map(|v| v.as_str()).unwrap_or("axios");
+      let mode = options.service_mode.as_ref().map(|v| v.as_str()).unwrap_or("axios-ts");
       let service = get_gen_service_by_string(mode).unwrap();
       gen_api(service, &open_api, service_output)
     }

@@ -1,6 +1,6 @@
 use libloading::{Library, Symbol};
 use swagger_gen::{
-  built_in_api::{AxiosTsGen, UniAppGen},
+  built_in_api::{AxiosJsGen, AxiosTsGen, UniAppGen},
   built_in_api_trait::GenApi,
 };
 
@@ -23,7 +23,8 @@ pub fn load_gen_service_plugin<'a>(plugin_path: &str) -> PluginService<'a> {
 
 pub fn get_gen_service_by_string(mode: &str) -> Result<Box<dyn GenApi + '_>, String> {
   match mode {
-    "axios" => Ok(Box::new(AxiosTsGen::default())),
+    "axios-ts" => Ok(Box::new(AxiosTsGen::default())),
+    "axios-js" => Ok(Box::new(AxiosJsGen::default())),
     "uniapp" => Ok(Box::new(UniAppGen::default())),
     _ => Err(format!("未知的生成模式: {}", mode)),
   }
