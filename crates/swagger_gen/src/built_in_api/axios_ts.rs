@@ -18,7 +18,7 @@ impl<'a> AxiosTsGen<'a> {
         let helper = JsApiContextHelper::new(api_context);
 
         // 初始化方法参数request_data
-        let parameters = helper.get_parameters_string().unwrap_or_default();
+        let parameters = helper.get_parameters_string(true).unwrap_or_default();
 
         // 获取基础URL，不包含查询参数
         let base_url = helper.get_url();

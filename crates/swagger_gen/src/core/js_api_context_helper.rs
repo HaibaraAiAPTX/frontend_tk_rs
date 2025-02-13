@@ -12,19 +12,23 @@ impl<'a> JsApiContextHelper<'a> {
     }
 
     /// 初始化方法参数
-    pub fn get_parameters_string(&self) -> Option<String> {
+    pub fn get_parameters_string(&self, add_type: bool) -> Option<String> {
         self.api_context.func_parameters.as_ref().and_then(|v| {
             let mut data = v.clone();
             data.sort_by(|a, b| b.required.cmp(&a.required));
             Some(
                 data.iter()
                     .map(|p| {
-                        format!(
-                            "{}{}{}",
-                            p.name,
-                            if p.required { ":" } else { "?:" },
-                            p.r#type
-                        )
+                        if add_type {
+                            format!(
+                                "{}{}{}",
+                                p.name,
+                                if p.required { ":" } else { "?:" },
+                                p.r#type
+                            )
+                        } else {
+                            p.name.clone()
+                        }
                     })
                     .collect::<Vec<String>>()
                     .join(", "),

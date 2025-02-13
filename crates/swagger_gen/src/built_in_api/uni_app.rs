@@ -20,7 +20,7 @@ impl<'a> UniAppGen<'a> {
         let helper = JsApiContextHelper::new(api_context);
 
         // 初始化方法参数request_data
-        let parameters = helper.get_parameters_string().unwrap_or_default();
+        let parameters = helper.get_parameters_string(true).unwrap_or_default();
 
         // 请求的完整url及是否需要引入qs库
         let (url, import_qs) = helper.get_url_has_query();

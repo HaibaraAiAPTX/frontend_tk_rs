@@ -1,7 +1,7 @@
 #![deny(clippy::all)]
 use get_service::{get_gen_service_by_string, load_gen_service_plugin};
 use std::{fs, path::Path};
-use swagger_gen::{built_in_api_trait::GenApi, built_in_declaration::TypescriptDeclarationGen};
+use swagger_gen::{built_in_api_trait::GenApi, built_in_declaration::TypescriptDeclarationGen, utils::format_ts_code};
 use swagger_tk::model::OpenAPIObject;
 
 mod get_service;
@@ -70,6 +70,7 @@ fn gen_api<'a>(
   });
 
   for (name, content) in apis {
+    let content = format_ts_code(&content).unwrap();
     for output in &outputs {
       let file_path = output.join(name);
       std::fs::write(file_path, content.clone()).unwrap();
