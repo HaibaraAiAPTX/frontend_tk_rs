@@ -13,7 +13,7 @@ export interface FrontendTkGenOps {
   modelOutput?: string
   /** service 模式 */
   serviceMode?: string
-  /** 是否生成基础文件 */
-  genBaseService?: boolean
+  /** 自定义服务生成器路径 */
+  genServicePlugin?: string
 }
 export declare function frontendTkGen(options: FrontendTkGenOps): void

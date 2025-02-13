@@ -1,7 +1,7 @@
 mod format_ts_code;
-mod schema_utils;
-mod reference_object_utils;
+mod schema_extension;
+mod reference_object_extension;
 
 pub use format_ts_code::*;
-pub use schema_utils::*;
-pub use reference_object_utils::*;
+pub use schema_extension::*;
+pub use reference_object_extension::*;

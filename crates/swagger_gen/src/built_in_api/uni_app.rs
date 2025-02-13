@@ -1,7 +1,7 @@
 use inflector::cases::pascalcase::to_pascal_case;
 use std::collections::HashMap;
 use swagger_tk::model::OpenAPIObject;
-use crate::{build_in_api_trait::GenApi, core::{ApiContext, JsApiContextHelper}, utils::format_ts_code};
+use crate::{built_in_api_trait::GenApi, core::{ApiContext, JsApiContextHelper}, utils::format_ts_code};
 
 #[derive(Default)]
 pub struct UniAppGen<'a> {
@@ -12,7 +12,7 @@ pub struct UniAppGen<'a> {
 
     open_api: Option<&'a OpenAPIObject>,
 
-    outputs: HashMap<String, String>,
+    pub outputs: HashMap<String, String>,
 }
 
 impl<'a> UniAppGen<'a> {
@@ -97,10 +97,6 @@ export class {}Service extends BaseService {{
 
     fn set_open_api(&mut self, open_api: &'a OpenAPIObject) {
         self.open_api = Some(open_api);
-    }
-
-    fn gen_base_service(&mut self) {
-        // todo!()
     }
 
     fn get_outputs(&self) -> &HashMap<String, String> {

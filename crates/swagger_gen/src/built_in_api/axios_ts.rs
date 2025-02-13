@@ -4,13 +4,13 @@ use swagger_tk::{
 };
 use inflector::cases::pascalcase::to_pascal_case;
 use std::collections::HashMap;
-use crate::{build_in_api_trait::GenApi, core::{ApiContext, JsApiContextHelper}, utils::format_ts_code};
+use crate::{built_in_api_trait::GenApi, core::{ApiContext, JsApiContextHelper}, utils::format_ts_code};
 
 #[derive(Default)]
 pub struct AxiosTsGen<'a> {
     controller_apis_map: HashMap<String, Vec<String>>,
     open_api: Option<&'a OpenAPIObject>,
-    outputs: HashMap<String, String>,
+    pub outputs: HashMap<String, String>,
 }
 
 impl<'a> AxiosTsGen<'a> {
@@ -105,11 +105,6 @@ export class {controller}Service extends BaseService {{
 
     fn set_open_api(&mut self, open_api: &'a OpenAPIObject) {
         self.open_api = Some(open_api);
-    }
-
-    fn gen_base_service(&mut self) {
-        self.outputs
-            .insert("Test.ts".to_string(), "test".to_string());
     }
 
     fn get_outputs(&self) -> &HashMap<String, String> {

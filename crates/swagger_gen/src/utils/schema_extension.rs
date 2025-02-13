@@ -3,7 +3,7 @@ use swagger_tk::{
     model::{OpenAPIObject, SchemaEnum},
 };
 
-use super::reference_object_utils::ReferenceObjectExtension;
+use super::reference_object_extension::ReferenceObjectExtension;
 
 pub trait SchemaEnumExtension {
     fn get_ts_type(&self) -> String;

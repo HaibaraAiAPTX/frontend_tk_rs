@@ -46,9 +46,6 @@ pub trait GenApi<'a> {
     /// 设置 open_api 对象
     fn set_open_api(&mut self, open_api: &'a OpenAPIObject);
 
-    /// 生成基础文件内容，各个生成器要生成的 BaseService 和 ErrorHandler 等
-    fn gen_base_service(&mut self);
-
     /// 获取输出
     fn get_outputs(&self) -> &HashMap<String, String>;
 }

@@ -1,6 +1,6 @@
 use std::env::current_dir;
 
-use swagger_gen::{build_in_api_trait::GenApi, built_in_api::{AxiosTsGen, UniAppGen}};
+use swagger_gen::{built_in_api_trait::GenApi, built_in_api::{AxiosTsGen, UniAppGen}};
 use utils::get_open_api_object;
 
 mod utils;

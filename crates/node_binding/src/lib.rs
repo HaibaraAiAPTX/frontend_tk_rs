@@ -1,12 +1,10 @@
 #![deny(clippy::all)]
+use get_service::{get_gen_service_by_string, load_gen_service_plugin};
 use std::{fs, path::Path};
-
-use swagger_gen::{
-  build_in_api_trait::GenApi,
-  built_in_api::{AxiosTsGen, UniAppGen},
-  built_in_declaration::TypescriptDeclarationGen,
-};
+use swagger_gen::{built_in_api_trait::GenApi, built_in_declaration::TypescriptDeclarationGen};
 use swagger_tk::model::OpenAPIObject;
+
+mod get_service;
 
 #[macro_use]
 extern crate napi_derive;
@@ -27,8 +25,8 @@ pub struct FrontendTkGenOps {
   /// service 模式
   pub service_mode: Option<String>,
 
-  /// 是否生成基础文件
-  pub gen_base_service: Option<bool>,
+  /// 自定义服务生成器路径
+  pub gen_service_plugin: Option<String>,
 }
 
 #[napi]
@@ -41,15 +39,15 @@ pub fn frontend_tk_gen(options: FrontendTkGenOps) {
       .iter()
       .map(|path_str| Path::new(path_str))
       .collect::<Vec<&Path>>();
-    gen_api(
-      &open_api,
-      options
-        .service_mode
-        .as_ref()
-        .unwrap_or(&"axios".to_string()),
-      options.gen_base_service,
-      service_output,
-    );
+
+    if let Some(path) = options.gen_service_plugin {
+      let service = load_gen_service_plugin(&path);
+      gen_api(service.service, &open_api, service_output)
+    } else {
+      let mode = options.service_mode.as_ref().map(|v| v.as_str()).unwrap_or("axios");
+      let service = get_gen_service_by_string(mode).unwrap();
+      gen_api(service, &open_api, service_output)
+    }
   }
 
   if let Some(output) = &options.model_output {
@@ -57,21 +55,13 @@ pub fn frontend_tk_gen(options: FrontendTkGenOps) {
   }
 }
 
-fn get_gen_by_string(mode: &str) -> Result<Box<dyn GenApi + '_>, String> {
-  match mode {
-    "axios" => Ok(Box::new(AxiosTsGen::default())),
-    "uniapp" => Ok(Box::new(UniAppGen::default())),
-    _ => Err(format!("未知的生成模式: {}", mode)),
-  }
-}
-
-fn gen_api(open_api: &OpenAPIObject, mode: &str, gen_base: Option<bool>, outputs: Vec<&Path>) {
-  let mut service_gen = get_gen_by_string(mode).unwrap();
+fn gen_api<'a>(
+  mut service_gen: Box<dyn GenApi<'a> + '_>,
+  open_api: &'a OpenAPIObject,
+  outputs: Vec<&Path>,
+) {
   service_gen.set_open_api(open_api);
   service_gen.gen_apis(&open_api).unwrap();
-  if let Some(true) = gen_base {
-    service_gen.gen_base_service();
-  }
 
   let apis = service_gen.get_outputs();
 
