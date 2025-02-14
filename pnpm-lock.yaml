@@ -35,16 +35,13 @@ importers:
       chalk:
         specifier: ^5.4.1
         version: 5.4.1
-      yargs-parser:
-        specifier: ^21.1.1
-        version: 21.1.1
+      commander:
+        specifier: ^13.1.0
+        version: 13.1.0
     devDependencies:
       '@types/node':
         specifier: ^22.13.1
         version: 22.13.1
-      '@types/yargs-parser':
-        specifier: ^21.0.3
-        version: 21.0.3
       typescript:
         specifier: ^5.7.3
         version: 5.7.3
@@ -103,9 +100,6 @@ packages:
 
   '@types/node@22.13.1':
     resolution: {integrity: sha512-jK8uzQlrvXqEU91UxiK5J7pKHyzgnI1Qnl0QDHIgVGuolJhRb9EEl28Cj9b3rGR8B2lhFCtvIm5os8lFnO/1Ew==}
-
-  '@types/yargs-parser@21.0.3':
-    resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
 
   '@vercel/nft@0.27.10':
     resolution: {integrity: sha512-zbaF9Wp/NsZtKLE4uVmL3FyfFwlpDyuymQM1kPbeT0mVOHKDQQNjnnfslB3REg3oZprmNFJuh3pkHBk2qAaizg==}
@@ -241,6 +235,10 @@ packages:
 
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
+
+  commander@13.1.0:
+    resolution: {integrity: sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw==}
+    engines: {node: '>=18'}
 
   common-path-prefix@3.0.0:
     resolution: {integrity: sha512-QE33hToZseCH3jS0qN96O/bSh3kaw/h+Tq7ngyY9eWDUnTlTNUyqfqvCXioLe5Na5jFsL78ra/wuBU4iuEgd4w==}
@@ -815,8 +813,6 @@ snapshots:
     dependencies:
       undici-types: 6.20.0
 
-  '@types/yargs-parser@21.0.3': {}
-
   '@vercel/nft@0.27.10':
     dependencies:
       '@mapbox/node-pre-gyp': 2.0.0
@@ -976,6 +972,8 @@ snapshots:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
+
+  commander@13.1.0: {}
 
   common-path-prefix@3.0.0: {}
 

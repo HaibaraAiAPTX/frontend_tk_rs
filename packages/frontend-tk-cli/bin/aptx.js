@@ -14,5 +14,4 @@ if (enableCompileCache) {
 
 process.title = "aptx-frontend-tk-node"
 
-const { run } = require("../dist/index")
-run(process.argv.slice(2))
+require("../dist/src/index")

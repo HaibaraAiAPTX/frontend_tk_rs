@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use swagger_tk::model::OpenAPIObject;
 use crate::core::ApiContext;
 
-pub trait GenApi<'a> {
+pub trait GenApi {
     /// 由外部调用，生成方法，调用后自动使用 gen_name_content_map 返回内容
-    fn gen_apis(&mut self, data: &OpenAPIObject) -> Result<(), String> {
+    fn gen_apis(&mut self) -> Result<(), String> {
         self.clear();
 
+        let data = self.get_open_api();
+        
         let paths = data.paths.as_ref().ok_or("paths not found".to_string())?;
         let mut paths_keys = paths.keys().collect::<Vec<_>>();
         paths_keys.sort();
@@ -22,7 +24,7 @@ pub trait GenApi<'a> {
                 ("delete", &path_item.delete),
             ] {
                 if let Some(operation) = operation {
-                    let api_context = ApiContext::new(data, url, method, path_item, operation);
+                    let api_context = ApiContext::new(url, method, path_item, operation);
                     let rt = self.gen_api(&api_context);
                     if rt.is_err() {
                         return Err(rt.unwrap_err());
@@ -38,13 +40,13 @@ pub trait GenApi<'a> {
     fn gen_name_content_map(&mut self);
 
     /// 各个生成器需要实现的生成单个 api 的实现
-    fn gen_api(&mut self, api_context: &ApiContext) -> Result<(), String>;
+    fn gen_api(&self, api_context: &ApiContext) -> Result<(), String>;
 
     /// 清除生成器的缓存
     fn clear(&mut self);
 
-    /// 设置 open_api 对象
-    fn set_open_api(&mut self, open_api: &'a OpenAPIObject);
+    /// 获取 open_api
+    fn get_open_api(&self) -> &OpenAPIObject;
 
     /// 获取输出
     fn get_outputs(&self) -> &HashMap<String, String>;

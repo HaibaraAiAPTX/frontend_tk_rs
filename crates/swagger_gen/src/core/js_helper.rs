@@ -2,7 +2,7 @@ use inflector::cases::pascalcase::to_pascal_case;
 use regex::Regex;
 
 use swagger_tk::model::{
-    OpenAPIObject, OperationObject, OperationObjectParameters, OperationObjectRequestBody,
+    OperationObject, OperationObjectParameters, OperationObjectRequestBody,
     ParameterObjectIn, PathItemObject, ResponsesValue,
 };
 
@@ -93,7 +93,6 @@ pub struct AttributeData {
 
 impl<'a> ApiContext<'a> {
     pub fn new(
-        open_api_object: &OpenAPIObject,
         url: &'a str,
         method: &'a str,
         path_item: &'a PathItemObject,
@@ -115,11 +114,11 @@ impl<'a> ApiContext<'a> {
             request_body_list: None,
             description: operation.summary.as_ref(),
         };
-        result.init_data(open_api_object);
+        result.init_data();
         result
     }
 
-    fn init_data(&mut self, _open_api_object: &OpenAPIObject) {
+    fn init_data(&mut self) {
         self.init_ajax_data();
     }
 

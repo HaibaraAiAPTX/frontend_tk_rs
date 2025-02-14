@@ -1,20 +1,28 @@
-use swagger_tk::{
-    getter::get_controller_description,
-    model::OpenAPIObject,
+use crate::{
+    built_in_api_trait::GenApi,
+    core::{ApiContext, JsApiContextHelper},
+    utils::format_ts_code,
 };
 use inflector::cases::pascalcase::to_pascal_case;
-use std::collections::HashMap;
-use crate::{built_in_api_trait::GenApi, core::{ApiContext, JsApiContextHelper}, utils::format_ts_code};
+use std::{cell::RefCell, collections::HashMap};
+use swagger_tk::{getter::get_controller_description, model::OpenAPIObject};
 
-#[derive(Default)]
 pub struct AxiosTsGen<'a> {
-    controller_apis_map: HashMap<String, Vec<String>>,
-    open_api: Option<&'a OpenAPIObject>,
-    pub outputs: HashMap<String, String>,
+    controller_apis_map: RefCell<HashMap<String, Vec<String>>>,
+    open_api: &'a OpenAPIObject,
+    outputs: HashMap<String, String>,
 }
 
 impl<'a> AxiosTsGen<'a> {
-    fn gen_code(&mut self, api_context: &ApiContext) -> Result<String, String> {
+    pub fn new(open_api: &'a OpenAPIObject) -> Self {
+        Self {
+            open_api,
+            controller_apis_map: Default::default(),
+            outputs: Default::default(),
+        }
+    }
+
+    fn gen_code(&self, api_context: &ApiContext) -> Result<String, String> {
         let helper = JsApiContextHelper::new(api_context);
 
         // 初始化方法参数request_data
@@ -56,13 +64,14 @@ impl<'a> AxiosTsGen<'a> {
     }
 }
 
-impl<'a> GenApi<'a> for AxiosTsGen<'a> {
-    fn gen_api(&mut self, api_context: &ApiContext) -> Result<(), String> {
+impl<'a> GenApi for AxiosTsGen<'a> {
+    fn gen_api(&self, api_context: &ApiContext) -> Result<(), String> {
         if let Some(tags) = &api_context.operation.tags {
             let api_fun = self.gen_code(api_context)?;
 
             for tag in tags.iter() {
                 self.controller_apis_map
+                    .borrow_mut()
                     .entry(tag.clone())
                     .or_insert_with(Vec::new)
                     .push(api_fun.clone());
@@ -72,14 +81,10 @@ impl<'a> GenApi<'a> for AxiosTsGen<'a> {
     }
 
     fn gen_name_content_map(&mut self) {
-        for (controller, apis) in self.controller_apis_map.iter() {
-            let description = if let Some(open_api) = self.open_api {
-                get_controller_description(open_api, controller)
-            } else {
-                None
-            }
-            .map(|s| format!("\n/** {} */", s))
-            .unwrap_or_else(|| Default::default());
+        for (controller, apis) in self.controller_apis_map.borrow().iter() {
+            let description = get_controller_description(&self.open_api, controller)
+                .map(|s| format!("\n/** {} */", s))
+                .unwrap_or_else(|| Default::default());
 
             let content = format!(
                 r#"import {{ singleton }} from "tsyringe";
@@ -94,20 +99,21 @@ export class {controller}Service extends BaseService {{
                 apis.join("\n\n")
             );
             let content = format_ts_code(&content).unwrap();
-            self.outputs.insert(format!("{}Service.ts", to_pascal_case(controller)), content);
+            self.outputs
+                .insert(format!("{}Service.ts", to_pascal_case(controller)), content);
         }
     }
 
     fn clear(&mut self) {
-        self.controller_apis_map.clear();
+        self.controller_apis_map.borrow_mut().clear();
         self.outputs.clear();
-    }
-
-    fn set_open_api(&mut self, open_api: &'a OpenAPIObject) {
-        self.open_api = Some(open_api);
     }
 
     fn get_outputs(&self) -> &HashMap<String, String> {
         &self.outputs
+    }
+    
+    fn get_open_api(&self) -> &OpenAPIObject {
+        &self.open_api
     }
 }

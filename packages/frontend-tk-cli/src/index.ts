@@ -1,60 +1,25 @@
-import { frontendTkGen } from "@aptx/frontend-tk-binding"
-import fs from 'fs'
-import parser from 'yargs-parser'
-import { ensureAbsolutePath, errorLog } from "./utils"
-import { getInput, isUrl } from "./get-input"
+import { Command } from "commander";
+import { version } from '../package.json'
 
-interface RunOps {
-  input?: string
-  modelOutput?: string
-  serviceOutput?: string[]
-  serviceMode?: string
-  genServicePlugin?: string
-}
+const program = new Command();
 
-export async function run(args: string[]) {
-  const ops = parser(args, {
-    string: ['input', 'modelOutput', 'serviceMode', 'genServicePlugin'],
-    array: ['serviceOutput'],
-  }) as RunOps
+program
+  .name('aptx-ft')
+  .description("aptx-ft 是一个使用 rust 编写的根据 swagger 生成前端需要的模型、请求服务及部分界面的工具库，可根据项目需要编写 rust 插件进行自定义")
+  .version(version);
 
-  let input: string | undefined = ops.input
-  let modelOutput: string | undefined = ops.modelOutput
-  let serviceOutput: string[] = ops.serviceOutput || []
+program
+  .command('gen')
+  .description("gen 命令用于生成请求服务及模型")
+  .requiredOption('-i, --input <string>', 'open_api 文件路径或 url')
+  .option('-p, --plugin <string>', '自定义 rust 插件的位置')
+  .option('--mo, --model-output [string...]', '模型输出目录')
+  .option('--so, --service-output [string...]', '服务输入目录')
+  .option('--sm, --service-mode [string...]', '生成服务的模式')
+  .action(options => {
+    import('./command/gen').then(v => {
+      v.gen(options)
+    })
+  });
 
-  if (!input) {
-    errorLog("未找到输入文件");
-    return
-  }
-
-  if (!modelOutput && !serviceOutput.length) {
-    errorLog("未找到需要生成的服务或模型");
-    return
-  }
-
-  input = await getInput(input)
-  if (modelOutput) {
-    modelOutput = ensureAbsolutePath(modelOutput)
-  }
-  serviceOutput = serviceOutput.map(ensureAbsolutePath)
-
-  if (!fs.existsSync(input)) {
-    errorLog(`未找到输入文件: ${input}`)
-    return
-  }
-
-  frontendTkGen({
-    input: input!,
-    modelOutput,
-    serviceOutput,
-    serviceMode: ops.serviceMode,
-    genServicePlugin: ops.genServicePlugin
-  })
-
-  console.log('生成已完成');
-
-  if (isUrl(ops.input!)) {
-    fs.unlinkSync(input)
-    console.log('已删除缓存文件');
-  }
-}
+program.parse();

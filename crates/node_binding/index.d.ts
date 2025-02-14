@@ -7,13 +7,13 @@
 export interface FrontendTkGenOps {
   /** swagger json 入口路径 */
   input: string
+  /** 插件路径 */
+  plugin?: string
   /** 服务输出路径 */
   serviceOutput?: Array<string>
   /** 模型输出路径 */
-  modelOutput?: string
+  modelOutput?: Array<string>
   /** service 模式 */
-  serviceMode?: string
-  /** 自定义服务生成器路径 */
-  genServicePlugin?: string
+  serviceMode?: Array<string>
 }
 export declare function frontendTkGen(options: FrontendTkGenOps): void

@@ -24,9 +24,8 @@ fn gen_api(open_api: &OpenAPIObject) {
     let outputs = vec![
         current_dir().unwrap().join("./crates/swagger_gen/examples/services").clean()
     ];
-    let mut axios_gen = AxiosTsGen::default();
-    axios_gen.set_open_api(&open_api);
-    axios_gen.gen_apis(&open_api).unwrap();
+    let mut axios_gen = AxiosTsGen::new(&open_api);
+    axios_gen.gen_apis().unwrap();
     for (name, content) in axios_gen.get_outputs() {
         for output in &outputs {
             if !output.exists() {

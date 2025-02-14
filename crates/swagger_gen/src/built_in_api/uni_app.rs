@@ -1,22 +1,34 @@
+use crate::{
+    built_in_api_trait::GenApi,
+    core::{ApiContext, JsApiContextHelper},
+    utils::format_ts_code,
+};
 use inflector::cases::pascalcase::to_pascal_case;
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 use swagger_tk::model::OpenAPIObject;
-use crate::{built_in_api_trait::GenApi, core::{ApiContext, JsApiContextHelper}, utils::format_ts_code};
 
-#[derive(Default)]
 pub struct UniAppGen<'a> {
-    controller_apis_map: HashMap<String, Vec<String>>,
+    controller_apis_map: RefCell<HashMap<String, Vec<String>>>,
 
     /// 是否需要引入qs处理库
-    need_import_qs: bool,
+    need_import_qs: RefCell<bool>,
 
-    open_api: Option<&'a OpenAPIObject>,
+    open_api: &'a OpenAPIObject,
 
-    pub outputs: HashMap<String, String>,
+    outputs: HashMap<String, String>,
 }
 
 impl<'a> UniAppGen<'a> {
-    fn gen_code(&mut self, api_context: &ApiContext) -> Result<String, String> {
+    pub fn new(open_api: &'a OpenAPIObject) -> Self {
+        Self {
+            open_api,
+            controller_apis_map: Default::default(),
+            need_import_qs: RefCell::new(false),
+            outputs: Default::default(),
+        }
+    }
+
+    fn gen_code(&self, api_context: &ApiContext) -> Result<String, String> {
         let helper = JsApiContextHelper::new(api_context);
 
         // 初始化方法参数request_data
@@ -25,7 +37,7 @@ impl<'a> UniAppGen<'a> {
         // 请求的完整url及是否需要引入qs库
         let (url, import_qs) = helper.get_url_has_query();
         if import_qs {
-            self.need_import_qs = import_qs;
+            *self.need_import_qs.borrow_mut() = import_qs;
         }
 
         // 请求体
@@ -49,13 +61,14 @@ impl<'a> UniAppGen<'a> {
     }
 }
 
-impl<'a> GenApi<'a> for UniAppGen<'a> {
-    fn gen_api(&mut self, api_context: &ApiContext) -> Result<(), String> {
+impl<'a> GenApi for UniAppGen<'a> {
+    fn gen_api(&self, api_context: &ApiContext) -> Result<(), String> {
         if let Some(tags) = &api_context.operation.tags {
             let api_fun = self.gen_code(api_context)?;
 
             for tag in tags.iter() {
                 self.controller_apis_map
+                    .borrow_mut()
                     .entry(tag.clone())
                     .or_insert_with(Vec::new)
                     .push(api_fun.clone());
@@ -65,7 +78,7 @@ impl<'a> GenApi<'a> for UniAppGen<'a> {
     }
 
     fn gen_name_content_map(&mut self) {
-        for (controller, apis) in self.controller_apis_map.iter() {
+        for (controller, apis) in self.controller_apis_map.borrow().iter() {
             let content = format!(
                 r#"import {{ singleton }} from "tsyringe";
 import {{ BaseService }} from "./BaseService";
@@ -76,7 +89,7 @@ export class {}Service extends BaseService {{
 {}
 }}
 "#,
-                if self.need_import_qs {
+                if *self.need_import_qs.borrow() {
                     "import qs from \"qs\";"
                 } else {
                     ""
@@ -91,15 +104,15 @@ export class {}Service extends BaseService {{
     }
 
     fn clear(&mut self) {
-        self.need_import_qs = false;
-        self.controller_apis_map.clear();
-    }
-
-    fn set_open_api(&mut self, open_api: &'a OpenAPIObject) {
-        self.open_api = Some(open_api);
+        *self.need_import_qs.borrow_mut() = false;
+        self.controller_apis_map.borrow_mut().clear();
     }
 
     fn get_outputs(&self) -> &HashMap<String, String> {
         &self.outputs
+    }
+    
+    fn get_open_api(&self) -> &OpenAPIObject {
+        &self.open_api
     }
 }

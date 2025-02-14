@@ -1,5 +1,5 @@
 import path from "path";
-import { ensureAbsolutePath } from "./utils"
+import { ensureAbsolutePath } from "../../utils"
 import os from 'os'
 import fs from 'fs'
 import https from 'https'
