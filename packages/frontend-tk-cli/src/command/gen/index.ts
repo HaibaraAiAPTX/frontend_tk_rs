@@ -1,4 +1,4 @@
-import { frontendTkGen } from "@aptx/frontend-tk-binding"
+import { gen as napiGen } from "@aptx/frontend-tk-binding"
 import fs from 'fs'
 import { ensureAbsolutePath, errorLog } from "../../utils"
 import { getInput, isUrl } from "./get-input"
@@ -35,7 +35,7 @@ export async function gen(ops: GenOps) {
     return
   }
 
-  frontendTkGen({
+  napiGen({
     input: input!,
     plugin: ops.plugin,
     modelOutput,

@@ -310,6 +310,9 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { frontendTkGen } = nativeBinding
+const { gen, genBase, genUtils, runCli } = nativeBinding
 
-module.exports.frontendTkGen = frontendTkGen
+module.exports.gen = gen
+module.exports.genBase = genBase
+module.exports.genUtils = genUtils
+module.exports.runCli = runCli

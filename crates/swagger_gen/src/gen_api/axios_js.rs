@@ -1,9 +1,7 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    built_in_api_trait::GenApi,
-    core::{ApiContext, JsApiContextHelper},
-    utils::format_ts_code,
+    core::{ApiContext, JsApiContextHelper}, gen_api_trait::GenApi, utils::format_ts_code
 };
 use swagger_tk::model::OpenAPIObject;
 

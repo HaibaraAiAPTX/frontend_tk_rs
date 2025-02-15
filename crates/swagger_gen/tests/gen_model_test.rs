@@ -1,4 +1,4 @@
-use swagger_gen::built_in_declaration::TypescriptDeclarationGen;
+use swagger_gen::gen_declaration::TypescriptDeclarationGen;
 use utils::get_open_api_object;
 
 mod utils;

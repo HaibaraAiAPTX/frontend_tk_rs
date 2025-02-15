@@ -1,31 +1,27 @@
+use aptx_frontend_tk_binding_plugin::command::CommandRegistry;
 use libloading::{Error, Library, Symbol};
-use swagger_gen::{
-  built_in_api::{AxiosJsGen, AxiosTsGen, UniAppGen},
-  core::GenRegistry,
-};
 
-pub fn init_gen_factory() -> GenRegistry {
-  let factory = GenRegistry::default();
-
-  factory.register("axios-ts", Box::new(|v| Box::new(AxiosTsGen::new(v))));
-  factory.register("axios-js", Box::new(|v| Box::new(AxiosJsGen::new(v))));
-  factory.register("uniapp", Box::new(|v| Box::new(UniAppGen::new(v))));
-
-  factory
+#[derive(Default)]
+pub(crate) struct CommandFactory {
+  libs: Vec<Library>,
+  pub command: CommandRegistry,
 }
 
-pub fn init_plugin(
-  gen_factory: &GenRegistry,
-  plugin: &Option<String>,
-) -> Result<Option<Library>, Error> {
-  if let Some(plugin) = plugin {
-    unsafe {
-      let lib = Library::new(plugin)?;
-      let init_plugin_fn: Symbol<unsafe extern "C" fn(&GenRegistry)> = lib.get(b"init_plugin")?;
-      init_plugin_fn(&gen_factory);
-      Ok(Some(lib))
-    }
-  } else {
-    Ok(None)
+impl CommandFactory {
+  fn insert_lib(&mut self, lib: Library) {
+    self.libs.push(lib);
   }
+}
+
+pub fn init_command_factory(plugin: &Option<Vec<String>>) -> Result<CommandFactory, Error> {
+  let mut command_factory = CommandFactory::default();
+  plugin.as_ref().map(|v| {
+    v.iter().for_each(|p| unsafe {
+      let lib = Library::new(p).unwrap();
+      let init_plugin: Symbol<unsafe extern "C" fn(&CommandRegistry)> = lib.get(b"init_plugin").unwrap();
+      init_plugin(&command_factory.command);
+      command_factory.insert_lib(lib);
+    })
+  });
+  Ok(command_factory)
 }

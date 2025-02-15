@@ -1,0 +1,102 @@
+import axios, { AxiosError, type AxiosRequestConfig as OriginalAxiosRequestConfig } from 'axios'
+import { container } from 'tsyringe'
+import { ErrorHandler } from "./ErrorHandler";
+
+export interface AxiosRequestConfig extends OriginalAxiosRequestConfig {
+  hideErrorToast?: boolean
+}
+
+export abstract class BaseService {
+  protected readonly BASE_URL: string = import.meta.env.VITE_BASE_URL
+
+  public readonly SUCCESS_CODE = 0;
+
+  protected errorHandler: ErrorHandler = container.resolve<ErrorHandler>(ErrorHandler.name);
+
+  protected get token() {
+    // get token code
+  }
+
+  protected request<T, R = unknown>(url: string, method: AxiosRequestConfig['method'], data: R | undefined, config: AxiosRequestConfig | undefined) {
+    return new Promise<T>((resolve, reject) => {
+      axios.request({
+        baseURL: this.BASE_URL,
+        url,
+        method,
+        data,
+        headers: this.getAuthHeaders(),
+        ...config
+      }).then(res => {
+        if (res.data instanceof ArrayBuffer) {
+          resolve(res as T)
+          return
+        }
+        if ((res.data as any).ResultType === this.SUCCESS_CODE) {
+          resolve(res.data as T)
+        } else {
+          if (!config?.hideErrorToast) {
+            this.errorHandler.errorToast((res.data as any).Message)
+          }
+          reject(res.data)
+        }
+      }).catch(err => {
+        if (!config?.hideErrorToast) {
+          this.showStatusCodeErrorMessage(err)
+        }
+        reject(err)
+      })
+    })
+  }
+
+  protected showStatusCodeErrorMessage(error: AxiosError) {
+    switch (error.status) {
+      case 400:
+        this.errorHandler.badRequest(error);
+        break;
+      case 401:
+        this.errorHandler.unauthorized(error);
+        break;
+      case 500:
+        this.errorHandler.serverError(error);
+        break;
+      default:
+        this.errorHandler.errorToast(error.message || 'API 请求错误');
+        break;
+    }
+  }
+
+  protected post<T, R = unknown>(url: string, data?: R, config?: AxiosRequestConfig) {
+    return this.request<T, R>(url, 'POST', data, config)
+  }
+
+  protected get<T, R = unknown>(url: string, data?: R, config?: AxiosRequestConfig) {
+    return this.request<T, R>(url, 'GET', undefined,{
+      params: data,
+      ...config
+    })
+  }
+
+  protected put<T, R = unknown>(url: string, data?: R, config?: AxiosRequestConfig) {
+    return this.request<T, R>(url, 'PUT', data, config)
+  }
+
+  protected delete<T, R = unknown>(url: string, data?: R, config?: AxiosRequestConfig) {
+    return this.request<T, R>(url, 'DELETE', undefined, {
+      params: data,
+      ...config
+    })
+  }
+
+  /** 获取授权头信息 */
+  private getAuthHeaders() {
+    if (this.token) {
+      return {
+        Authorization: `Bearer ${this.token}`
+      }
+    }
+  }
+
+  public setToken(token: string, expires: number) {
+    // set token code
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "frontend-tk-cli-example",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "build:plugin": "cd ./plugins/gen_plugin && cargo build --release",
+    "test:built-gen-single": "aptx-ft gen --service-output ./service1",
+    "test:input": "aptx-ft gen --input https://generator3.swagger.io/openapi.json --service-output ./remote-service",
+    "test:built-gen": "aptx-ft gen --service-output ./service1 --service-output ./service2 --service-output ./service3 --service-mode axios-ts  --service-mode axios-js  --service-mode uniapp --model-output ./models",
+    "test:custom-plugin": "aptx-ft custom-command -p ../../target/release/gen_plugin.dll"
+  },
+  "devDependencies": {
+    "@aptx/frontend-tk-cli": "workspace:^",
+    "@aptx/frontend-tk-types": "workspace:^"
+  }
+}

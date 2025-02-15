@@ -1,0 +1,26 @@
+function _treeEach<T extends Record<string, any>>(tree: T[], children: string, callback: (node: T, parent?: T) => void, parent?: T) {
+    tree.forEach(node => {
+        callback(node, parent);
+        if (Reflect.has(node, children)) {
+            _treeEach(node[children], children, callback, node);
+        }
+    });
+}
+
+export function treeEach<T extends Record<string, any>>(tree: T[], children: string, callback: (node: T, parent?: T) => void) {
+    _treeEach(tree, children, callback);
+}
+
+export function treeFilter<T extends Record<string, any>>(tree: T[], childrenKey: string, callback: (node: T) => boolean): T[] {
+    let result = tree.filter(item => callback(item));
+
+    result.forEach(item => {
+        let children = Reflect.get(item, childrenKey);
+
+        if (children) {
+            Reflect.set(item, childrenKey, treeFilter(children, childrenKey, callback));
+        }
+    })
+
+    return result;
+}

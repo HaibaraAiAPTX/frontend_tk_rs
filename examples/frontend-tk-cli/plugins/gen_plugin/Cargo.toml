@@ -1,0 +1,10 @@
+[package]
+name = "gen_plugin"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+aptx_frontend_tk_binding_plugin = { version = "0.1.0", path = "../../../../crates/node_binding_plugin" }

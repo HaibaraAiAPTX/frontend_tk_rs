@@ -1,0 +1,15 @@
+export async function loadAll<
+  Fn extends (search: any) => Promise<any>,
+  Search extends Parameters<Fn>[0] & object,
+  Result extends Awaited<ReturnType<Fn>>
+>(fn: Fn, search: Search): Promise<Result> {
+  if (!Reflect.get(search, 'PageSize')) {
+    Reflect.set(search, 'PageSize', 1)
+  }
+  const res = await fn(search)
+  if ((Reflect.get(res, 'PageModel')?.DataCount || 0) > Reflect.get(search, 'PageSize')!) {
+    Reflect.set(search, 'PageSize', Reflect.get(res, 'PageModel')?.DataCount)
+    return fn(search)
+  }
+  return res
+}

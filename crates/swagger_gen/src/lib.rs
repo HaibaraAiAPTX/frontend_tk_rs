@@ -1,5 +1,5 @@
-pub mod built_in_api;
-pub mod built_in_api_trait;
-pub mod built_in_declaration;
+pub mod gen_api;
+pub mod gen_api_trait;
+pub mod gen_declaration;
 pub mod core;
 pub mod utils;

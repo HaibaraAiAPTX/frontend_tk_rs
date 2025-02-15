@@ -1,0 +1,8 @@
+[package]
+name = "aptx_frontend_tk_binding_plugin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+swagger_gen = { version = "0.1.0", path = "../swagger_gen" }
+swagger_tk = { version = "0.1.0", path = "../swagger_tk" }

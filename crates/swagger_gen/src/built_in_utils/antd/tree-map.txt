@@ -1,0 +1,22 @@
+type TreeDataType = 'tree' | 'select';
+
+export function transformTreeData<T extends Record<string, any>, R = any>(
+    data: T[],
+    config: {
+        keyField: keyof T,
+        titleField: keyof T,
+        childrenField: keyof T,
+        type?: TreeDataType
+    }
+): R[] {
+    const { keyField, titleField, childrenField, type = 'tree' } = config;
+
+    return data.map(item => ({
+        ...(type === 'select' ? { value: item[keyField] } : { key: item[keyField] }),
+        title: item[titleField],
+        children: item[childrenField]
+            ? transformTreeData(item[childrenField], config)
+            : undefined,
+        raw: item
+    } as R));
+}

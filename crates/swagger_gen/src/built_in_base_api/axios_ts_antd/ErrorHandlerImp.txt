@@ -1,0 +1,26 @@
+import { AxiosError } from "axios";
+import { ErrorHandler } from "./ErrorHandler";
+import { notification } from "antd";
+import { join, map } from "lodash-es";
+
+export class ErrorHandlerImp implements ErrorHandler {
+  errorToast(msg: string, title?: string): void | Promise<void> {
+    console.error(`${title} ${msg}`)
+    
+    notification.error({
+      message: title || "API 请求错误",
+      description: msg
+    })
+  }
+  badRequest(error: AxiosError): void | Promise<void> {
+    this.errorToast(
+      map(Object.values((error.response?.data as any).errors as Record<string, string[]>), msgs => join(msgs, '、')).join('\n')
+    )
+  }
+  unauthorized(): void | Promise<void> {
+    this.errorToast("登录过期请重新登录")
+  }
+  serverError(data: AxiosError): void | Promise<void> {
+    this.errorToast((data.response?.data as any)?.Message)
+  }
+}

@@ -2,9 +2,9 @@ use std::fs;
 use std::{env::current_dir, vec};
 
 use path_clean::PathClean;
-use swagger_gen::built_in_api_trait::GenApi;
-use swagger_gen::built_in_api::AxiosTsGen;
-use swagger_gen::built_in_declaration::TypescriptDeclarationGen;
+use swagger_gen::gen_api_trait::GenApi;
+use swagger_gen::gen_api::AxiosTsGen;
+use swagger_gen::gen_declaration::TypescriptDeclarationGen;
 use swagger_tk::model::OpenAPIObject;
 
 fn main() {

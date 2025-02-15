@@ -1,0 +1,11 @@
+import { AxiosError } from "axios";
+
+export abstract class ErrorHandler {
+  abstract errorToast(msg: string, title?: string): void | Promise<void>;
+
+  abstract badRequest(data: AxiosError): void | Promise<void>;
+
+  abstract unauthorized(data: AxiosError): void | Promise<void>;
+
+  abstract serverError(data: AxiosError): void | Promise<void>;
+}

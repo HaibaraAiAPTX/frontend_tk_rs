@@ -1,0 +1,79 @@
+import { ProColumns, ProFieldValueType, ProTableProps } from '@ant-design/pro-components'
+
+/**
+ * ProTable 的 request 业务适配器
+ * @param fn 
+ * @param args 
+ * @returns 
+ * @example
+ * ```tsx
+ * <ProTable
+      request={async (...args) => tableRequestAdapter((v) => courseService.PostMainAPICourseGetList(v), ...args)}
+      rowKey="ID"
+    />
+ * ```
+ */
+export async function tableRequestAdapter<DataSource, U, ValueType = 'text'>(fn: (v: Omit<U, 'current' | 'pageSize'>) => Promise<{ Data?: DataSource[] | null, PageModel?: PageModel }>, ...args: Parameters<Exclude<ProTableProps<DataSource, U, ValueType>['request'], undefined>>): ReturnType<Exclude<ProTableProps<DataSource, U, ValueType>['request'], undefined>> {
+    try {
+        const [params, sort] = args
+        const { current = 1, pageSize = 10, ...restParams } = params
+        const sortEnties = Object.entries(sort)?.[0]
+        const sortParams: Partial<{ SortPropertyName: string, IsAsc: boolean }> = {}
+        if (sortEnties?.length) {
+            sortParams.SortPropertyName = sortEnties[0]
+            sortParams.IsAsc = sortEnties[1] === 'ascend'
+        }
+        const res = await fn({ ...restParams, PageSize: pageSize, PageIndex: current, ...sortParams })
+        return {
+            data: res.Data || [],
+            total: res.PageModel?.DataCount,
+            success: true
+        }
+    } catch {
+        return {
+            success: false
+        }
+    }
+}
+
+/**
+ * 生成范围搜索
+ * @param title 
+ * @param valueType 
+ * @param key 
+ * @returns 
+ * @example
+ * ```ts
+ * generateRange('创建时间', 'digitRange', 'CreateTime')
+ * // {
+ * //   title: '创建时间',
+ * //   valueType: 'digitRange',
+ * //   key: 'CreateTimeSearch',
+ * //   hideInTable: true,
+ * //   search: {
+ * //     transform: v => {
+ * //       return {
+ * //         MinCreateTime: v[0],
+ * //         MaxCreateTime: v[1]
+ * //       }
+ * //     }
+ * //   }
+ * // }
+ * ```
+ */
+export function generateRangeColumn(title: string, valueType: ProFieldValueType, key: string): ProColumns {
+    return {
+        title,
+        valueType,
+        key: `${key}Search`,
+        hideInTable: true,
+        search: {
+            transform: v => {
+                return {
+                    [`Min${key}`]: v[0],
+                    [`Max${key}`]: v[1]
+                }
+            }
+        }
+    }
+}
