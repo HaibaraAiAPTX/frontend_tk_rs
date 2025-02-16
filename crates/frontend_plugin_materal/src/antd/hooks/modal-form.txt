@@ -1,0 +1,29 @@
+import { ProFormInstance } from '@ant-design/pro-components'
+import { useRef } from 'react'
+
+export interface UseModalFormOptions {
+  onOpenChange?(v: boolean): void
+  onClose?(): void
+  onOpen?(): void
+}
+
+export function useModalForm(options: UseModalFormOptions) {
+  const formRef = useRef<ProFormInstance>();
+
+  const { onOpenChange: _onOpenChange, onClose, onOpen } = options
+
+  function onOpenChange(v: boolean) {
+    _onOpenChange?.(v)
+    if (!v) {
+      formRef.current?.resetFields()
+      onClose?.()
+    } else {
+      onOpen?.()
+    }
+  }
+
+  return {
+    onOpenChange,
+    formRef
+  }
+}

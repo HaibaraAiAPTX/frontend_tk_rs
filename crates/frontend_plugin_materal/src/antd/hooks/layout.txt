@@ -1,0 +1,42 @@
+import { useLayoutEffect, useMemo, useState } from "react";
+
+export const FOOTER_CLASS_NAME = 'ant-layout-footer';
+export const HEADER_CLASS_NAME = 'ant-layout-header';
+export function useLayoutSize() {
+  const [headerHeight, setHeaderHeight] = useState<number>(0);
+  const [footerHeight, setFooterHeight] = useState<number>(0);
+  const [windowHeight, setWindowHeight] = useState<number>(0);
+
+  const maxMainHeight = useMemo(() => {
+    return windowHeight - footerHeight - headerHeight;
+  }, [windowHeight, footerHeight, headerHeight])
+
+  const initLayoutSize = () => {
+    setWindowHeight(window.innerHeight)
+    const header = document.querySelector(`.${HEADER_CLASS_NAME}`);
+    if (header) {
+      setHeaderHeight(header.clientHeight);
+    }
+    const footer = document.querySelector(`.${FOOTER_CLASS_NAME}`);
+    if (footer) {
+      setFooterHeight(footer.clientHeight);
+    }
+  }
+
+  useLayoutEffect(() => {
+    initLayoutSize();
+
+    window.addEventListener('resize', initLayoutSize);
+
+    return () => {
+      window.removeEventListener('resize', initLayoutSize);
+    }
+  }, [])
+
+  return {
+    footerHeight,
+    windowHeight,
+    maxMainHeight,
+    headerHeight
+  }
+}

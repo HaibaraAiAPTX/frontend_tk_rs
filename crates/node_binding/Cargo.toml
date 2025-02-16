@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 aptx_frontend_tk_binding_plugin = { version = "0.1.0", path = "../node_binding_plugin" }
 clap = { version = "4.5.29", features = ["derive"] }
+frontend_plugin_materal = { version = "0.1.0", path = "../frontend_plugin_materal" }
 libloading = "0.8.6"
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
 napi = { version = "2.12.2", default-features = false, features = ["napi4"] }

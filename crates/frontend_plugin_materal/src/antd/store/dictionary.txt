@@ -1,0 +1,34 @@
+import { RequestOptionsType } from "@ant-design/pro-components"
+import { proxy } from "@umijs/max"
+import { container } from "tsyringe"
+
+const enumsService = container.resolve(EnumsService)
+
+export const dictionary = proxy<{
+{{STORE_TYPE}}
+}>({
+{{STORE_STATE}}
+})
+
+/**
+ * 初始化列表
+ * @param fn 
+ * @param key 
+ * @returns 
+ */
+async function initList<T extends object>(fn: () => Promise<ResultModel & { Data?: T[] | null }>, key: keyof typeof dictionary) {
+  if (dictionary[key].length > 0) return dictionary[key];
+  const res = await fn();
+  if (res.Data) {
+    dictionary[key] = (res.Data as T[] || []).map(m => ({
+      label: Reflect.get(m, 'Value') as string,
+      value: Reflect.get(m, 'Key') as string
+    }))
+  }
+  return dictionary[key]
+}
+
+/** 字典数据操作 */
+export const dictionaryAction = {
+{{STORE_ACTION}}
+}
