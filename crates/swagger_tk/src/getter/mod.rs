@@ -7,6 +7,7 @@ mod get_tags_from_path_item;
 mod get_tags_from_paths;
 mod get_all_schema;
 mod get_controller_description;
+mod get_schema_name_from_ref;
 
 pub use get_paths_from_tag::*;
 pub use get_schema_by_name::*;
@@ -17,3 +18,4 @@ pub use get_tags_from_path_item::*;
 pub use get_tags_from_paths::*;
 pub use get_all_schema::*;
 pub use get_controller_description::*;
+pub use get_schema_name_from_ref::*;

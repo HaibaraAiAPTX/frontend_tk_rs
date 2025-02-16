@@ -7,7 +7,10 @@ use std::{
 use clap::{Error, Parser};
 use path_clean::PathClean;
 use swagger_gen::{core::ApiContext, utils::format_ts_code};
-use swagger_tk::{getter::get_paths_from_tag, model::OpenAPIObject};
+use swagger_tk::{
+    getter::{get_paths_from_tag, get_schema_by_name},
+    model::{OpenAPIObject, OperationObject, SchemaEnum},
+};
 
 #[derive(Parser, Debug)]
 struct GenFileOpts {
@@ -154,6 +157,7 @@ fn insert_store_dictionary_file(
     open_api: &OpenAPIObject,
 ) {
     let mut enum_list = Vec::<String>::new();
+    let mut enum_name_map = HashMap::<String, &String>::new();
     let mut action_code = Vec::<String>::new();
 
     let apis = get_paths_from_tag(open_api, "Enums");
@@ -170,9 +174,17 @@ fn insert_store_dictionary_file(
             if let Some(operation) = &path_item.get {
                 let api_context = ApiContext::new(url, "get", path_item, operation);
                 let fn_name = &api_context.func_name;
+                let description = &api_context
+                    .description
+                    .map(|s| format!("/** {s} */\n"))
+                    .unwrap_or_default();
+
+                if let Some(name) = get_enum_name(operation, open_api) {
+                    enum_name_map.insert(enum_name.clone(), name);
+                }
 
                 action_code.push(format!(
-                    r#"async get{api_name}Options() {{
+                    r#"{description}async get{api_name}Options() {{
     return await initList(enumsService.{fn_name}.bind(enumsService), "{enum_name}")
 }}"#
                 ));
@@ -182,9 +194,15 @@ fn insert_store_dictionary_file(
 
     let store_type = enum_list
         .iter()
-        .map(|name| format!("{name}: RequestOptionsType[]"))
+        .map(|name| {
+            let description = enum_name_map
+                .get(name)
+                .map(|&v| format!("/** {v} */\n"))
+                .unwrap_or_default();
+            format!("{description}{name}: RequestOptionsType[]")
+        })
         .collect::<Vec<_>>()
-        .join("\n");
+        .join("\n\n");
 
     let store_state = enum_list
         .iter()
@@ -201,4 +219,31 @@ fn insert_store_dictionary_file(
     content = format_ts_code(&content).unwrap();
 
     files.insert(store_dir.join("dictionary.ts").clean(), content);
+}
+
+fn get_enum_name<'a>(
+    operation: &'a OperationObject,
+    open_api: &'a OpenAPIObject,
+) -> Option<&'a String> {
+    operation
+        .responses
+        .as_ref()
+        .and_then(|v| v.get("200"))
+        .and_then(|v| v.as_response())
+        .and_then(|v| v.content.as_ref())
+        .and_then(|v| v.get("application/json"))
+        .and_then(|v| v.get_ref_schema_name())
+        .and_then(|v| get_schema_by_name(open_api, v))
+        .and_then(|v| v.get_object_property("Data"))
+        .and_then(|v| v.get_array_item_ref_schema_name())
+        .and_then(|v| get_schema_by_name(open_api, v))
+        .and_then(|v| v.get_object_property("Key"))
+        .and_then(|v| v.get_ref_schema_name())
+        .and_then(|v| get_schema_by_name(open_api, v))
+        .and_then(|v| match v {
+            SchemaEnum::String(schema_string) => schema_string.description.as_ref(),
+            SchemaEnum::Integer(schema_integer) => schema_integer.description.as_ref(),
+            SchemaEnum::Number(schema_number) => schema_number.description.as_ref(),
+            _ => None,
+        })
 }

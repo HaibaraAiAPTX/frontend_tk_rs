@@ -4,6 +4,7 @@ import { container } from "tsyringe"
 
 const enumsService = container.resolve(EnumsService)
 
+/** 字典 store */
 export const dictionary = proxy<{
 {{STORE_TYPE}}
 }>({
