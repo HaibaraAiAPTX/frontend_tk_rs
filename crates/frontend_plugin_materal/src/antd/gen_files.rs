@@ -22,6 +22,30 @@ struct GenFileOpts {
 
     #[arg(long, default_value_t = String::from("src/utils"))]
     util_dir: String,
+
+    #[arg(long, default_value_t = String::from("src"))]
+    src_dir: String,
+
+    #[arg(long, short)]
+    all: Option<bool>,
+
+    #[arg(long)]
+    service: Option<bool>,
+
+    #[arg(long, short)]
+    hook: Option<bool>,
+
+    #[arg(long)]
+    store: Option<bool>,
+
+    #[arg(long, short)]
+    util: Option<bool>,
+
+    #[arg(long)]
+    app: Option<bool>,
+
+    #[arg(long, short)]
+    dependencies: Option<bool>,
 }
 
 pub fn gen_files(args: &Vec<String>, open_api: &OpenAPIObject) -> Result<(), Error> {
@@ -30,57 +54,86 @@ pub fn gen_files(args: &Vec<String>, open_api: &OpenAPIObject) -> Result<(), Err
         .collect::<Vec<_>>();
     let opts = GenFileOpts::try_parse_from(args)?;
 
-    let service_path = Path::new(&opts.service_dir);
+    let service_dir = Path::new(&opts.service_dir);
     let hook_dir = Path::new(&opts.hook_dir);
     let util_dir = Path::new(&opts.util_dir);
     let store_dir = Path::new(&opts.store_dir);
+    let src_dir = Path::new(&opts.src_dir);
+
+    let service = opts.all.or(opts.service).unwrap_or_default();
+    let hook = opts.all.or(opts.hook).unwrap_or_default();
+    let store = opts.all.or(opts.store).unwrap_or_default();
+    let util = opts.all.or(opts.util).unwrap_or_default();
+    let app = opts.all.or(opts.app).unwrap_or_default();
+    let dependencies = opts.all.or(opts.dependencies).unwrap_or_default();
 
     let mut files = HashMap::<PathBuf, String>::new();
-    files.insert(
-        service_path.join("BaseService.ts").clean(),
-        include_str!("base_api/BaseService.txt").to_string(),
-    );
-    files.insert(
-        service_path.join("ErrorHandler.ts").clean(),
-        include_str!("base_api/ErrorHandler.txt").to_string(),
-    );
-    files.insert(
-        service_path.join("ErrorHandlerImp.ts").clean(),
-        include_str!("base_api/ErrorHandlerImp.txt").to_string(),
-    );
 
-    files.insert(
-        hook_dir.join("layout.ts").clean(),
-        include_str!("hooks/layout.txt").to_string(),
-    );
-    files.insert(
-        hook_dir.join("modal-form.ts").clean(),
-        include_str!("hooks/modal-form.txt").to_string(),
-    );
+    if service {
+        files.insert(
+            service_dir.join("BaseService.ts").clean(),
+            include_str!("base_api/BaseService.txt").to_string(),
+        );
+        files.insert(
+            service_dir.join("ErrorHandler.ts").clean(),
+            include_str!("base_api/ErrorHandler.txt").to_string(),
+        );
+        files.insert(
+            service_dir.join("ErrorHandlerImp.ts").clean(),
+            include_str!("base_api/ErrorHandlerImp.txt").to_string(),
+        );
+    }
 
-    files.insert(
-        util_dir.join("loop.ts").clean(),
-        include_str!("utils/loop.txt").to_string(),
-    );
-    files.insert(
-        util_dir.join("request.ts").clean(),
-        include_str!("utils/request.txt").to_string(),
-    );
-    files.insert(
-        util_dir.join("table.ts").clean(),
-        include_str!("utils/table.txt").to_string(),
-    );
-    files.insert(
-        util_dir.join("tree-map.ts").clean(),
-        include_str!("utils/tree-map.txt").to_string(),
-    );
-    files.insert(
-        util_dir.join("tree-utils.ts").clean(),
-        include_str!("utils/tree-utils.txt").to_string(),
-    );
+    if hook {
+        files.insert(
+            hook_dir.join("layout.ts").clean(),
+            include_str!("hooks/layout.txt").to_string(),
+        );
+        files.insert(
+            hook_dir.join("modal-form.ts").clean(),
+            include_str!("hooks/modal-form.txt").to_string(),
+        );
+    }
 
-    insert_store_dictionary_file(store_dir, &mut files, open_api);
+    if util {
+        files.insert(
+            util_dir.join("loop.ts").clean(),
+            include_str!("utils/loop.txt").to_string(),
+        );
+        files.insert(
+            util_dir.join("request.ts").clean(),
+            include_str!("utils/request.txt").to_string(),
+        );
+        files.insert(
+            util_dir.join("table.ts").clean(),
+            include_str!("utils/table.txt").to_string(),
+        );
+        files.insert(
+            util_dir.join("tree-map.ts").clean(),
+            include_str!("utils/tree-map.txt").to_string(),
+        );
+        files.insert(
+            util_dir.join("tree-utils.ts").clean(),
+            include_str!("utils/tree-utils.txt").to_string(),
+        );
+    }
 
+    if store {
+        insert_store_dictionary_file(store_dir, &mut files, open_api);
+    }
+
+    if dependencies {
+        files.insert(
+            src_dir.join("dependencies.ts"),
+            include_str!("dependencies.txt").to_string(),
+        );
+    }
+
+    if app {
+        files.insert(src_dir.join("app.tsx"), include_str!("app.txt").to_string());
+    }
+
+    // 写入文件
     files.iter().for_each(|(file_path, content)| {
         let dir = file_path.parent();
         if let Some(dir) = dir {
@@ -94,6 +147,7 @@ pub fn gen_files(args: &Vec<String>, open_api: &OpenAPIObject) -> Result<(), Err
     Ok(())
 }
 
+/// 生成字典缓存
 fn insert_store_dictionary_file(
     store_dir: &Path,
     files: &mut HashMap<PathBuf, String>,

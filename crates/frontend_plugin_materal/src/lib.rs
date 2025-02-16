@@ -5,7 +5,7 @@ mod antd;
 
 #[no_mangle]
 pub extern "C" fn init_plugin(command: &CommandRegistry) {
-    command.register_command("materal-antd-init", Box::new(|args, open_api| {
+    command.register_command("materal:antd-init", Box::new(|args, open_api| {
         gen_files(args, open_api).unwrap();
     }));
 }
