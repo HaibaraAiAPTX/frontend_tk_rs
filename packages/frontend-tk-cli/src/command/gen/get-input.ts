@@ -31,7 +31,7 @@ async function downloadJsonFile(url: string): Promise<string> {
     console.log('开始下载文件');
 
     // 下载文件
-    method.get(url, (response) => {
+    method.get(urlToOptions(url), (response) => {
       // 检查响应状态码
       if (response.statusCode !== 200) {
         console.error(`Failed to download file: ${response.statusCode}`);
@@ -57,4 +57,19 @@ async function downloadJsonFile(url: string): Promise<string> {
 
 export function isUrl(url: string): boolean {
   return /^https?:\/\//.test(url)
+}
+
+function urlToOptions(url: string): https.RequestOptions | http.RequestOptions {
+  const urlObj = new URL(url);
+  const options: https.RequestOptions | http.RequestOptions = {
+    hostname: urlObj.hostname,
+    port: urlObj.port ? parseInt(urlObj.port) : (urlObj.protocol === 'https:' ? 443 : 80),
+    path: urlObj.pathname,
+    method: 'GET',
+    rejectUnauthorized: false,
+    headers: {
+      'Accept': 'application/json',
+    },
+  }
+  return options
 }

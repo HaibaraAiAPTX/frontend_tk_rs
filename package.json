@@ -3,5 +3,13 @@
   "version": "0.0.0",
   "description": "generate frontend APIs, TypeScript types, and UI from Swagger use Rust",
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "pnpm": {
+    "overrides": {
+      "@aptx/frontend-tk-cli": "link:packages/frontend-tk-cli"
+    }
+  },
+  "dependencies": {
+    "@aptx/frontend-tk-cli": "link:packages/frontend-tk-cli"
+  }
 }
