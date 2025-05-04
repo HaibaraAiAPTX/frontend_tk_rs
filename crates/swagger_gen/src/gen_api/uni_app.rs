@@ -33,7 +33,7 @@ impl<'a> UniAppGen<'a> {
         let parameters = helper.get_parameters_string(true).unwrap_or_default();
 
         // 请求的完整url及是否需要引入qs库
-        let (url, import_qs) = helper.get_url_has_query();
+        let (url, import_qs) = helper.get_url_contain_query();
         if import_qs {
             *self.need_import_qs.borrow_mut() = import_qs;
         }

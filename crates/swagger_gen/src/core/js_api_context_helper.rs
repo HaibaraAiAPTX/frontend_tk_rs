@@ -57,7 +57,7 @@ impl<'a> JsApiContextHelper<'a> {
     /// 返回值：
     /// - `String`: 完整的请求 url，包含 query
     /// - `bool`: 是否需要引入 qs 库处理 params 对象
-    pub fn get_url_has_query(&self) -> (String, bool) {
+    pub fn get_url_contain_query(&self) -> (String, bool) {
         let url: String = self.get_url();
         if let Some(v) = &self.api_context.query_params_list {
             if !v.is_empty() {

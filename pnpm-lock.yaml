@@ -4,9 +4,16 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@aptx/frontend-tk-cli': link:packages/frontend-tk-cli
+
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      '@aptx/frontend-tk-cli':
+        specifier: link:packages/frontend-tk-cli
+        version: link:packages/frontend-tk-cli
 
   crates/node_binding:
     devDependencies:
@@ -20,21 +27,11 @@ importers:
   examples/frontend-tk-cli:
     devDependencies:
       '@aptx/frontend-tk-cli':
-        specifier: workspace:^
+        specifier: link:../../packages/frontend-tk-cli
         version: link:../../packages/frontend-tk-cli
       '@aptx/frontend-tk-types':
         specifier: workspace:^
         version: link:../../packages/frontend-tk-types
-
-  packages/frontend-tk:
-    dependencies:
-      '@aptx/frontend-tk-binding':
-        specifier: workspace:^
-        version: link:../../crates/node_binding
-    devDependencies:
-      typescript:
-        specifier: ^5.7.3
-        version: 5.7.3
 
   packages/frontend-tk-cli:
     dependencies:
@@ -62,12 +59,6 @@ importers:
         version: 5.7.3
 
   packages/frontend-tk-types:
-    devDependencies:
-      typescript:
-        specifier: ^5.7.3
-        version: 5.7.3
-
-  packages/types:
     devDependencies:
       typescript:
         specifier: ^5.7.3

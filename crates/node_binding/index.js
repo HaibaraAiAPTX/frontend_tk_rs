@@ -310,9 +310,6 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { gen, genBase, genUtils, runCli } = nativeBinding
+const { runCli } = nativeBinding
 
-module.exports.gen = gen
-module.exports.genBase = genBase
-module.exports.genUtils = genUtils
 module.exports.runCli = runCli

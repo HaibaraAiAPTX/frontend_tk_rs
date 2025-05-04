@@ -1,6 +1,9 @@
 use std::env::current_dir;
 
-use swagger_gen::{gen_api_trait::GenApi, gen_api::{AxiosTsGen, UniAppGen}};
+use swagger_gen::{
+    gen_api::{AxiosTsGen, UniAppGen},
+    gen_api_trait::GenApi,
+};
 use utils::get_open_api_object;
 
 mod utils;
@@ -12,9 +15,9 @@ fn gen_axios_apis_test() {
     let mut axios_gen = AxiosTsGen::new(&open_api_object);
     let is_success = axios_gen.gen_apis();
     assert!(is_success.is_ok());
-    // for item in axios_gen.get_outputs().iter() {
-    //     println!("{}：\n{}", item.0, item.1);
-    // }
+    axios_gen.get_outputs().iter().for_each(|item| {
+        println!("{}：\n{}", item.0, item.1);
+    });
 }
 
 #[test]

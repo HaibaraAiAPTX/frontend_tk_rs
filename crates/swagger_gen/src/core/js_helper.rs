@@ -2,8 +2,8 @@ use inflector::cases::pascalcase::to_pascal_case;
 use regex::Regex;
 
 use swagger_tk::model::{
-    OperationObject, OperationObjectParameters, OperationObjectRequestBody,
-    ParameterObjectIn, PathItemObject, ResponsesValue,
+    OperationObject, OperationObjectParameters, OperationObjectRequestBody, ParameterObjectIn,
+    PathItemObject, ResponsesValue,
 };
 
 use crate::utils::{ReferenceObjectExtension, SchemaEnumExtension};
@@ -12,21 +12,29 @@ use crate::utils::{ReferenceObjectExtension, SchemaEnumExtension};
 pub struct ApiContext<'a> {
     /// 接口名称
     pub func_name: String,
+
     /// 接口URL
     pub url: &'a str,
+
     /// 接口方法
     pub method: &'a str,
+
     /// 接口的备注
     pub description: Option<&'a String>,
+
     /// 原始数据
     pub path_item: &'a PathItemObject,
+
     /// 具体接口定义的原始数据
     pub operation: &'a OperationObject,
+
     /// 函数接口参数列表
     /// 该数据来源于params及requestBody
     pub func_parameters: Option<Vec<FuncParameter>>,
+
     /// 返回值类型
     pub response_type: Option<String>,
+
     /// 请求参数列表  
     /// @example  
     /// ```js
@@ -38,12 +46,16 @@ pub struct ApiContext<'a> {
     /// })
     /// ```
     pub query_params_list: Option<Vec<AttributeData>>,
+
     /// 路径参数列表  
     /// /api/user/{username}  
     /// /api/user/${data.username}
     pub path_params_list: Option<Vec<AttributeData>>,
+
     pub cookie_params_list: Option<Vec<AttributeData>>,
+
     pub header_params_list: Option<Vec<AttributeData>>,
+
     /// 请求体名称
     /// @example
     /// ```js
@@ -52,6 +64,7 @@ pub struct ApiContext<'a> {
     /// })
     /// ```
     pub request_body_name: Option<String>,
+
     /// 请求体参数列表
     /// @example
     /// ```js
@@ -69,15 +82,19 @@ pub struct ApiContext<'a> {
 pub struct FuncParameter {
     /// 参数名称
     pub name: String,
+
     /// 参数类型
     pub r#type: String,
+
     /// 是否可空
     /// 根据可空不可空，决定连接符是“:”还是“?:”  
     /// 根据是否可空对函数参数进行排序
     pub required: bool,
+
     /// 默认值
     /// 根据是否有默认值，决定后面是否跟上“= \<default\>”
     pub default: Option<String>,
+
     /// 在请求参数中是否过滤
     pub r#in: Option<ParameterObjectIn>,
 }
@@ -305,6 +322,7 @@ impl FuncParameterObject {
     }
 }
 
+/// 获取原始返回值类型
 fn get_raw_response_type(operation: &OperationObject) -> Option<String> {
     operation.responses.as_ref().and_then(|v| {
         v.get("200")

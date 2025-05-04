@@ -10,3 +10,4 @@ dprint-plugin-typescript = "0.93.3"
 path-clean = "1.0.1"
 regex = "1.11.1"
 swagger_tk = { version = "0.1.0", path = "../swagger_tk" }
+log = "0.4.27"

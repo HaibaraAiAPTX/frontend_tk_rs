@@ -1,5 +1,7 @@
 use crate::{
-    core::{ApiContext, JsApiContextHelper}, gen_api_trait::GenApi, utils::format_ts_code
+    core::{ApiContext, JsApiContextHelper},
+    gen_api_trait::GenApi,
+    utils::format_ts_code,
 };
 use inflector::cases::pascalcase::to_pascal_case;
 use std::{cell::RefCell, collections::HashMap};
@@ -27,20 +29,13 @@ impl<'a> AxiosTsGen<'a> {
         let parameters = helper.get_parameters_string(true).unwrap_or_default();
 
         // 获取基础URL，不包含查询参数
-        let base_url = helper.get_url();
+        let url = helper.get_url();
 
         // 请求体
         let request_data = helper.get_request_config_data();
 
         // 查询参数
         let request_params = helper.get_request_config_params();
-
-        let other_params = match (request_data, request_params) {
-            (None, None) => String::new(),
-            (None, Some(v)) => format!(", {}", v),
-            (Some(v), None) => format!(", {}", v),
-            (Some(v1), Some(v2)) => format!(r#", undefined, {{ params: {v2}, data: {v1} }}"#),
-        };
 
         // 返回类型
         let response_type = helper.get_response_type();
@@ -52,12 +47,34 @@ impl<'a> AxiosTsGen<'a> {
             .map(|v| format!("/** {} */\n", v))
             .unwrap_or_default();
 
+        let other_params = {
+            if ["post", "put", "patch"].contains(&api_context.method) {
+                // 有第二个参数 data 的请求方法
+                match (&request_data, &request_params) {
+                    (None, None) => String::new(),
+                    (None, Some(v)) => format!(r#", null, {{ params: {v} }}"#),
+                    (Some(v), None) => format!(r#", {v}"#),
+                    (Some(v1), Some(v2)) => format!(r#", {v1}, {{ params: {v2} }}"#),
+                }    
+            } else {
+                // 第二个参数是 config 的请求方法
+                match (&request_data, &request_params) {
+                    (None, None) => String::new(),
+                    (None, Some(v)) => format!(r#", {{ params: {v} }}"#),
+                    (Some(v), None) => format!(r#", {{ data: {v} }}"#),
+                    (Some(v1), Some(v2)) => format!(r#", {{ data: {v1}, params: {v2} }}"#),
+                }
+            }
+        };
+
+        // 先确认基础部分
         let api_fun = format!(
             r#"
-            {description}{func_name}({parameters}) {{
-  return this.{method}<{response_type}>({base_url}{other_params});
+        {description}{func_name}({parameters}) {{
+  return this.{method}<{response_type}>({url}{other_params});
 }}"#
         );
+
         Ok(api_fun)
     }
 }
@@ -90,10 +107,11 @@ import {{ BaseService }} from "./BaseService";
 
 {description}
 @singleton()
-export class {controller}Service extends BaseService {{
+export class {}Service extends BaseService {{
 {}
 }}
 "#,
+                to_pascal_case(controller),
                 apis.join("\n\n")
             );
             let content = format_ts_code(&content).unwrap();
@@ -110,7 +128,7 @@ export class {controller}Service extends BaseService {{
     fn get_outputs(&self) -> &HashMap<String, String> {
         &self.outputs
     }
-    
+
     fn get_open_api(&self) -> &OpenAPIObject {
         &self.open_api
     }
