@@ -70,7 +70,7 @@ impl<'a> GenApi for UniAppGen<'a> {
                 self.controller_apis_map
                     .borrow_mut()
                     .entry(tag.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(api_fun.clone());
             }
         };
@@ -113,6 +113,6 @@ export class {}Service extends BaseService {{
     }
 
     fn get_open_api(&self) -> &OpenAPIObject {
-        &self.open_api
+        self.open_api
     }
 }

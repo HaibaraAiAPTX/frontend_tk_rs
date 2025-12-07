@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -11,15 +13,15 @@ pub enum SchemaTypeEnum {
     Boolean,
 }
 
-impl ToString for SchemaTypeEnum {
-    fn to_string(&self) -> String {
+impl Display for SchemaTypeEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            SchemaTypeEnum::String => "string".to_string(),
-            SchemaTypeEnum::Object => "object".to_string(),
-            SchemaTypeEnum::Array => "array".to_string(),
-            SchemaTypeEnum::Integer => "integer".to_string(),
-            SchemaTypeEnum::Number => "number".to_string(),
-            SchemaTypeEnum::Boolean => "boolean".to_string(),
+            SchemaTypeEnum::String => write!(f, "string"),
+            SchemaTypeEnum::Object => write!(f, "object"),
+            SchemaTypeEnum::Array => write!(f, "array"),
+            SchemaTypeEnum::Integer => write!(f, "integer"),
+            SchemaTypeEnum::Number => write!(f, "number"),
+            SchemaTypeEnum::Boolean => write!(f, "boolean"),
         }
     }
 }

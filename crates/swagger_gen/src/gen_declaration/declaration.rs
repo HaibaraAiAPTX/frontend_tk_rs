@@ -12,13 +12,13 @@ pub struct TypescriptDeclarationGen<'a> {
 
 impl<'a> TypescriptDeclarationGen<'a> {
     pub fn gen_declaration_by_name(&self, name: &str) -> Result<(String, bool), String> {
-        let schema = get_schema_by_name(&self.open_api, name)
+        let schema = get_schema_by_name(self.open_api, name)
             .ok_or(format!("{} schema is not found", name))?;
         self.gen_declaration_by_schema(schema, name)
     }
 
     pub fn gen_declarations(&self) -> Result<HashMap<String, String>, String> {
-        let schemas = get_all_schema(&self.open_api).ok_or("get all schema fail")?;
+        let schemas = get_all_schema(self.open_api).ok_or("get all schema fail")?;
         let mut result = HashMap::<String, String>::new();
         for (name, schema) in schemas {
             let (content, is_enum) = self.gen_declaration_by_schema(schema, name)?;
@@ -45,10 +45,10 @@ impl<'a> TypescriptDeclarationGen<'a> {
                     .split("/")
                     .last()
                     .ok_or(format!("get ref name fail: {}", v.r#ref))?;
-                return self.gen_declaration_by_name(ref_name);
+                self.gen_declaration_by_name(ref_name)
             }
             SchemaEnum::Object(v) => {
-                let description = v.description.as_ref().map(|s| s.as_str());
+                let description = v.description.as_deref();
                 let required = v.required.as_ref();
 
                 let properties = v
@@ -75,7 +75,7 @@ impl<'a> TypescriptDeclarationGen<'a> {
                             .map(|v| if v { ":" } else { "?:" })
                             .unwrap_or("?:");
                         let mut r#type = {
-                            if v.is_enum(&self.open_api) {
+                            if v.is_enum(self.open_api) {
                                 let file_name = v.get_ts_type();
                                 if v.is_raw_type_enum(&file_name) {
                                     v.get_raw_enum_type().unwrap()
@@ -86,7 +86,7 @@ impl<'a> TypescriptDeclarationGen<'a> {
                                 v.get_ts_type()
                             }
                         };
-                        if v.can_be_null(&self.open_api) {
+                        if v.can_be_null(self.open_api) {
                             r#type = format!("{} | null", r#type);
                         }
                         format!("{description}{k}{symbol}{}", r#type)
@@ -152,7 +152,7 @@ where
             {enum_body}
         }}"#
         );
-        Ok(format_ts_code(&code)?)
+        format_ts_code(&code)
     }
 }
 

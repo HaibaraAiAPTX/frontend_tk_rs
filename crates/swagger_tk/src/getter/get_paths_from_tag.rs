@@ -10,16 +10,12 @@ pub fn get_paths_from_tag<'a>(
 ) -> HashMap<&'a String, &'a PathItemObject> {
     let mut result = HashMap::<&String, &PathItemObject>::new();
 
-    open_api_object
-        .paths
-        .iter()
-        .flat_map(|paths| paths)
-        .for_each(|item| {
-            let tags = get_tags_from_path_item(item.1);
-            if tags.iter().any(|t| *t == tag) {
-                result.insert(item.0, item.1);
-            }
-        });
+    open_api_object.paths.iter().flatten().for_each(|item| {
+        let tags = get_tags_from_path_item(item.1);
+        if tags.iter().any(|t| *t == tag) {
+            result.insert(item.0, item.1);
+        }
+    });
 
     result
 }

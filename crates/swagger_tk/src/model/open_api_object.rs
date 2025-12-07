@@ -2,6 +2,7 @@ use super::{ComponentsObject, OpenAPIWebhooks};
 use super::{ExternalDocumentationObject, OpenAPIInfo, PathItemObject, ServerObject, TagObject};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OpenAPIObject {
@@ -28,8 +29,10 @@ pub struct OpenAPIObject {
     pub external_docs: Option<ExternalDocumentationObject>,
 }
 
-impl OpenAPIObject {
-    pub fn from_str(swagger_text: &str) -> Result<Self, serde_json::Error> {
+impl FromStr for OpenAPIObject {
+    type Err = serde_json::Error;
+
+    fn from_str(swagger_text: &str) -> Result<Self, Self::Err> {
         let open_api_object: OpenAPIObject = serde_json::from_str(swagger_text)?;
         Ok(open_api_object)
     }

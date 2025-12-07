@@ -13,33 +13,31 @@ impl<'a> JsApiContextHelper<'a> {
 
     /// 初始化方法参数
     pub fn get_parameters_string(&self, add_type: bool) -> Option<String> {
-        self.api_context.func_parameters.as_ref().and_then(|v| {
+        self.api_context.func_parameters.as_ref().map(|v| {
             let mut data = v.clone();
             data.sort_by(|a, b| b.required.cmp(&a.required));
-            Some(
-                data.iter()
-                    .map(|p| {
-                        if add_type {
-                            format!(
-                                "{}{}{}",
-                                p.name,
-                                if p.required { ":" } else { "?:" },
-                                p.r#type
-                            )
-                        } else {
-                            p.name.clone()
-                        }
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            )
+            data.iter()
+                .map(|p| {
+                    if add_type {
+                        format!(
+                            "{}{}{}",
+                            p.name,
+                            if p.required { ":" } else { "?:" },
+                            p.r#type
+                        )
+                    } else {
+                        p.name.clone()
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join(", ")
         })
     }
 
     /// 获取 path 替换后的 url
     pub fn get_url(&self) -> String {
         if let Some(v) = &self.api_context.path_params_list {
-            let mut url = format!("{}", self.api_context.url);
+            let mut url = self.api_context.url.to_string();
             v.iter().for_each(|v| {
                 url = url.replace(
                     &format!("{{{}}}", v.name),
@@ -70,11 +68,7 @@ impl<'a> JsApiContextHelper<'a> {
                     }
                 }
                 let data = format!("{}}}", &data[..data.len() - 1]);
-                let url = format!(
-                    "`{}?${{qs.stringify({})}}`",
-                    url[1..&url.len() - 1].to_string(),
-                    data
-                );
+                let url = format!("`{}?${{qs.stringify({})}}`", &url[1..&url.len() - 1], data);
                 (url, true)
             } else {
                 (url, false)
@@ -114,11 +108,7 @@ impl<'a> JsApiContextHelper<'a> {
             }
         };
 
-        if let Some(v) = request_data {
-            Some(format!("{}", v))
-        } else {
-            None
-        }
+        request_data.map(|v| v.to_string())
     }
 
     pub fn get_request_config_params(&self) -> Option<String> {

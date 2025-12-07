@@ -5,6 +5,6 @@ use super::{PathItemObject, ReferenceObject};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OpenAPIWebhooks {
-    PathItem(PathItemObject),
+    PathItem(Box<PathItemObject>),
     Reference(ReferenceObject),
 }

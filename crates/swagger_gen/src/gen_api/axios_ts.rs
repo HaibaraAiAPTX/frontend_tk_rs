@@ -88,7 +88,7 @@ impl<'a> GenApi for AxiosTsGen<'a> {
                 self.controller_apis_map
                     .borrow_mut()
                     .entry(tag.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(api_fun.clone());
             }
         };
@@ -97,9 +97,9 @@ impl<'a> GenApi for AxiosTsGen<'a> {
 
     fn gen_name_content_map(&mut self) {
         for (controller, apis) in self.controller_apis_map.borrow().iter() {
-            let description = get_controller_description(&self.open_api, controller)
+            let description = get_controller_description(self.open_api, controller)
                 .map(|s| format!("\n/** {} */", s))
-                .unwrap_or_else(|| Default::default());
+                .unwrap_or_default();
 
             let content = format!(
                 r#"import {{ singleton }} from "tsyringe";
@@ -130,6 +130,6 @@ export class {}Service extends BaseService {{
     }
 
     fn get_open_api(&self) -> &OpenAPIObject {
-        &self.open_api
+        self.open_api
     }
 }

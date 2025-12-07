@@ -165,7 +165,7 @@ impl<'a> ApiContext<'a> {
     }
 
     /// 初始化请求的 params
-    fn init_params(&mut self, params: &Vec<FuncParameter>) {
+    fn init_params(&mut self, params: &[FuncParameter]) {
         params.iter().for_each(|x| {
             if let Some(v) = &x.r#in {
                 let value = AttributeData {
@@ -207,7 +207,7 @@ impl<'a> ApiContext<'a> {
 /// 获取函数名称
 fn get_func_name(url: &str, method: &str, operation: &OperationObject) -> String {
     if let Some(operation_id) = &operation.operation_id {
-        return to_pascal_case(operation_id);
+        to_pascal_case(operation_id)
     } else {
         let reg = Regex::new(r"\{([^}]*)\}").unwrap();
         let mut name_list = url
@@ -245,40 +245,36 @@ fn remove_repeat_words(list: &[String]) -> Vec<String> {
 
 /// 获取函数参数列表
 fn get_func_parameters_object(operation: &OperationObject) -> FuncParameterObject {
-    let parameters = operation.parameters.as_ref().and_then(|v| {
-        Some(
-            v.iter()
-                .map(|p| match p {
-                    OperationObjectParameters::Parameter(p) => FuncParameter {
-                        name: p.name.clone(),
-                        r#type: p.schema.as_ref().unwrap().get_ts_type(),
-                        required: p.required.unwrap_or(false),
-                        default: None,
-                        r#in: Some(p.r#in.clone()),
-                    },
-                    OperationObjectParameters::Reference(r) => FuncParameter {
-                        name: String::new(),
-                        r#type: r.get_type_name(),
-                        required: true,
-                        default: None,
-                        r#in: None,
-                    },
-                })
-                .collect::<Vec<FuncParameter>>(),
-        )
-    });
-
-    let request_body = operation.request_body.as_ref().map_or(None, |x| match x {
-        OperationObjectRequestBody::RequestBody(v) => {
-            let data = v.content.iter().take(1).next();
-            data.and_then(|(_, media_type)| {
-                Some(FuncParameter {
+    let parameters = operation.parameters.as_ref().map(|v| {
+        v.iter()
+            .map(|p| match p {
+                OperationObjectParameters::Parameter(p) => FuncParameter {
+                    name: p.name.clone(),
+                    r#type: p.schema.as_ref().unwrap().get_ts_type(),
+                    required: p.required.unwrap_or(false),
+                    default: None,
+                    r#in: Some(p.r#in.clone()),
+                },
+                OperationObjectParameters::Reference(r) => FuncParameter {
                     name: String::new(),
-                    r#type: media_type.schema.get_ts_type(),
-                    required: v.required.unwrap_or(false),
+                    r#type: r.get_type_name(),
+                    required: true,
                     default: None,
                     r#in: None,
-                })
+                },
+            })
+            .collect::<Vec<FuncParameter>>()
+    });
+
+    let request_body = operation.request_body.as_ref().and_then(|x| match x {
+        OperationObjectRequestBody::RequestBody(v) => {
+            let data = v.content.iter().take(1).next();
+            data.map(|(_, media_type)| FuncParameter {
+                name: String::new(),
+                r#type: media_type.schema.get_ts_type(),
+                required: v.required.unwrap_or(false),
+                default: None,
+                r#in: None,
             })
         }
         OperationObjectRequestBody::Reference(v) => Some(FuncParameter {

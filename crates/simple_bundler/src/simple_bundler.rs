@@ -14,6 +14,7 @@ use std::{
     rc::Rc,
 };
 
+#[derive(Default)]
 pub struct SimpleBundler {
     resolver: Resolver,
     count: Rc<RefCell<u32>>,
@@ -25,17 +26,6 @@ pub struct SimpleBundler {
 }
 
 impl SimpleBundler {
-    pub fn new() -> Self {
-        Self {
-            count: Rc::new(RefCell::new(0)),
-            resolver: Resolver::new(),
-            first_entry: RefCell::new(None),
-            processed_modules: RefCell::new(HashSet::new()),
-            module_map: Default::default(),
-            resolution_name_map: Default::default(),
-        }
-    }
-
     pub(crate) fn get_resolution(&self, entry: &PathBuf) -> Resolution {
         let dir = {
             if entry.is_absolute() {
@@ -47,33 +37,35 @@ impl SimpleBundler {
                     .to_path_buf()
             }
         };
-        self.resolver.resolve(&dir, &entry).unwrap()
+        self.resolver.resolve(&dir, entry).unwrap()
     }
 
     pub fn bundle(&self, entry: &PathBuf) -> String {
         self.update_first_entry(entry);
-        let resolution = self.get_resolution(&entry);
+        let resolution = self.get_resolution(entry);
         let full_path = resolution.full_path();
         if self.processed_modules.borrow().contains(&full_path) {
             return self
                 .resolution_name_map
                 .borrow()
                 .get(full_path.to_str().unwrap())
-                .expect(&format!(
-                    "entry not found: {:?}, {:#?}",
-                    &full_path, &self.resolution_name_map
-                ))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "entry not found: {:?}, {:#?}",
+                        &full_path, &self.resolution_name_map
+                    )
+                })
                 .clone();
         }
-        let file_name = self._bundle(entry, &resolution.path());
+        let file_name = self._bundle(entry, resolution.path());
         self.processed_modules.borrow_mut().insert(full_path);
         format!("{}.js", file_name)
     }
 
     fn _bundle(&self, entry: &PathBuf, resolution: &Path) -> String {
         let allocator = Allocator::default();
-        let source_text = fs::read_to_string(&resolution).unwrap();
-        let source_type = SourceType::from_path(&resolution).unwrap();
+        let source_text = fs::read_to_string(resolution).unwrap();
+        let source_type = SourceType::from_path(resolution).unwrap();
 
         let ret = Parser::new(&allocator, &source_text, source_type).parse();
         if !ret.errors.is_empty() {
@@ -145,7 +137,7 @@ impl SimpleBundler {
         new_file_name
     }
 
-    pub fn write(&self, path: &PathBuf) {
+    pub fn write(&self, path: &Path) {
         if !path.exists() {
             fs::create_dir_all(path).unwrap();
         }
@@ -155,7 +147,7 @@ impl SimpleBundler {
         });
     }
 
-    fn update_first_entry(&self, entry: &PathBuf) {
+    fn update_first_entry(&self, entry: &Path) {
         if self.first_entry.borrow().is_none() {
             let file_name = entry.to_str().unwrap().to_string();
             *self.first_entry.borrow_mut() = Some(file_name);

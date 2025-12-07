@@ -5,6 +5,6 @@ use super::{PathItemObject, ReferenceObject};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum CallbackValue {
-    PathItem(PathItemObject),
+    PathItem(Box<PathItemObject>),
     Reference(ReferenceObject),
 }

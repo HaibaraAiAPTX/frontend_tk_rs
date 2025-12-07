@@ -1,6 +1,6 @@
 #![deny(clippy::all)]
 
-use std::{env::current_dir, path::Path};
+use std::{env::current_dir, path::Path, str::FromStr};
 
 use bootstrap::init_command_factory;
 use built_in::register_built_in_command;

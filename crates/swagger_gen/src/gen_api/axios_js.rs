@@ -75,6 +75,6 @@ return axios.request({{
     }
 
     fn get_open_api(&self) -> &OpenAPIObject {
-        &self.open_api
+        self.open_api
     }
 }

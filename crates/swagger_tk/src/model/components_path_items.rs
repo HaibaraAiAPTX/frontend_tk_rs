@@ -4,6 +4,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ComponentsPathItems {
-    PathItem(PathItemObject),
+    PathItem(Box<PathItemObject>),
     Reference(ReferenceObject),
 }

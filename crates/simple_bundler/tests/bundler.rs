@@ -5,7 +5,7 @@ use std::env::current_dir;
 #[test]
 fn bundler_test() {
     let root = current_dir().unwrap().join("tests");
-    let bundler = SimpleBundler::new();
+    let bundler = SimpleBundler::default();
     let main_name = bundler.bundle(&root.join("./test.ts").clean());
     let output = root.join("dist");
     bundler.write(&output);

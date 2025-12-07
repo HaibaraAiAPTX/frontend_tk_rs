@@ -38,7 +38,7 @@ impl SchemaEnumExtension for SchemaEnum {
     fn can_be_null(&self, open_api: &OpenAPIObject) -> bool {
         match self {
             SchemaEnum::Ref(v) => get_schema_by_name(open_api, &v.get_type_name())
-                .map_or(false, |x| x.can_be_null(open_api)),
+                .is_some_and(|x| x.can_be_null(open_api)),
             SchemaEnum::Object(v) => v.nullable.unwrap_or_default(),
             SchemaEnum::String(v) => v.nullable.unwrap_or_default(),
             SchemaEnum::Integer(v) => v.nullable.unwrap_or_default(),
@@ -54,16 +54,13 @@ impl SchemaEnumExtension for SchemaEnum {
             SchemaEnum::Integer(v) => v.r#enum.is_some(),
             SchemaEnum::Number(v) => v.r#enum.is_some(),
             SchemaEnum::Ref(v) => get_schema_by_name(open_api, &v.get_type_name())
-                .map_or(false, |x| x.is_enum(open_api)),
+                .is_some_and(|x| x.is_enum(open_api)),
             _ => false,
         }
     }
 
     fn is_raw_type_enum(&self, r#type: &str) -> bool {
-        match r#type {
-            "string" | "number" => true,
-            _ => false,
-        }
+        matches!(r#type, "string" | "number")
     }
 
     fn get_raw_enum_type(&self) -> Result<String, String> {

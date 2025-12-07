@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use swagger_tk::model::OpenAPIObject;
 
 use super::get_open_api_text;

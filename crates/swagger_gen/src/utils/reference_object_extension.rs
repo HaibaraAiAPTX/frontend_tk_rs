@@ -6,6 +6,6 @@ pub trait ReferenceObjectExtension {
 
 impl ReferenceObjectExtension for ReferenceObject {
     fn get_type_name(&self) -> String {
-        self.r#ref.split('/').last().unwrap().to_string()
+        self.r#ref.split('/').next_back().unwrap().to_string()
     }
 }

@@ -51,7 +51,7 @@ struct GenFileOpts {
     dependencies: Option<bool>,
 }
 
-pub fn gen_files(args: &Vec<String>, open_api: &OpenAPIObject) -> Result<(), Error> {
+pub fn gen_files(args: &[String], open_api: &OpenAPIObject) -> Result<(), Error> {
     let args = iter::once("--".to_string())
         .chain(args.iter().cloned())
         .collect::<Vec<_>>();

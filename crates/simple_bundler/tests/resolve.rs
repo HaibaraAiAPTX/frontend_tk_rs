@@ -4,7 +4,7 @@ use std::{env::current_dir, path::PathBuf};
 
 #[test]
 fn resolve_test() {
-    let resolver = Resolver::new();
+    let resolver = Resolver::default();
     let dir = current_dir().unwrap().join("../../test-bundler").clean();
 
     let index_resolution = resolver

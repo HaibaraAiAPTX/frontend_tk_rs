@@ -25,15 +25,15 @@ pub struct ServiceModelsOps {
   model_output: Option<Vec<String>>,
 }
 
-pub fn service_models(args: &Vec<String>, open_api: &OpenAPIObject) {
+pub fn service_models(args: &[String], open_api: &OpenAPIObject) {
   let args: Vec<String> = std::iter::once("--".to_string())
     .chain(args.iter().cloned())
     .collect();
   let options = ServiceModelsOps::try_parse_from(args).unwrap();
 
-  gen_apis(&options, &open_api).unwrap();
+  gen_apis(&options, open_api).unwrap();
 
-  gen_models(&options, &open_api).unwrap();
+  gen_models(&options, open_api).unwrap();
 }
 
 // 根据服务输出位置
@@ -54,7 +54,7 @@ fn gen_apis(options: &ServiceModelsOps, open_api: &OpenAPIObject) -> Result<(), 
       let apis = gen_service.get_outputs();
       let output = Path::new(outputs.get(i).unwrap());
       ensure_path(output);
-      create_all_file(&output.to_path_buf(), apis);
+      create_all_file(output, apis);
     }
   }
   Ok(())
@@ -79,8 +79,8 @@ fn gen_models(options: &ServiceModelsOps, open_api: &OpenAPIObject) -> Result<()
 
     outputs.iter().for_each(|p| {
       let output = Path::new(p);
-      ensure_path(&output);
-      create_all_file(&output.to_path_buf(), &models);
+      ensure_path(output);
+      create_all_file(output, &models);
     });
   }
   Ok(())
