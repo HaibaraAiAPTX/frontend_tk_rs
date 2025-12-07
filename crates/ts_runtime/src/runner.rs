@@ -13,6 +13,18 @@ fn create_runtime() -> QuickJsRuntimeFacade {
         .build()
 }
 
+async fn resolve_js_value(value: JsValueFacade, stage: &str) -> Result<JsValueFacade, String> {
+    if let JsValueFacade::JsPromise { cached_promise } = value {
+        let res = cached_promise
+            .get_promise_result()
+            .await
+            .map_err(|err| format!("{} promise then failed: {}", stage, err))?
+            .map_err(|_| format!("{} promise catch failed", stage))?;
+        return Ok(res);
+    }
+    Ok(value)
+}
+
 /// Runs the main file of a TypeScript/JavaScript project.
 ///
 /// This function bundles the project starting from `main_file_path`,
@@ -26,18 +38,53 @@ pub async fn run_main_file(main_file_path: &PathBuf) -> Result<JsValueFacade, St
         .map_err(|err| format!("read compiled file failed: {}", err))?;
 
     let rt = create_runtime();
-    let res = rt
+    let module_result = rt
         .eval_module(None, Script::new(compiled_file_str, &file_content))
         .await
         .map_err(|err| format!("run main file failed: {}", err))?;
-    if let JsValueFacade::JsPromise { cached_promise } = res {
-        let res = cached_promise
-            .get_promise_result()
-            .await
-            .map_err(|err| format!("promise then failed: {}", err))?
-            .map_err(|_| "promise catch failed")?;
-        return Ok(res);
-    }
+    let _ = resolve_js_value(module_result, "module").await?;
+
+    let import_path = compiled_file_str.replace("\\", "/");
+    let helper_script = format!(
+        r#"globalThis.__temp_result = undefined;
+import * as ns from '{}';
+async function __resolve_run_main_result() {{
+  const def = ns.default;
+  if (typeof def !== 'undefined') {{
+    if (typeof def === 'function') {{
+      return await def();
+    }}
+    return def;
+  }}
+  return globalThis.result;
+}}
+globalThis.__temp_result = await __resolve_run_main_result();"#,
+        import_path
+    );
+
+    let helper_result = rt
+        .eval_module(None, Script::new("run_main_helper.js", &helper_script))
+        .await
+        .map_err(|err| format!("run helper script failed: {}", err))?;
+    let _ = resolve_js_value(helper_result, "helper").await?;
+
+    let res = rt
+        .loop_realm(None, move |_, realm| {
+            let global = realm.get_global()?;
+            let temp_ns_adapter = realm
+                .get_object_property(&global, "__temp_result")
+                .map_err(|err| {
+                    JsError::new(
+                        "Error".to_string(),
+                        format!("get __temp_result failed: {}", err),
+                        String::new(),
+                    )
+                })?;
+            realm.to_js_value_facade(&temp_ns_adapter)
+        })
+        .await
+        .map_err(|err| format!("read helper result failed: {}", err))?;
+
     Ok(res)
 }
 

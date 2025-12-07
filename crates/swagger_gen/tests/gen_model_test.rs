@@ -5,12 +5,12 @@ mod utils;
 
 #[test]
 fn gen_declaration_test() {
-    let open_api_object = get_open_api_object(Some("打卡.json"));
+    let open_api_object = get_open_api_object(None);
     let model_gen = TypescriptDeclarationGen {
         open_api: &open_api_object,
     };
 
-    let model_text = model_gen.gen_declaration_by_name("AddAfterClassAssignmentRequestModel");
+    let model_text = model_gen.gen_declaration_by_name("Order");
     assert!(model_text.is_ok());
     let model_list = model_gen.gen_declarations();
     assert!(model_list.is_ok());
