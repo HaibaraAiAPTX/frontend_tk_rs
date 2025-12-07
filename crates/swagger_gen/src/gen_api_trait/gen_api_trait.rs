@@ -1,6 +1,6 @@
+use crate::core::ApiContext;
 use std::collections::HashMap;
 use swagger_tk::model::OpenAPIObject;
-use crate::core::ApiContext;
 
 pub trait GenApi {
     /// 由外部调用，生成方法，调用后自动使用 gen_name_content_map 返回内容
@@ -8,7 +8,7 @@ pub trait GenApi {
         self.clear();
 
         let data = self.get_open_api();
-        
+
         let paths = data.paths.as_ref().ok_or("paths not found".to_string())?;
         let mut paths_keys = paths.keys().collect::<Vec<_>>();
         paths_keys.sort();

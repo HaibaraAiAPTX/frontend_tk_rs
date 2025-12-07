@@ -4,7 +4,7 @@ use swagger_tk::{
     model::{OpenAPIObject, SchemaEnum, SchemaInteger, SchemaNumber, SchemaString},
 };
 
-use crate::utils::{format_ts_code, SchemaEnumExtension};
+use crate::utils::{SchemaEnumExtension, format_ts_code};
 
 pub struct TypescriptDeclarationGen<'a> {
     pub open_api: &'a OpenAPIObject,

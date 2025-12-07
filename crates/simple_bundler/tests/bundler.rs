@@ -1,6 +1,6 @@
-use std::env::current_dir;
 use path_clean::PathClean;
 use simple_bundler::SimpleBundler;
+use std::env::current_dir;
 
 #[test]
 fn bundler_test() {

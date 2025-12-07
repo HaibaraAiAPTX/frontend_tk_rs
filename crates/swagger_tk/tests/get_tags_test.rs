@@ -5,9 +5,9 @@ mod utils;
 
 #[test]
 fn get_tags_test() {
-  let open_api_object = get_open_api_object(None);
-  let tags = get_tags(&open_api_object);
-  assert!(tags.len() > 0);
+    let open_api_object = get_open_api_object(None);
+    let tags = get_tags(&open_api_object);
+    assert!(tags.len() > 0);
 }
 
 #[test]

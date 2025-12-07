@@ -1,6 +1,6 @@
 use path_clean::PathClean;
 use std::env::current_dir;
-use ts_runtime::{compile, get_js_output_cache_dir};
+use ts_runtime::{compiler, get_js_output_cache_dir};
 
 #[test]
 fn cache_test() {
@@ -15,7 +15,7 @@ fn compile_test() {
         .unwrap()
         .join("../../test-bundler/src/index.ts")
         .clean();
-    let entry_file_path = compile(&entry_path).unwrap();
+    let entry_file_path = compiler(&entry_path).unwrap();
     assert!(entry_file_path.exists());
     println!("{:?}", entry_file_path.display());
 }

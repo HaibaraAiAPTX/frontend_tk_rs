@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{operation_object::OperationObject, PathItemParameters, ServerObject};
+use super::{PathItemParameters, ServerObject, operation_object::OperationObject};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PathItemObject {

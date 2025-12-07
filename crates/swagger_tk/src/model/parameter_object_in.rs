@@ -10,7 +10,7 @@ pub enum ParameterObjectIn {
 
     #[serde(rename = "path")]
     Path,
-    
+
     #[serde(rename = "cookie")]
     Cookie,
 }

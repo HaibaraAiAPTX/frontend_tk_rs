@@ -55,7 +55,7 @@ impl<'a> AxiosTsGen<'a> {
                     (None, Some(v)) => format!(r#", null, {{ params: {v} }}"#),
                     (Some(v), None) => format!(r#", {v}"#),
                     (Some(v1), Some(v2)) => format!(r#", {v1}, {{ params: {v2} }}"#),
-                }    
+                }
             } else {
                 // 第二个参数是 config 的请求方法
                 match (&request_data, &request_params) {

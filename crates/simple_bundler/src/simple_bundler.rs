@@ -1,6 +1,7 @@
 use crate::{import_visitor::ImportVisitor, resolver::Resolver};
-use oxc::{allocator::Allocator, ast::VisitMut, parser::Parser, span::SourceType};
-use oxc_codegen::CodeGenerator;
+use oxc::{allocator::Allocator, parser::Parser, span::SourceType};
+use oxc_ast_visit::VisitMut;
+use oxc_codegen::Codegen;
 use oxc_resolver::Resolution;
 use oxc_semantic::SemanticBuilder;
 use oxc_transformer::{TransformOptions, Transformer};
@@ -73,6 +74,7 @@ impl SimpleBundler {
         let allocator = Allocator::default();
         let source_text = fs::read_to_string(&resolution).unwrap();
         let source_type = SourceType::from_path(&resolution).unwrap();
+
         let ret = Parser::new(&allocator, &source_text, source_type).parse();
         if !ret.errors.is_empty() {
             println!("Parser Errors:");
@@ -107,12 +109,12 @@ impl SimpleBundler {
             }
         }
 
-        let (symbols, scopes) = ret.semantic.into_symbol_table_and_scope_tree();
+        let scoping = ret.semantic.into_scoping();
 
         let transform_options = TransformOptions::default();
 
-        let ret = Transformer::new(&allocator, resolution, transform_options)
-            .build_with_symbols_and_scopes(symbols, scopes, &mut program);
+        let ret = Transformer::new(&allocator, resolution, &transform_options)
+            .build_with_scoping(scoping, &mut program);
 
         if !ret.errors.is_empty() {
             println!("Transformer Errors:");
@@ -122,7 +124,7 @@ impl SimpleBundler {
             }
         }
 
-        let printed = CodeGenerator::new().build(&program).code;
+        let printed = Codegen::new().build(&program).code;
         let file_name = self.cache_transformed(resolution, printed);
         self.resolution_name_map
             .borrow_mut()
