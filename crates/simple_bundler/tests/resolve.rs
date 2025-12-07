@@ -32,6 +32,4 @@ fn resolve_test() {
         &PathBuf::from("./_createMathOperation.js"),
     );
     assert!(match_resolution.is_ok());
-
-    dbg!(&match_resolution.unwrap().path());
 }

@@ -5,9 +5,16 @@ use ts_runtime::{run_func, run_main_file};
 #[tokio::test]
 async fn test_us1_run_main_file_async() {
     let entry_path = current_dir().unwrap().join("tests/utils.ts").clean();
-    // utils.ts has top-level await: export const value = await asyncHello();
     let result = run_main_file(&entry_path).await;
     assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_us1_run_main_file() {
+    let entry_path = current_dir().unwrap().join("tests/runner1.ts").clean();
+    let result = run_main_file(&entry_path).await;
+    assert!(result.is_ok());
+    dbg!(result.unwrap().to_serde_value().await.unwrap());
 }
 
 #[tokio::test]

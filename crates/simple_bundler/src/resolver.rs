@@ -1,10 +1,22 @@
 use std::{error::Error, path::PathBuf};
 
-use oxc_resolver::Resolution;
+use oxc_resolver::{Resolution, ResolveOptions};
 
-#[derive(Default)]
 pub struct Resolver {
     resolver: oxc_resolver::Resolver,
+}
+
+impl Default for Resolver {
+    fn default() -> Self {
+        Self {
+            resolver: oxc_resolver::Resolver::new(ResolveOptions {
+                condition_names: vec!["import".into()],
+                main_fields: vec!["module".into(), "main".into()],
+                extensions: vec![".js".into(), ".json".into(), ".ts".into(), ".node".into()],
+                ..Default::default()
+            }),
+        }
+    }
 }
 
 impl Resolver {
@@ -14,7 +26,7 @@ impl Resolver {
             .resolve(dir.as_path(), &specifier)
             .or_else(|_| {
                 println!(
-                    "resolve failed, try parent dir {} specific {}",
+                    "resolve failed, try parent dir:{} specific:{}",
                     dir.display(),
                     entry.display()
                 );
