@@ -14,7 +14,39 @@ async fn test_us1_run_main_file() {
     let entry_path = current_dir().unwrap().join("tests/runner1.ts").clean();
     let result = run_main_file(&entry_path).await;
     assert!(result.is_ok());
-    dbg!(result.unwrap().to_serde_value().await.unwrap());
+    assert_eq!(result.unwrap().get_str(), "hello world");
+}
+
+#[tokio::test]
+async fn test_us1_run_main_file_get_result() {
+    let entry_path = current_dir().unwrap().join("tests/runner2.ts").clean();
+    let result = run_main_file(&entry_path).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().get_str(), "hello world");
+}
+
+#[tokio::test]
+async fn test_us1_run_main_file_get_default_export() {
+    let entry_path = current_dir().unwrap().join("tests/export-default-value.ts").clean();
+    let result = run_main_file(&entry_path).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().get_str(), "hello world");
+}
+
+#[tokio::test]
+async fn test_us1_run_main_file_get_default_export_function() {
+    let entry_path = current_dir().unwrap().join("tests/export-default-function.ts").clean();
+    let result = run_main_file(&entry_path).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().get_str(), "hello world");
+}
+
+#[tokio::test]
+async fn test_us1_run_main_file_get_default_export_async_function() {
+    let entry_path = current_dir().unwrap().join("tests/export-default-async-function.ts").clean();
+    let result = run_main_file(&entry_path).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().get_str(), "hello async");
 }
 
 #[tokio::test]
