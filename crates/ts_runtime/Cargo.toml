@@ -5,9 +5,10 @@ edition = "2021"
 
 [dependencies]
 common = { version = "0.1.0", path = "../common" }
-deno_core = "0.318.0"
-deno_runtime = "0.185.0"
 dirs-next = "2.0.0"
 path-clean = "1.0.1"
+serde_json = "1.0"
 simple_bundler = { version = "0.1.0", path = "../simple_bundler" }
-tokio = { version = "1.41.1", features = ["test-util"]}
+tokio = { version = "1.48.0", features = ["full"] }
+quickjs_runtime = { version = "0.17.0", features = ["console", "setimmediate", "setinterval", "settimeout", "typescript", "quickjs-ng"], default-features = false }
+futures = "0.3.31"

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::get_js_output_cache_dir;
 
-pub fn compile(entry_path: &PathBuf) -> Result<PathBuf, String> {
+pub fn compiler(entry_path: &PathBuf) -> Result<PathBuf, String> {
     let output_path = ensure_ts_runtime_cache_dir()?;
     let bundler = SimpleBundler::new();
     let entry_file_name = bundler.bundle(entry_path);

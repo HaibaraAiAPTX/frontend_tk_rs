@@ -1,51 +1,45 @@
-use std::env::current_dir;
-use deno_core::{serde_json, v8};
 use path_clean::PathClean;
+use std::env::current_dir;
 use ts_runtime::{run_func, run_main_file};
 
 #[tokio::test]
-async fn run_test_bundler_test() {
-    let entry_path = current_dir().unwrap().join("../../test-bundler/src/index.ts").clean();
-    let result = run_func(&entry_path, "getSum", |_| vec![]).await.unwrap();
-    assert_eq!(result, serde_json::json!(6));
-    let result = run_func(&entry_path, "asyncGetSum", |_| vec![]).await.unwrap();
-    assert_eq!(result, serde_json::json!(6));
+async fn test_us1_run_main_file_async() {
+    let entry_path = current_dir().unwrap().join("tests/utils.ts").clean();
+    // utils.ts has top-level await: export const value = await asyncHello();
+    let result = run_main_file(&entry_path).await;
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
-async fn runner1_test() {
-    let entry_path = current_dir().unwrap().join("./tests/runner1.ts").clean();
-    let result = run_main_file(&entry_path).await.unwrap();
-    assert_eq!(result, serde_json::json!(10));
+async fn test_us1_run_func_async() {
+    let entry_path = current_dir().unwrap().join("tests/utils.ts").clean();
+    let result = run_func(&entry_path, "asyncHello".to_string(), |_| vec![]).await;
+    if let Err(e) = &result {
+        println!("Error: {}", e);
+    }
+    assert!(result.is_ok());
+    let val = result.unwrap();
+    assert_eq!(val.get_str(), "hello async");
 }
 
 #[tokio::test]
-async fn runner2_test() {
-    let entry_path = current_dir().unwrap().join("./tests/runner2.ts").clean();
-    let result = run_main_file(&entry_path).await.unwrap();
-    assert_eq!(result, serde_json::json!("hello world async result"));
+async fn test_us2_set_timeout() {
+    let entry_path = current_dir().unwrap().join("tests/utils.ts").clean();
+    let result = run_func(&entry_path, "sleep".to_string(), |realm| {
+        vec![realm.create_i32(10).unwrap()]
+    })
+    .await;
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
-async fn runner3_test() {
-    let entry_path = current_dir().unwrap().join("./tests/runner3.ts").clean();
-    let result = run_func(&entry_path, "main", |_| vec![]).await.unwrap();
-    assert_eq!(result, serde_json::json!("hello world"));
-}
-
-#[tokio::test]
-async fn runner4_test() {
-    let entry_path = current_dir().unwrap().join("./tests/runner4.ts").clean();
-    let result = run_func(&entry_path, "double_count", |scope| {
-        let count = v8::Number::new(scope, 2.0).cast();
-        let count = v8::Global::new(scope, count);
-        vec![count]
-    }).await.unwrap();
-    assert_eq!(result, serde_json::json!(4));
-    let result = run_func(&entry_path, "async_double_count", |scope| {
-        let count = v8::Number::new(scope, 2.0).cast();
-        let count = v8::Global::new(scope, count);
-        vec![count]
-    }).await.unwrap();
-    assert_eq!(result, serde_json::json!(4));
+async fn test_us2_set_interval() {
+    let entry_path = current_dir().unwrap().join("tests/utils.ts").clean();
+    let result = run_func(&entry_path, "intervalCount".to_string(), |realm| {
+        vec![realm.create_i32(10).unwrap(), realm.create_i32(3).unwrap()]
+    })
+    .await;
+    assert!(result.is_ok());
+    let val = result.unwrap();
+    assert_eq!(val.get_i32(), 3);
 }

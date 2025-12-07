@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use super::{ComponentsObject, OpenAPIWebhooks};
 use super::{ExternalDocumentationObject, OpenAPIInfo, PathItemObject, ServerObject, TagObject};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OpenAPIObject {

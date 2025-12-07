@@ -1,5 +1,7 @@
 use crate::{
-    core::{ApiContext, JsApiContextHelper}, gen_api_trait::GenApi, utils::format_ts_code
+    core::{ApiContext, JsApiContextHelper},
+    gen_api_trait::GenApi,
+    utils::format_ts_code,
 };
 use inflector::cases::pascalcase::to_pascal_case;
 use std::{cell::RefCell, collections::HashMap};
@@ -109,7 +111,7 @@ export class {}Service extends BaseService {{
     fn get_outputs(&self) -> &HashMap<String, String> {
         &self.outputs
     }
-    
+
     fn get_open_api(&self) -> &OpenAPIObject {
         &self.open_api
     }

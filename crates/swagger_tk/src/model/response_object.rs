@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{response_lihk::ResponseLink, MediaTypeObject, ResponseHeaders};
+use super::{MediaTypeObject, ResponseHeaders, response_lihk::ResponseLink};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ResponseObject {

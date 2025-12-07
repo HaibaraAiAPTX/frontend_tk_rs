@@ -18,7 +18,8 @@ pub fn init_command_factory(plugin: &Option<Vec<String>>) -> Result<CommandFacto
   plugin.as_ref().map(|v| {
     v.iter().for_each(|p| unsafe {
       let lib = Library::new(p).unwrap();
-      let init_plugin: Symbol<unsafe extern "C" fn(&CommandRegistry)> = lib.get(b"init_plugin").unwrap();
+      let init_plugin: Symbol<unsafe extern "C" fn(&CommandRegistry)> =
+        lib.get(b"init_plugin").unwrap();
       init_plugin(&command_factory.command);
       command_factory.insert_lib(lib);
     })

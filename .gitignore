@@ -1,3 +1,29 @@
 /target
 ./*.json
 node_modules
+
+# Rust
+debug/
+release/
+*.rs.bk
+*.rlib
+*.prof*
+*.log
+.env*
+
+# Node.js
+dist/
+build/
+coverage/
+.npm/
+.yarn/
+
+# Universal
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+
+crates/**/target

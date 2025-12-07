@@ -1,11 +1,9 @@
 use crate::SimpleBundler;
 use oxc::{
     allocator::{Allocator, FromIn},
-    ast::{
-        ast::{ExportNamedDeclaration, ImportDeclaration},
-        VisitMut,
-    },
+    ast::ast::{ExportNamedDeclaration, ImportDeclaration},
 };
+use oxc_ast_visit::VisitMut;
 use oxc_resolver::Resolution;
 use oxc_span::Atom;
 use path_clean::PathClean;
