@@ -310,6 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { runCli } = nativeBinding
+const { runCli, getHelpTree } = nativeBinding
 
 module.exports.runCli = runCli
+module.exports.getHelpTree = getHelpTree

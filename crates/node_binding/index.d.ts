@@ -9,4 +9,27 @@ export interface RunCliOptions {
   plugin?: Array<string>
   options: Array<string>
 }
+export interface GetHelpTreeOptions {
+  plugin?: Array<string>
+}
+export interface HelpOptionDescriptor {
+  long: string
+  short?: string
+  valueName?: string
+  required: boolean
+  multiple: boolean
+  defaultValue?: string
+  description: string
+}
+export interface HelpCommandDescriptor {
+  name: string
+  summary: string
+  description?: string
+  aliases: Array<string>
+  options: Array<HelpOptionDescriptor>
+  examples: Array<string>
+  pluginName?: string
+  pluginVersion?: string
+}
 export declare function runCli(options: RunCliOptions): void
+export declare function getHelpTree(options?: GetHelpTreeOptions | null): Array<HelpCommandDescriptor>
