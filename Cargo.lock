@@ -3074,6 +3074,8 @@ dependencies = [
  "log",
  "path-clean 1.0.1",
  "regex",
+ "serde",
+ "serde_json",
  "swagger_tk",
 ]
 

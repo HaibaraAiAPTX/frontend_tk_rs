@@ -9,5 +9,7 @@ dprint-core = "0.67.4"
 dprint-plugin-typescript = "0.95.13"
 path-clean = "1.0.1"
 regex = "1.12.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 swagger_tk = { version = "0.1.0", path = "../swagger_tk" }
 log = "0.4.29"
