@@ -9,6 +9,11 @@
       "@aptx/frontend-tk-cli": "link:packages/frontend-tk-cli"
     }
   },
+  "scripts": {
+    "benchmark:codegen": "node scripts/benchmark/run-codegen-10k-benchmark.mjs",
+    "benchmark:rust": "cargo bench -p swagger_gen --bench codegen_pipeline",
+    "benchmark": "pnpm benchmark:codegen && pnpm benchmark:rust"
+  },
   "dependencies": {
     "@aptx/frontend-tk-cli": "link:packages/frontend-tk-cli"
   }
