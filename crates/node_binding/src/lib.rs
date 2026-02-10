@@ -5,6 +5,7 @@ use std::{env::current_dir, path::Path, str::FromStr};
 use aptx_frontend_tk_binding_plugin::command::CommandDescriptor;
 use bootstrap::init_command_factory;
 use built_in::register_built_in_command;
+use napi::Error;
 use swagger_tk::model::OpenAPIObject;
 
 mod bootstrap;
@@ -79,7 +80,7 @@ fn to_help_descriptor(descriptor: CommandDescriptor) -> HelpCommandDescriptor {
 }
 
 #[napi]
-pub fn run_cli(options: RunCliOptions) {
+pub fn run_cli(options: RunCliOptions) -> napi::Result<()> {
   let input = {
     let path = Path::new(&options.input);
     if path.is_absolute() {
@@ -88,16 +89,19 @@ pub fn run_cli(options: RunCliOptions) {
       current_dir().unwrap().join(&options.input)
     }
   };
-  let text = std::fs::read_to_string(input).unwrap();
-  let open_api = OpenAPIObject::from_str(&text).unwrap();
+  let text = std::fs::read_to_string(input).map_err(|err| Error::from_reason(err.to_string()))?;
+  let open_api =
+    OpenAPIObject::from_str(&text).map_err(|err| Error::from_reason(err.to_string()))?;
 
-  let command_factory = init_command_factory(&options.plugin).unwrap();
+  let command_factory =
+    init_command_factory(&options.plugin).map_err(|err| Error::from_reason(err.to_string()))?;
   register_built_in_command(&command_factory.command);
 
   command_factory
     .command
     .execute_command(&options.command, &options.options, &open_api)
-    .unwrap();
+    .map_err(Error::from_reason)?;
+  Ok(())
 }
 
 #[napi]

@@ -7,9 +7,9 @@
   "license": "ISC",
   "scripts": {
     "build:plugin": "cd ./plugins/gen_plugin && cargo build --release",
-    "test:built-gen-single": "aptx-ft gen --service-output ./service1",
-    "test:input": "aptx-ft gen --input https://generator3.swagger.io/openapi.json --service-output ./remote-service",
-    "test:built-gen": "aptx-ft gen --service-output ./service1 --service-output ./service2 --service-output ./service3 --service-mode axios-ts  --service-mode axios-js  --service-mode uniapp --model-output ./models",
+    "test:codegen": "aptx-ft codegen run -c ./aptx-ft.config.ts",
+    "test:input": "aptx-ft codegen run -c ./aptx-ft.config.ts -i https://generator3.swagger.io/openapi.json",
+    "test:list-terminals": "aptx-ft codegen list-terminals",
     "test:custom-plugin": "aptx-ft custom-command -p ../../target/release/gen_plugin.dll",
     "test:materal": "aptx-ft materal:antd-init -i http://82.156.11.176:15700/swagger/TrainningAssistant.Main/swagger.json --store true"
   },

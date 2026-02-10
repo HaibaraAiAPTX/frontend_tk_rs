@@ -5,8 +5,9 @@ use std::{
 };
 
 use swagger_gen::pipeline::{
-    build_dry_run_plan, build_ir_snapshot_json, build_report_json, generate_functions_contract_v1,
-    generate_react_query_contract_v1, generate_vue_query_contract_v1, parse_openapi_to_ir,
+    build_dry_run_plan, build_ir_snapshot_json, build_report_json, generate_axios_js_v1,
+    generate_axios_ts_v1, generate_functions_contract_v1, generate_react_query_contract_v1,
+    generate_uniapp_v1, generate_vue_query_contract_v1, parse_openapi_to_ir,
 };
 use utils::get_open_api_object;
 
@@ -111,6 +112,72 @@ fn generate_react_and_vue_query_contract_v1_test() {
 
     fs::remove_dir_all(&react_root).expect("remove react temp dir fail");
     fs::remove_dir_all(&vue_root).expect("remove vue temp dir fail");
+}
+
+#[test]
+fn generate_axios_ts_v1_test() {
+    let open_api_object = get_open_api_object(None);
+    let output_root = get_temp_test_dir("pipeline-axios-ts");
+
+    let plan = generate_axios_ts_v1(&open_api_object, &output_root)
+        .expect("axios-ts generation fail");
+    assert!(plan.endpoint_count > 0);
+    assert!(
+        plan.planned_files
+            .iter()
+            .any(|f| f.path.ends_with("Service.ts"))
+    );
+
+    let pet_file = plan
+        .planned_files
+        .iter()
+        .find(|f| f.path == "PetService.ts")
+        .expect("PetService.ts not generated");
+    let content = fs::read_to_string(output_root.join(&pet_file.path)).expect("read file fail");
+    assert!(content.contains("export class PetService extends BaseService"));
+    assert!(content.contains("FindPetsByStatus"));
+
+    fs::remove_dir_all(&output_root).expect("remove temp dir fail");
+}
+
+#[test]
+fn generate_axios_js_v1_test() {
+    let open_api_object = get_open_api_object(None);
+    let output_root = get_temp_test_dir("pipeline-axios-js");
+
+    let plan = generate_axios_js_v1(&open_api_object, &output_root).expect("axios-js generation fail");
+    assert!(plan.endpoint_count > 0);
+    assert!(plan.planned_files.iter().any(|f| f.path == "index.js"));
+
+    let content = fs::read_to_string(output_root.join("index.js")).expect("read file fail");
+    assert!(content.contains("import axios from"));
+    assert!(content.contains("export function"));
+
+    fs::remove_dir_all(&output_root).expect("remove temp dir fail");
+}
+
+#[test]
+fn generate_uniapp_v1_test() {
+    let open_api_object = get_open_api_object(None);
+    let output_root = get_temp_test_dir("pipeline-uniapp");
+
+    let plan = generate_uniapp_v1(&open_api_object, &output_root).expect("uniapp generation fail");
+    assert!(plan.endpoint_count > 0);
+    assert!(
+        plan.planned_files
+            .iter()
+            .any(|f| f.path.ends_with("Service.ts"))
+    );
+
+    let pet_file = plan
+        .planned_files
+        .iter()
+        .find(|f| f.path == "PetService.ts")
+        .expect("PetService.ts not generated");
+    let content = fs::read_to_string(output_root.join(&pet_file.path)).expect("read file fail");
+    assert!(content.contains("export class PetService extends BaseService"));
+
+    fs::remove_dir_all(&output_root).expect("remove temp dir fail");
 }
 
 fn get_temp_test_dir(prefix: &str) -> PathBuf {

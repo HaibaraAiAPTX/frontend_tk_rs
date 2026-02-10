@@ -2,6 +2,29 @@ use std::{cell::RefCell, collections::HashMap};
 
 use swagger_tk::model::OpenAPIObject;
 
+pub const COMMAND_DESCRIPTOR_SCHEMA_VERSION: &str = "1";
+
+pub const COMMAND_DESCRIPTOR_FIELDS: &[&str] = &[
+    "name",
+    "summary",
+    "description",
+    "aliases",
+    "options",
+    "examples",
+    "plugin_name",
+    "plugin_version",
+];
+
+pub const OPTION_DESCRIPTOR_FIELDS: &[&str] = &[
+    "long",
+    "short",
+    "value_name",
+    "required",
+    "multiple",
+    "default_value",
+    "description",
+];
+
 pub type CommandFn = Box<dyn for<'a> Fn(&'a [String], &'a OpenAPIObject)>;
 pub type CommandError = String;
 
@@ -49,17 +72,7 @@ pub struct CommandRegistry {
 }
 
 impl CommandRegistry {
-    /// V1 兼容接口，使用最小 descriptor 注册命令
-    pub fn register_command(&self, name: &str, callback: CommandFn) {
-        let descriptor = CommandDescriptor {
-            name: name.to_string(),
-            summary: String::new(),
-            ..Default::default()
-        };
-        self.register_command_with_descriptor(descriptor, callback);
-    }
-
-    /// V2 接口，注册时提供命令元数据，供 help 系统使用
+    /// 注册命令与完整元数据，供 help 系统使用
     pub fn register_command_with_descriptor(
         &self,
         descriptor: CommandDescriptor,
@@ -98,14 +111,43 @@ impl CommandRegistry {
         (command.callback)(args, open_api);
         Ok(())
     }
+}
 
-    /// V1 拼写兼容接口
-    pub fn excute_command<'a>(
-        &self,
-        name: &'a str,
-        args: &'a [String],
-        open_api: &'a OpenAPIObject,
-    ) -> Result<(), String> {
-        self.execute_command(name, args, open_api)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_descriptor_contract_v1_should_match_snapshot() {
+        assert_eq!(COMMAND_DESCRIPTOR_SCHEMA_VERSION, "1");
+        assert_eq!(
+            COMMAND_DESCRIPTOR_FIELDS,
+            &[
+                "name",
+                "summary",
+                "description",
+                "aliases",
+                "options",
+                "examples",
+                "plugin_name",
+                "plugin_version",
+            ]
+        );
+    }
+
+    #[test]
+    fn option_descriptor_contract_v1_should_match_snapshot() {
+        assert_eq!(
+            OPTION_DESCRIPTOR_FIELDS,
+            &[
+                "long",
+                "short",
+                "value_name",
+                "required",
+                "multiple",
+                "default_value",
+                "description",
+            ]
+        );
     }
 }

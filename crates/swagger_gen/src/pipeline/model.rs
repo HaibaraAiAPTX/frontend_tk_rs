@@ -18,6 +18,7 @@ pub struct ProjectContext {
 pub struct EndpointItem {
     pub namespace: Vec<String>,
     pub operation_name: String,
+    pub summary: Option<String>,
     pub method: String,
     pub path: String,
     pub input_type_name: String,

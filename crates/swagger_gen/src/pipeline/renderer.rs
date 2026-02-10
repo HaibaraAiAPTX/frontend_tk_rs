@@ -1,4 +1,5 @@
 use inflector::cases::pascalcase::to_pascal_case;
+use std::collections::BTreeMap;
 
 use super::model::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput};
 
@@ -73,6 +74,98 @@ impl Renderer for VueQueryRenderer {
 
     fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
         render_query_terminal(input, QueryTerminal::Vue)
+    }
+}
+
+#[derive(Default)]
+pub struct AxiosTsRenderer;
+
+#[derive(Default)]
+pub struct AxiosJsRenderer;
+
+#[derive(Default)]
+pub struct UniAppRenderer;
+
+impl Renderer for AxiosTsRenderer {
+    fn id(&self) -> &'static str {
+        "axios-ts"
+    }
+
+    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
+        let mut grouped = BTreeMap::<String, Vec<&EndpointItem>>::new();
+        for endpoint in &input.endpoints {
+            let group = endpoint
+                .namespace
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "default".to_string());
+            grouped.entry(group).or_default().push(endpoint);
+        }
+
+        let files = grouped
+            .into_iter()
+            .map(|(group, endpoints)| PlannedFile {
+                path: format!("{}Service.ts", to_pascal_case(&group)),
+                content: render_axios_ts_service_file(&group, &endpoints),
+            })
+            .collect::<Vec<_>>();
+
+        Ok(RenderOutput {
+            files,
+            warnings: vec![],
+        })
+    }
+}
+
+impl Renderer for AxiosJsRenderer {
+    fn id(&self) -> &'static str {
+        "axios-js"
+    }
+
+    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
+        let mut lines = vec!["import axios from \"axios\";".to_string(), String::new()];
+        for endpoint in &input.endpoints {
+            lines.push(render_axios_js_function(endpoint));
+            lines.push(String::new());
+        }
+        Ok(RenderOutput {
+            files: vec![PlannedFile {
+                path: "index.js".to_string(),
+                content: lines.join("\n"),
+            }],
+            warnings: vec![],
+        })
+    }
+}
+
+impl Renderer for UniAppRenderer {
+    fn id(&self) -> &'static str {
+        "uniapp"
+    }
+
+    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
+        let mut grouped = BTreeMap::<String, Vec<&EndpointItem>>::new();
+        for endpoint in &input.endpoints {
+            let group = endpoint
+                .namespace
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "default".to_string());
+            grouped.entry(group).or_default().push(endpoint);
+        }
+
+        let files = grouped
+            .into_iter()
+            .map(|(group, endpoints)| PlannedFile {
+                path: format!("{}Service.ts", to_pascal_case(&group)),
+                content: render_uniapp_service_file(&group, &endpoints),
+            })
+            .collect::<Vec<_>>();
+
+        Ok(RenderOutput {
+            files,
+            warnings: vec![],
+        })
     }
 }
 
@@ -384,4 +477,265 @@ fn is_primitive_type(type_name: &str) -> bool {
         type_name,
         "string" | "number" | "boolean" | "void" | "object" | "unknown"
     )
+}
+
+fn render_axios_ts_service_file(group: &str, endpoints: &[&EndpointItem]) -> String {
+    let class_name = format!("{}Service", to_pascal_case(group));
+    let methods = endpoints
+        .iter()
+        .map(|endpoint| render_axios_ts_method(endpoint))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    format!(
+        "import {{ singleton }} from \"tsyringe\";
+import {{ BaseService }} from \"./BaseService\";
+
+@singleton()
+export class {class_name} extends BaseService {{
+{methods}
+}}
+"
+    )
+}
+
+fn render_axios_ts_method(endpoint: &EndpointItem) -> String {
+    let method_name = to_pascal_case(&endpoint.operation_name);
+    let method = endpoint.method.to_lowercase();
+    let output_type = normalize_type_ref(&endpoint.output_type_name);
+    let signature = if endpoint.input_type_name == "void" {
+        String::new()
+    } else {
+        format!("input: {}", normalize_type_ref(&endpoint.input_type_name))
+    };
+
+    let summary = endpoint
+        .summary
+        .as_ref()
+        .map(|text| format!("  /** {} */\n", text))
+        .unwrap_or_default();
+
+    let url = if endpoint.path_fields.is_empty() {
+        format!("\"{}\"", endpoint.path)
+    } else {
+        let path = endpoint
+            .path_fields
+            .iter()
+            .fold(endpoint.path.clone(), |acc, field| {
+                acc.replace(&format!("{{{field}}}"), &format!("${{input.{field}}}"))
+            });
+        format!("`{path}`")
+    };
+
+    let query_object = if endpoint.query_fields.is_empty() || endpoint.input_type_name == "void" {
+        None
+    } else {
+        Some(format!(
+            "{{ {} }}",
+            endpoint
+                .query_fields
+                .iter()
+                .map(|field| format!("{field}: input.{field}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))
+    };
+
+    let body_value = endpoint.request_body_field.as_ref().map(|field| {
+        if endpoint.input_type_name == "void" {
+            "undefined".to_string()
+        } else {
+            format!("input.{field}")
+        }
+    });
+
+    let call = if ["post", "put", "patch"].contains(&method.as_str()) {
+        match (body_value, query_object) {
+            (None, None) => format!("this.{method}<{output_type}>({url})"),
+            (Some(body), None) => format!("this.{method}<{output_type}>({url}, {body})"),
+            (None, Some(query)) => {
+                format!("this.{method}<{output_type}>({url}, null, {{ params: {query} }})")
+            }
+            (Some(body), Some(query)) => {
+                format!("this.{method}<{output_type}>({url}, {body}, {{ params: {query} }})")
+            }
+        }
+    } else {
+        match query_object {
+            None => format!("this.{method}<{output_type}>({url})"),
+            Some(query) => format!("this.{method}<{output_type}>({url}, {{ params: {query} }})"),
+        }
+    };
+
+    if signature.is_empty() {
+        format!(
+            "{summary}  {method_name}() {{
+    return {call};
+  }}"
+        )
+    } else {
+        format!(
+            "{summary}  {method_name}({signature}) {{
+    return {call};
+  }}"
+        )
+    }
+}
+
+fn render_axios_js_function(endpoint: &EndpointItem) -> String {
+    let func_name = to_pascal_case(&endpoint.operation_name);
+    let method = endpoint.method.to_lowercase();
+    let signature = if endpoint.input_type_name == "void" {
+        String::new()
+    } else {
+        "input".to_string()
+    };
+
+    let summary = endpoint
+        .summary
+        .as_ref()
+        .map(|text| format!("/** {} */\n", text))
+        .unwrap_or_default();
+
+    let url = if endpoint.path_fields.is_empty() {
+        format!("\"{}\"", endpoint.path)
+    } else {
+        let path = endpoint
+            .path_fields
+            .iter()
+            .fold(endpoint.path.clone(), |acc, field| {
+                acc.replace(&format!("{{{field}}}"), &format!("${{input?.{field}}}"))
+            });
+        format!("`{path}`")
+    };
+
+    let mut config_lines = vec![format!("url: {url}"), format!("method: \"{method}\"")];
+    if let Some(body) = endpoint.request_body_field.as_ref() {
+        config_lines.push(format!("data: input?.{body}"));
+    }
+    if !endpoint.query_fields.is_empty() {
+        let query = endpoint
+            .query_fields
+            .iter()
+            .map(|field| format!("{field}: input?.{field}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        config_lines.push(format!("params: {{ {query} }}"));
+    }
+
+    if signature.is_empty() {
+        format!(
+            "{summary}export function {func_name}() {{
+  return axios.request({{
+    {}
+  }});
+}}",
+            config_lines.join(",\n    ")
+        )
+    } else {
+        format!(
+            "{summary}export function {func_name}({signature}) {{
+  return axios.request({{
+    {}
+  }});
+}}",
+            config_lines.join(",\n    ")
+        )
+    }
+}
+
+fn render_uniapp_service_file(group: &str, endpoints: &[&EndpointItem]) -> String {
+    let class_name = format!("{}Service", to_pascal_case(group));
+    let methods = endpoints
+        .iter()
+        .map(|endpoint| render_uniapp_method(endpoint))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    format!(
+        "import {{ singleton }} from \"tsyringe\";
+import {{ BaseService }} from \"./BaseService\";
+
+@singleton()
+export class {class_name} extends BaseService {{
+{methods}
+}}
+"
+    )
+}
+
+fn render_uniapp_method(endpoint: &EndpointItem) -> String {
+    let method_name = to_pascal_case(&endpoint.operation_name);
+    let method = endpoint.method.to_lowercase();
+    let output_type = normalize_type_ref(&endpoint.output_type_name);
+    let signature = if endpoint.input_type_name == "void" {
+        String::new()
+    } else {
+        format!("input: {}", normalize_type_ref(&endpoint.input_type_name))
+    };
+
+    let summary = endpoint
+        .summary
+        .as_ref()
+        .map(|text| format!("  /** {} */\n", text))
+        .unwrap_or_default();
+
+    let url = if endpoint.path_fields.is_empty() {
+        format!("\"{}\"", endpoint.path)
+    } else {
+        let path = endpoint
+            .path_fields
+            .iter()
+            .fold(endpoint.path.clone(), |acc, field| {
+                acc.replace(&format!("{{{field}}}"), &format!("${{input.{field}}}"))
+            });
+        format!("`{path}`")
+    };
+
+    let query_object = if endpoint.query_fields.is_empty() || endpoint.input_type_name == "void" {
+        None
+    } else {
+        Some(format!(
+            "{{ {} }}",
+            endpoint
+                .query_fields
+                .iter()
+                .map(|field| format!("{field}: input.{field}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))
+    };
+
+    let body_value = endpoint.request_body_field.as_ref().map(|field| {
+        if endpoint.input_type_name == "void" {
+            "undefined".to_string()
+        } else {
+            format!("input.{field}")
+        }
+    });
+
+    let call = match (body_value, query_object) {
+        (None, None) => format!("this.{method}<{output_type}>({url})"),
+        (Some(body), None) => format!("this.{method}<{output_type}>({url}, {body})"),
+        (None, Some(query)) => {
+            format!("this.{method}<{output_type}>({url}, {{ params: {query} }})")
+        }
+        (Some(body), Some(query)) => {
+            format!("this.{method}<{output_type}>({url}, {body}, {{ params: {query} }})")
+        }
+    };
+
+    if signature.is_empty() {
+        format!(
+            "{summary}  {method_name}() {{
+    return {call};
+  }}"
+        )
+    } else {
+        format!(
+            "{summary}  {method_name}({signature}) {{
+    return {call};
+  }}"
+        )
+    }
 }

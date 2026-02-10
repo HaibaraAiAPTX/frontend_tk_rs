@@ -1,18 +1,15 @@
-# 代码生成文档索引
+# 文档索引
 
 ## 核心文档
 
-1. 架构总览：`docs/next-gen-codegen-architecture.md`
-2. 执行计划：`docs/codegen-execution-plan.md`
-3. 模板契约：`docs/codegen-template-contract-draft.md`
+1. 功能架构：`docs/final-codegen-architecture.md`
+2. 使用说明：`docs/codegen-usage.md`
 
-## 阅读顺序
+## 补充文档
 
-1. 先读架构总览，了解目标、边界和核心抽象。
-2. 再读执行计划，按里程碑推进落地。
-3. 最后读模板契约，校准具体输出与行为细节。
+1. 10k 压测基线：`docs/benchmarks/10k-endpoint-benchmark.md`
 
-## 说明
+## 维护约定
 
-1. 本目录已将插件双通道内容合并进架构总览，避免重复维护。
-2. 任何新增文档应优先判断是否可并入上述三份核心文档。
+1. 旧版兼容、迁移过程、阶段性执行清单不再保留。
+2. 新增能力请直接更新“功能架构 + 使用说明”，避免重复文档。

@@ -98,6 +98,7 @@ fn build_endpoint(
     EndpointItem {
         namespace,
         operation_name: to_camel_case(&context.func_name),
+        summary: operation.summary.clone(),
         method: method.to_string(),
         path: path.to_string(),
         input_type_name,

@@ -1,8 +1,10 @@
 import path from "path";
 import fs from "fs";
+import os from "os";
+import crypto from "crypto";
 import { getHelpTree, runCli } from "@aptx/frontend-tk-binding";
 import { getConfig } from "./config";
-import { getInput } from "./command/gen/get-input";
+import { getInput } from "./command/input/get-input";
 import { ensureAbsolutePath, errorLog } from "./utils";
 
 type HelpOptionDescriptor = {
@@ -35,17 +37,73 @@ type TerminalConfig = string | { id: string; output?: string };
 type CodegenConfig = {
   outputRoot?: string;
   terminals?: TerminalConfig[];
-  modelOutput?: string;
 };
 
 type AppConfig = {
   input?: string;
   plugin?: string[];
   codegen?: CodegenConfig;
+  scriptPluginPolicy?: {
+    timeoutMs?: number;
+    maxWriteFiles?: number;
+    maxWriteBytes?: number;
+    maxHeapMb?: number;
+  };
   performance?: {
     concurrency?: "auto" | number;
     cache?: boolean;
-    format?: "fast" | "safe" | "strict";
+  };
+};
+
+type ScriptPluginPolicy = {
+  timeoutMs: number;
+  maxWriteFiles: number;
+  maxWriteBytes: number;
+  maxHeapMb: number;
+};
+
+type CodegenRunOptions = {
+  dryRun: boolean;
+  profile: boolean;
+  reportJson?: string;
+  concurrencyOverride?: "auto" | number;
+  cacheOverride?: boolean;
+};
+
+type TerminalRunReport = {
+  terminalId: string;
+  channel: "native" | "script";
+  output: string;
+  plannedFiles: number;
+  writtenFiles: number;
+  skippedFiles: number;
+  durationMs: number;
+  dryRun: boolean;
+  files: Array<{
+    path: string;
+    sizeBytes: number;
+  }>;
+  endpoints: Array<{
+    operationName: string;
+    method: string;
+    path: string;
+    matchedFile?: string;
+  }>;
+};
+
+type CodegenRunReport = {
+  input: string;
+  dryRun: boolean;
+  cacheEnabled: boolean;
+  cacheHit: boolean;
+  concurrency: number;
+  startedAt: string;
+  durationMs: number;
+  terminalReports: TerminalRunReport[];
+  totals: {
+    plannedFiles: number;
+    writtenFiles: number;
+    skippedFiles: number;
   };
 };
 
@@ -71,6 +129,7 @@ type ScriptPluginCommand = {
     args: string[];
     input?: string;
     config: AppConfig;
+    getIrSnapshot: () => Promise<GeneratorInputIR>;
   }) => void | Promise<void>;
 };
 
@@ -78,6 +137,7 @@ type ScriptPluginRenderer = {
   id: string;
   render: (ctx: {
     input: string;
+    ir: GeneratorInputIR;
     terminal: TerminalConfig;
     outputRoot: string;
     config: AppConfig;
@@ -97,13 +157,48 @@ type LoadedScriptPlugin = {
   renderers: ScriptPluginRenderer[];
 };
 
+type GeneratorProjectContextIR = {
+  package_name: string;
+  api_base_path?: string | null;
+  terminals: string[];
+  retry_ownership?: string | null;
+};
+
+type GeneratorEndpointIR = {
+  namespace: string[];
+  operation_name: string;
+  method: string;
+  path: string;
+  input_type_name: string;
+  output_type_name: string;
+  request_body_field?: string | null;
+  query_fields: string[];
+  path_fields: string[];
+  has_request_options: boolean;
+  supports_query: boolean;
+  supports_mutation: boolean;
+  deprecated: boolean;
+};
+
+type GeneratorInputIR = {
+  project: GeneratorProjectContextIR;
+  endpoints: GeneratorEndpointIR[];
+};
+
+type FileInventoryItem = {
+  relativePath: string;
+  absolutePath?: string;
+  sizeBytes: number;
+  content?: string;
+};
+
 const SUPPORTED_TERMINALS = [
-  { id: "axios-ts", status: "available", mode: "axios-ts" },
-  { id: "axios-js", status: "available", mode: "axios-js" },
-  { id: "uniapp", status: "available", mode: "uniapp" },
-  { id: "functions", status: "planned", mode: "" },
-  { id: "react-query", status: "planned", mode: "" },
-  { id: "vue-query", status: "planned", mode: "" },
+  { id: "axios-ts", status: "available" },
+  { id: "axios-js", status: "available" },
+  { id: "uniapp", status: "available" },
+  { id: "functions", status: "available" },
+  { id: "react-query", status: "available" },
+  { id: "vue-query", status: "available" },
 ];
 
 function isScriptPluginPath(pluginPath: string): boolean {
@@ -229,9 +324,8 @@ function resolveTerminalOutput(
   return ensureAbsolutePath(path.join(outputRoot, "services", terminalId));
 }
 
-function mapTerminalToLegacyMode(terminalId: string): string | undefined {
-  const entry = SUPPORTED_TERMINALS.find((item) => item.id === terminalId);
-  return entry && entry.mode ? entry.mode : undefined;
+function isBuiltInTerminal(terminalId: string): boolean {
+  return SUPPORTED_TERMINALS.some((item) => item.id === terminalId);
 }
 
 function printRootHelp() {
@@ -247,6 +341,12 @@ function printRootHelp() {
 function printCodegenRunHelp() {
   console.log("aptx-ft codegen run");
   console.log("Run code generation based on config `codegen` section.");
+  console.log("Run options:");
+  console.log("  --dry-run              Build plan without writing files");
+  console.log("  --profile              Print execution timing summary");
+  console.log("  --report-json <file>   Write execution report JSON");
+  console.log("  --concurrency <value>  Override concurrency, e.g. auto/4");
+  console.log("  --cache <true|false>   Override incremental cache switch");
   console.log("Global options:");
   console.log("  -c, --config <file>   Config file path");
   console.log("  -i, --input <path>    Override input OpenAPI path/url");
@@ -396,8 +496,319 @@ function getHelpTreeSafe(nativePlugins: string[]): HelpCommandDescriptor[] {
   }) as HelpCommandDescriptor[];
 }
 
-async function runCodegen(global: GlobalOptions): Promise<void> {
+function buildIrSnapshotByNativeCommand(input: string, nativePlugins: string[]): GeneratorInputIR {
+  const tempPath = ensureAbsolutePath(
+    path.join(os.tmpdir(), `aptx-ir-${Date.now()}-${Math.random().toString(36).slice(2)}.json`),
+  );
+  try {
+    runCli({
+      input,
+      command: "ir:snapshot",
+      options: ["--output", tempPath],
+      plugin: nativePlugins,
+    });
+    const text = fs.readFileSync(tempPath, "utf-8");
+    return JSON.parse(text) as GeneratorInputIR;
+  } finally {
+    if (fs.existsSync(tempPath)) {
+      fs.rmSync(tempPath, { force: true });
+    }
+  }
+}
+
+function buildIrSnapshot(input: string, nativePlugins: string[]): GeneratorInputIR {
+  return buildIrSnapshotByNativeCommand(input, nativePlugins);
+}
+
+function runBuiltInTerminalCodegen(
+  terminalId: string,
+  input: string,
+  output: string,
+  nativePlugins: string[],
+): void {
+  runCli({
+    input,
+    command: "terminal:codegen",
+    options: ["--terminal", terminalId, "--output", output],
+    plugin: nativePlugins,
+  });
+}
+
+function parseBooleanLike(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (value === "true" || value === "1") {
+    return true;
+  }
+  if (value === "false" || value === "0") {
+    return false;
+  }
+  return undefined;
+}
+
+function parseCodegenRunOptions(args: string[]): CodegenRunOptions {
+  const runOptions: CodegenRunOptions = {
+    dryRun: false,
+    profile: false,
+  };
+  for (let index = 0; index < args.length; index++) {
+    const token = args[index];
+    if (token === "--dry-run") {
+      runOptions.dryRun = true;
+      continue;
+    }
+    if (token === "--profile") {
+      runOptions.profile = true;
+      continue;
+    }
+    if (token === "--report-json") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) {
+        throw new Error("`--report-json` expects a file path.");
+      }
+      runOptions.reportJson = value;
+      index += 1;
+      continue;
+    }
+    if (token === "--concurrency") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) {
+        throw new Error("`--concurrency` expects `auto` or a positive integer.");
+      }
+      if (value === "auto") {
+        runOptions.concurrencyOverride = "auto";
+      } else {
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          throw new Error("`--concurrency` expects `auto` or a positive integer.");
+        }
+        runOptions.concurrencyOverride = parsed;
+      }
+      index += 1;
+      continue;
+    }
+    if (token === "--cache") {
+      const value = args[index + 1];
+      const parsed = parseBooleanLike(value);
+      if (parsed === undefined) {
+        throw new Error("`--cache` expects true/false.");
+      }
+      runOptions.cacheOverride = parsed;
+      index += 1;
+      continue;
+    }
+    throw new Error(`unknown codegen run option: ${token}`);
+  }
+  return runOptions;
+}
+
+function resolveConcurrency(value: "auto" | number | undefined): number {
+  if (value === "auto" || value === undefined) {
+    return Math.max(1, os.cpus().length);
+  }
+  return Math.max(1, value);
+}
+
+function ensureDirectoryForFile(filePath: string): void {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+function hashText(text: string): string {
+  return crypto.createHash("sha256").update(text).digest("hex");
+}
+
+function hashFile(filePath: string): string {
+  const buf = fs.readFileSync(filePath);
+  return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
+function getCacheFilePath(outputRoot: string): string {
+  return path.join(outputRoot, ".aptx-cache", "run-cache.json");
+}
+
+function readCacheState(cacheFile: string): {
+  key?: string;
+  report?: CodegenRunReport;
+} {
+  if (!fs.existsSync(cacheFile)) {
+    return {};
+  }
+  try {
+    const raw = fs.readFileSync(cacheFile, "utf-8");
+    return JSON.parse(raw) as { key?: string; report?: CodegenRunReport };
+  } catch {
+    return {};
+  }
+}
+
+function writeCacheState(
+  cacheFile: string,
+  key: string,
+  report?: CodegenRunReport,
+): void {
+  ensureDirectoryForFile(cacheFile);
+  fs.writeFileSync(
+    cacheFile,
+    JSON.stringify(
+      {
+        key,
+        updatedAt: new Date().toISOString(),
+        report,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+function listFilesRecursive(root: string): string[] {
+  if (!fs.existsSync(root)) {
+    return [];
+  }
+  const result: string[] = [];
+  const walk = (current: string) => {
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    entries.forEach((entry) => {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else {
+        result.push(full);
+      }
+    });
+  };
+  walk(root);
+  return result;
+}
+
+function toPascalCase(name: string): string {
+  return name ? `${name[0].toUpperCase()}${name.slice(1)}` : name;
+}
+
+function buildFileInventoryFromDirectory(root: string): FileInventoryItem[] {
+  const files = listFilesRecursive(root);
+  return files.map((absolutePath) => {
+    const stat = fs.statSync(absolutePath);
+    const relativePath = path.relative(root, absolutePath).replace(/\\/g, "/");
+    return {
+      relativePath,
+      absolutePath,
+      sizeBytes: stat.size,
+      content: fs.readFileSync(absolutePath, "utf-8"),
+    };
+  });
+}
+
+function buildEndpointMappings(
+  ir: GeneratorInputIR,
+  files: FileInventoryItem[],
+): Array<{
+  operationName: string;
+  method: string;
+  path: string;
+  matchedFile?: string;
+}> {
+  return ir.endpoints.map((endpoint) => {
+    const pascalName = toPascalCase(endpoint.operation_name);
+    const matched = files.find((file) => {
+      const text = file.content || "";
+      return text.includes(endpoint.operation_name) || text.includes(pascalName);
+    });
+    return {
+      operationName: endpoint.operation_name,
+      method: endpoint.method,
+      path: endpoint.path,
+      matchedFile: matched?.relativePath,
+    };
+  });
+}
+
+function buildTerminalReport(
+  base: Omit<TerminalRunReport, "files" | "endpoints">,
+  files: FileInventoryItem[],
+  ir?: GeneratorInputIR,
+): TerminalRunReport {
+  return {
+    ...base,
+    files: files.map((item) => ({
+      path: item.relativePath,
+      sizeBytes: item.sizeBytes,
+    })),
+    endpoints: ir ? buildEndpointMappings(ir, files) : [],
+  };
+}
+
+function buildCodegenCacheKey(inputPath: string, payload: object): string {
+  const inputHash = hashFile(inputPath);
+  return hashText(`${inputHash}:${JSON.stringify(payload)}`);
+}
+
+function resolveScriptPluginPolicy(config: AppConfig): ScriptPluginPolicy {
+  const raw = config.scriptPluginPolicy || {};
+  return {
+    timeoutMs: Math.max(1000, raw.timeoutMs ?? 30_000),
+    maxWriteFiles: Math.max(1, raw.maxWriteFiles ?? 10_000),
+    maxWriteBytes: Math.max(1024, raw.maxWriteBytes ?? 100 * 1024 * 1024),
+    maxHeapMb: Math.max(64, raw.maxHeapMb ?? 1024),
+  };
+}
+
+async function runWithTimeout<T>(
+  task: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutHandle = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+  });
+  try {
+    return await Promise.race([task, timeoutPromise]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
+function assertWithinRoot(root: string, target: string): void {
+  const normalizedRoot = path.resolve(root);
+  const normalizedTarget = path.resolve(target);
+  const relative = path.relative(normalizedRoot, normalizedTarget);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`write target escapes output root: ${normalizedTarget}`);
+  }
+}
+
+async function runWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number,
+): Promise<T[]> {
+  if (!tasks.length) {
+    return [];
+  }
+  const limit = Math.max(1, concurrency);
+  const results: T[] = new Array(tasks.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, async () => {
+    while (true) {
+      const current = cursor;
+      cursor += 1;
+      if (current >= tasks.length) {
+        break;
+      }
+      results[current] = await tasks[current]();
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+async function runCodegen(global: GlobalOptions, runOptions: CodegenRunOptions): Promise<void> {
   const { config, nativePlugins, scriptPlugins, input } = await loadMergedConfig(global);
+  const scriptPolicy = resolveScriptPluginPolicy(config);
   if (!input) {
     throw new Error("`input` is required. Use -i or set config.input.");
   }
@@ -414,75 +825,278 @@ async function runCodegen(global: GlobalOptions): Promise<void> {
   }
 
   const resolvedInput = await getInput(input);
-  const legacyArgs: string[] = [];
-  const scriptTerminalTasks: Array<{ terminal: TerminalConfig; terminalId: string }> = [];
+  let irSnapshotCache: GeneratorInputIR | undefined;
+  const getIrSnapshot = async () => {
+    if (!irSnapshotCache) {
+      irSnapshotCache = buildIrSnapshot(resolvedInput, nativePlugins);
+    }
+    return irSnapshotCache;
+  };
+  const terminalReports: TerminalRunReport[] = [];
+  const builtInTerminalTasks: Array<{ terminal: TerminalConfig; terminalId: string; output: string }> = [];
+  const scriptTerminalTasks: Array<{ terminal: TerminalConfig; terminalId: string; output: string }> = [];
   for (const terminal of terminals) {
     const terminalId = resolveTerminalId(terminal);
-    const legacyMode = mapTerminalToLegacyMode(terminalId);
-    if (!legacyMode) {
-      scriptTerminalTasks.push({ terminal, terminalId });
-      continue;
+    const output = resolveTerminalOutput(terminal, outputRoot, terminalId);
+    if (isBuiltInTerminal(terminalId)) {
+      builtInTerminalTasks.push({ terminal, terminalId, output });
+    } else {
+      scriptTerminalTasks.push({ terminal, terminalId, output });
     }
-    legacyArgs.push("--service-mode", legacyMode);
-    legacyArgs.push("--service-output", resolveTerminalOutput(terminal, outputRoot, terminalId));
+  }
+  const concurrency = resolveConcurrency(
+    runOptions.concurrencyOverride ?? config.performance?.concurrency,
+  );
+  const cacheEnabled = runOptions.cacheOverride ?? config.performance?.cache ?? false;
+  const cachePayload = {
+    nativePlugins,
+    scriptPlugins: scriptPlugins.map((item) => item.descriptor),
+    codegen,
+    runOptions: {
+      dryRun: runOptions.dryRun,
+      concurrency,
+    },
+  };
+  const cacheFile = getCacheFilePath(outputRoot);
+  const cacheState = readCacheState(cacheFile);
+  const cacheKey = buildCodegenCacheKey(resolvedInput, cachePayload);
+  const requiredOutputs = [
+    ...builtInTerminalTasks.map((item) => item.output),
+    ...scriptTerminalTasks.map((item) => item.output),
+  ];
+  const outputsReady = requiredOutputs.every((item) => fs.existsSync(item));
+  const cacheHit = cacheEnabled && !runOptions.dryRun && outputsReady && cacheState.key === cacheKey;
+
+  const startedAt = new Date();
+  const runStartAt = Date.now();
+
+  if (cacheHit) {
+    const report: CodegenRunReport = cacheState.report
+      ? {
+          ...cacheState.report,
+          input: resolvedInput,
+          dryRun: false,
+          cacheEnabled: true,
+          cacheHit: true,
+          concurrency,
+          startedAt: startedAt.toISOString(),
+          durationMs: Date.now() - runStartAt,
+        }
+      : {
+          input: resolvedInput,
+          dryRun: false,
+          cacheEnabled: true,
+          cacheHit: true,
+          concurrency,
+          startedAt: startedAt.toISOString(),
+          durationMs: Date.now() - runStartAt,
+          terminalReports: [],
+          totals: {
+            plannedFiles: 0,
+            writtenFiles: 0,
+            skippedFiles: 0,
+          },
+        };
+    if (runOptions.profile) {
+      console.log(`[profile] codegen cache hit, skipped generation, duration=${report.durationMs}ms`);
+    }
+    if (runOptions.reportJson) {
+      const reportFile = ensureAbsolutePath(runOptions.reportJson);
+      ensureDirectoryForFile(reportFile);
+      fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
+      console.log(`report written: ${reportFile}`);
+    }
+    return;
   }
 
-  if (legacyArgs.length) {
-    const modelOutput = ensureAbsolutePath(
-      codegen.modelOutput || path.join(outputRoot, "models"),
-    );
-    legacyArgs.push("--model-output", modelOutput);
-
-    runCli({
-      input: resolvedInput,
-      command: "gen",
-      options: legacyArgs,
-      plugin: nativePlugins,
+  if (builtInTerminalTasks.length) {
+    const snapshot = await getIrSnapshot();
+    const builtInRunTasks = builtInTerminalTasks.map((task) => async () => {
+      const outputTarget = runOptions.dryRun
+        ? ensureAbsolutePath(path.join(os.tmpdir(), `aptx-ir-${task.terminalId}-${Date.now()}`))
+        : task.output;
+      const started = Date.now();
+      runBuiltInTerminalCodegen(task.terminalId, resolvedInput, outputTarget, nativePlugins);
+      const outputInventory = buildFileInventoryFromDirectory(outputTarget);
+      const reportItem = buildTerminalReport(
+        {
+          terminalId: task.terminalId,
+          channel: "native",
+          output: outputTarget,
+          plannedFiles: outputInventory.length,
+          writtenFiles: runOptions.dryRun ? 0 : outputInventory.length,
+          skippedFiles: 0,
+          durationMs: Date.now() - started,
+          dryRun: runOptions.dryRun,
+        },
+        outputInventory,
+        snapshot,
+      );
+      if (runOptions.dryRun && fs.existsSync(outputTarget)) {
+        fs.rmSync(outputTarget, { recursive: true, force: true });
+      }
+      return reportItem;
     });
+    const builtInReports = await runWithConcurrency(builtInRunTasks, concurrency);
+    terminalReports.push(...builtInReports);
   }
 
   if (scriptTerminalTasks.length) {
-    for (const task of scriptTerminalTasks) {
+    const snapshot = await getIrSnapshot();
+    const scriptRunTasks = scriptTerminalTasks.map((task) => async () => {
       const scriptRenderer = findScriptRenderer(scriptPlugins, task.terminalId);
       if (!scriptRenderer) {
         throw new Error(
           `Terminal \`${task.terminalId}\` is not supported by built-in generator and no script renderer registered.`,
         );
       }
-      const output = resolveTerminalOutput(task.terminal, outputRoot, task.terminalId);
+      const started = Date.now();
+      let plannedFiles = 0;
+      let writtenFiles = 0;
+      let skippedFiles = 0;
+      let plannedBytes = 0;
+      const plannedFileMap = new Map<string, string>();
       const writeFile = (filePath: string, content: string) => {
-        const absolute = ensureAbsolutePath(path.join(output, filePath));
+        plannedFiles += 1;
+        plannedBytes += Buffer.byteLength(content, "utf-8");
+        if (plannedFiles > scriptPolicy.maxWriteFiles) {
+          throw new Error(
+            `write file limit exceeded: ${plannedFiles} > ${scriptPolicy.maxWriteFiles}`,
+          );
+        }
+        if (plannedBytes > scriptPolicy.maxWriteBytes) {
+          throw new Error(
+            `write byte limit exceeded: ${plannedBytes} > ${scriptPolicy.maxWriteBytes}`,
+          );
+        }
+        const heapUsedMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+        if (heapUsedMb > scriptPolicy.maxHeapMb) {
+          throw new Error(
+            `heap usage limit exceeded: ${heapUsedMb}MB > ${scriptPolicy.maxHeapMb}MB`,
+          );
+        }
+        plannedFileMap.set(filePath.replace(/\\/g, "/"), content);
+        const absolute = ensureAbsolutePath(path.join(task.output, filePath));
+        assertWithinRoot(task.output, absolute);
+        if (fs.existsSync(absolute)) {
+          const existing = fs.readFileSync(absolute, "utf-8");
+          if (existing === content) {
+            skippedFiles += 1;
+            return;
+          }
+        }
+        if (runOptions.dryRun) {
+          return;
+        }
         fs.mkdirSync(path.dirname(absolute), { recursive: true });
         fs.writeFileSync(absolute, content);
+        writtenFiles += 1;
       };
       const writeFiles = (files: Array<{ path: string; content: string }>) => {
         files.forEach((file) => writeFile(file.path, file.content));
       };
 
       try {
-        await scriptRenderer.renderer.render({
-          input: resolvedInput,
-          terminal: task.terminal,
-          outputRoot: output,
-          config,
-          writeFile,
-          writeFiles,
-        });
+        await runWithTimeout(
+          Promise.resolve(
+            scriptRenderer.renderer.render({
+              input: resolvedInput,
+              ir: snapshot,
+              terminal: task.terminal,
+              outputRoot: task.output,
+              config,
+              writeFile,
+              writeFiles,
+            }),
+          ),
+          scriptPolicy.timeoutMs,
+          `script renderer timeout after ${scriptPolicy.timeoutMs}ms`,
+        );
+        const fileInventory = runOptions.dryRun
+          ? Array.from(plannedFileMap.entries()).map(([filePath, content]) => ({
+              relativePath: filePath,
+              sizeBytes: Buffer.byteLength(content, "utf-8"),
+              content,
+            }))
+          : buildFileInventoryFromDirectory(task.output);
+        return buildTerminalReport(
+          {
+            terminalId: task.terminalId,
+            channel: "script",
+            output: task.output,
+            plannedFiles,
+            writtenFiles,
+            skippedFiles,
+            durationMs: Date.now() - started,
+            dryRun: runOptions.dryRun,
+          },
+          fileInventory,
+          snapshot,
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(
           `script renderer failed: ${scriptRenderer.plugin.descriptor.pluginName}/${task.terminalId}: ${message}`,
         );
       }
-    }
+    });
+    const scriptReports = await runWithConcurrency(scriptRunTasks, concurrency);
+    terminalReports.push(...scriptReports);
+  }
+
+  const totals = terminalReports.reduce(
+    (acc, item) => {
+      acc.plannedFiles += item.plannedFiles;
+      acc.writtenFiles += item.writtenFiles;
+      acc.skippedFiles += item.skippedFiles;
+      return acc;
+    },
+    {
+      plannedFiles: 0,
+      writtenFiles: 0,
+      skippedFiles: 0,
+    },
+  );
+
+  const report: CodegenRunReport = {
+    input: resolvedInput,
+    dryRun: runOptions.dryRun,
+    cacheEnabled,
+    cacheHit: false,
+    concurrency,
+    startedAt: startedAt.toISOString(),
+    durationMs: Date.now() - runStartAt,
+    terminalReports,
+    totals,
+  };
+
+  if (runOptions.profile) {
+    console.log(
+      `[profile] codegen completed: duration=${report.durationMs}ms planned=${totals.plannedFiles} written=${totals.writtenFiles} skipped=${totals.skippedFiles}`,
+    );
+    terminalReports.forEach((item) => {
+      console.log(
+        `[profile] ${item.channel}:${item.terminalId} duration=${item.durationMs}ms planned=${item.plannedFiles} written=${item.writtenFiles} skipped=${item.skippedFiles}`,
+      );
+    });
+  }
+
+  if (runOptions.reportJson) {
+    const reportFile = ensureAbsolutePath(runOptions.reportJson);
+    ensureDirectoryForFile(reportFile);
+    fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
+    console.log(`report written: ${reportFile}`);
+  }
+
+  if (cacheEnabled && !runOptions.dryRun) {
+    writeCacheState(cacheFile, cacheKey, report);
   }
 }
 
 async function listTerminals(): Promise<void> {
   console.log("Terminals:");
   SUPPORTED_TERMINALS.forEach((item) => {
-    const mode = item.mode ? `legacy-mode=${item.mode}` : "legacy-mode=n/a";
-    console.log(`  ${item.id} [${item.status}] ${mode}`);
+    console.log(`  ${item.id} [${item.status}]`);
   });
 }
 
@@ -530,11 +1144,30 @@ async function runNativeCommand(
   global: GlobalOptions,
 ): Promise<void> {
   const { config, nativePlugins, scriptPlugins, input } = await loadMergedConfig(global);
+  const scriptPolicy = resolveScriptPluginPolicy(config);
 
   const scriptCommand = findScriptCommand(scriptPlugins, command);
   if (scriptCommand) {
+    let snapshot: GeneratorInputIR | undefined;
+    let resolvedInputPath: string | undefined;
+    const getIrSnapshot = async () => {
+      if (!input) {
+        throw new Error("`input` is required to build IR snapshot.");
+      }
+      if (!resolvedInputPath) {
+        resolvedInputPath = await getInput(input);
+      }
+      if (!snapshot) {
+        snapshot = buildIrSnapshot(resolvedInputPath, nativePlugins);
+      }
+      return snapshot;
+    };
     try {
-      await scriptCommand.command.run({ args, input, config });
+      await runWithTimeout(
+        Promise.resolve(scriptCommand.command.run({ args, input, config, getIrSnapshot })),
+        scriptPolicy.timeoutMs,
+        `script command timeout after ${scriptPolicy.timeoutMs}ms`,
+      );
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -553,11 +1186,6 @@ async function runNativeCommand(
     options: args,
     plugin: nativePlugins,
   });
-}
-
-function printLegacyCommandMigration() {
-  errorLog("`gen` command is deprecated in the new CLI.");
-  console.log("Use `aptx-ft codegen run` instead.");
 }
 
 async function handleHelp(global: GlobalOptions, commandTokens: string[]): Promise<void> {
@@ -585,11 +1213,6 @@ async function handleHelp(global: GlobalOptions, commandTokens: string[]): Promi
     printPluginListHelp();
     return;
   }
-  if (cmd1 === "gen") {
-    printLegacyCommandMigration();
-    return;
-  }
-
   const { nativePlugins, scriptPlugins } = await loadMergedConfig(global);
   const commands = [
     ...getHelpTreeSafe(nativePlugins),
@@ -624,7 +1247,8 @@ async function main() {
   }
 
   if (cmd1 === "codegen" && cmd2 === "run") {
-    await runCodegen(global);
+    const runOptions = parseCodegenRunOptions(rest);
+    await runCodegen(global, runOptions);
     return;
   }
   if (cmd1 === "codegen" && cmd2 === "list-terminals") {
@@ -637,11 +1261,6 @@ async function main() {
   }
   if (cmd1 === "plugin" && cmd2 === "list") {
     await listPlugins(global);
-    return;
-  }
-  if (cmd1 === "gen") {
-    printLegacyCommandMigration();
-    process.exitCode = 1;
     return;
   }
 

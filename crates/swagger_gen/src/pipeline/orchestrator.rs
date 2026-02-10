@@ -5,7 +5,10 @@ use super::{
     layout::{IdentityLayout, LayoutStrategy},
     model::{ExecutionMetrics, ExecutionPlan, GeneratorInput, RendererExecution},
     parser::{OpenApiParser, Parser},
-    renderer::{FunctionsRenderer, NoopRenderer, ReactQueryRenderer, Renderer, VueQueryRenderer},
+    renderer::{
+        AxiosJsRenderer, AxiosTsRenderer, FunctionsRenderer, NoopRenderer, ReactQueryRenderer,
+        Renderer, UniAppRenderer, VueQueryRenderer,
+    },
     transform::{NormalizeEndpointPass, TransformPass},
     writer::{DryRunWriter, FileSystemWriter, Writer},
 };
@@ -56,6 +59,36 @@ impl CodegenPipeline {
             parser: Box::new(OpenApiParser),
             transforms: vec![Box::new(NormalizeEndpointPass)],
             renderers: vec![Box::new(VueQueryRenderer)],
+            layout: Box::new(IdentityLayout),
+            writer: Box::new(FileSystemWriter::new(output_root)),
+        }
+    }
+
+    pub fn axios_ts_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        Self {
+            parser: Box::new(OpenApiParser),
+            transforms: vec![Box::new(NormalizeEndpointPass)],
+            renderers: vec![Box::new(AxiosTsRenderer)],
+            layout: Box::new(IdentityLayout),
+            writer: Box::new(FileSystemWriter::new(output_root)),
+        }
+    }
+
+    pub fn axios_js_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        Self {
+            parser: Box::new(OpenApiParser),
+            transforms: vec![Box::new(NormalizeEndpointPass)],
+            renderers: vec![Box::new(AxiosJsRenderer)],
+            layout: Box::new(IdentityLayout),
+            writer: Box::new(FileSystemWriter::new(output_root)),
+        }
+    }
+
+    pub fn uniapp_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        Self {
+            parser: Box::new(OpenApiParser),
+            transforms: vec![Box::new(NormalizeEndpointPass)],
+            renderers: vec![Box::new(UniAppRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
         }
@@ -163,4 +196,25 @@ pub fn generate_vue_query_contract_v1(
     output_root: impl AsRef<std::path::Path>,
 ) -> Result<ExecutionPlan, String> {
     CodegenPipeline::vue_query_contract_v1(output_root).plan(open_api)
+}
+
+pub fn generate_axios_ts_v1(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+) -> Result<ExecutionPlan, String> {
+    CodegenPipeline::axios_ts_v1(output_root).plan(open_api)
+}
+
+pub fn generate_axios_js_v1(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+) -> Result<ExecutionPlan, String> {
+    CodegenPipeline::axios_js_v1(output_root).plan(open_api)
+}
+
+pub fn generate_uniapp_v1(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+) -> Result<ExecutionPlan, String> {
+    CodegenPipeline::uniapp_v1(output_root).plan(open_api)
 }
