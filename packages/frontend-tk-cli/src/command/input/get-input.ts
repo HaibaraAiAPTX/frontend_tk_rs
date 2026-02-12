@@ -1,75 +1,78 @@
 import path from "path";
-import { ensureAbsolutePath } from "../../utils"
-import os from 'os'
-import fs from 'fs'
-import https from 'https'
-import http from 'http'
+import os from "os";
+import fs from "fs";
+import crypto from "crypto";
+import { ensureAbsolutePath } from "../../utils";
 
 export async function getInput(input: string): Promise<string> {
   if (isUrl(input)) {
-    return await downloadJsonFile(input)
+    return await downloadJsonFile(input);
   }
-  return ensureAbsolutePath(input)
+  return ensureAbsolutePath(input);
 }
 
 async function downloadJsonFile(url: string): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    // 获取缓存文件夹路径
-    const cacheDir = os.tmpdir();
+  const timeoutMs = 30_000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    // 从 URL 中提取文件名
-    const fileName = path.basename(url);
-
-    // 拼接缓存文件路径
-    const filePath = path.join(cacheDir, fileName);
-
-    // 创建可写流
-    const fileStream = fs.createWriteStream(filePath);
-
-    const method = url.startsWith("https://") ? https : http;
-
-    console.log('开始下载文件');
-
-    // 下载文件
-    method.get(urlToOptions(url), (response) => {
-      // 检查响应状态码
-      if (response.statusCode !== 200) {
-        console.error(`Failed to download file: ${response.statusCode}`);
-        return;
-      }
-
-      // 将响应数据写入文件
-      response.pipe(fileStream);
-
-      // 下载完成
-      fileStream.on('finish', () => {
-        fileStream.close();
-        console.log(`File downloaded to: ${filePath}`);
-        resolve(filePath)
-      });
-    }).on('error', (err) => {
-      // 删除未完成的文件
-      fs.unlink(filePath, () => { });
-      reject(new Error(`Error downloading file: ${err.message}`))
+  try {
+    console.log("开始下载文件");
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+      },
     });
-  })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      throw new Error("URL points to HTML, not OpenAPI JSON.");
+    }
+
+    const content = await response.text();
+    const trimmed = content.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+      throw new Error("Downloaded content is not JSON.");
+    }
+
+    // Validate JSON early, avoid passing invalid payload to parser phase later.
+    JSON.parse(content);
+
+    const cacheDir = os.tmpdir();
+    const fileName = buildTempFileName(url);
+    const filePath = path.join(cacheDir, fileName);
+    fs.writeFileSync(filePath, content, "utf8");
+    console.log(`File downloaded to: ${filePath}`);
+    return filePath;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Error downloading file: ${message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function isUrl(url: string): boolean {
-  return /^https?:\/\//.test(url)
+  return /^https?:\/\//.test(url);
 }
 
-function urlToOptions(url: string): https.RequestOptions | http.RequestOptions {
+function buildTempFileName(url: string): string {
   const urlObj = new URL(url);
-  const options: https.RequestOptions | http.RequestOptions = {
-    hostname: urlObj.hostname,
-    port: urlObj.port ? parseInt(urlObj.port) : (urlObj.protocol === 'https:' ? 443 : 80),
-    path: urlObj.pathname,
-    method: 'GET',
-    rejectUnauthorized: false,
-    headers: {
-      'Accept': 'application/json',
-    },
-  }
-  return options
+  const pathName = urlObj.pathname || "";
+  const baseName = path.basename(pathName) || "swagger.json";
+  const safeName = baseName.includes(".json") ? baseName : `${baseName}.json`;
+  const hash = crypto
+    .createHash("sha1")
+    .update(url)
+    .digest("hex")
+    .slice(0, 10);
+  return `aptx-${hash}-${safeName}`;
 }

@@ -41,10 +41,7 @@ pub fn render_model_files(
                         let optional_symbol = if property.required { ":" } else { "?:" };
                         let ts_type =
                             render_type(&property.r#type, style, &model.name, property.nullable);
-                        format!(
-                            "{description}{}{optional_symbol}{ts_type}",
-                            property.name
-                        )
+                        format!("{description}{}{optional_symbol}{ts_type}", property.name)
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
@@ -71,7 +68,12 @@ pub fn render_model_files(
                                 .unwrap_or_else(|_| format!("\"{value}\"")),
                             ModelLiteral::Number { value } => value.to_string(),
                         };
-                        format!("{} = {}", member.name, value_text)
+                        let comment = member
+                            .comment
+                            .as_ref()
+                            .map(|text| format!("/** {text} */\n"))
+                            .unwrap_or_default();
+                        format!("{comment}{} = {}", member.name, value_text)
                     })
                     .collect::<Vec<_>>()
                     .join(",\n");
@@ -156,4 +158,3 @@ fn render_type(
         base
     }
 }
-

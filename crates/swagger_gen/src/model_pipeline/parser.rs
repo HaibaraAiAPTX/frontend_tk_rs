@@ -37,8 +37,7 @@ fn schema_to_model_node(name: &str, schema: &SchemaEnum, open_api: &OpenAPIObjec
                     .map(|p| {
                         let mut keys = p.keys().collect::<Vec<_>>();
                         keys.sort();
-                        keys
-                            .into_iter()
+                        keys.into_iter()
                             .map(|key| {
                                 let child = p.get(key).expect("schema key must exist");
                                 ModelProperty {
@@ -66,6 +65,7 @@ fn schema_to_model_node(name: &str, schema: &SchemaEnum, open_api: &OpenAPIObjec
                                 value: ModelLiteral::String {
                                     value: value.to_string(),
                                 },
+                                comment: None,
                             })
                             .collect::<Vec<_>>(),
                     }
@@ -87,6 +87,7 @@ fn schema_to_model_node(name: &str, schema: &SchemaEnum, open_api: &OpenAPIObjec
                                 value: ModelLiteral::Number {
                                     value: value.to_string(),
                                 },
+                                comment: None,
                             })
                             .collect::<Vec<_>>(),
                     }
@@ -108,6 +109,7 @@ fn schema_to_model_node(name: &str, schema: &SchemaEnum, open_api: &OpenAPIObjec
                                 value: ModelLiteral::Number {
                                     value: value.to_string(),
                                 },
+                                comment: None,
                             })
                             .collect::<Vec<_>>(),
                     }
@@ -135,49 +137,43 @@ fn schema_to_model_type(schema: &SchemaEnum, open_api: &OpenAPIObject) -> ModelT
         SchemaEnum::String(v) => v
             .r#enum
             .as_ref()
-            .map(|values| {
-                ModelType::Union {
-                    variants: values
-                        .iter()
-                        .map(|value| ModelType::Literal {
-                            value: ModelLiteral::String {
-                                value: value.to_string(),
-                            },
-                        })
-                        .collect::<Vec<_>>(),
-                }
+            .map(|values| ModelType::Union {
+                variants: values
+                    .iter()
+                    .map(|value| ModelType::Literal {
+                        value: ModelLiteral::String {
+                            value: value.to_string(),
+                        },
+                    })
+                    .collect::<Vec<_>>(),
             })
             .unwrap_or(ModelType::String),
         SchemaEnum::Integer(v) => v
             .r#enum
             .as_ref()
-            .map(|values| {
-                ModelType::Union {
-                    variants: values
-                        .iter()
-                        .map(|value| ModelType::Literal {
-                            value: ModelLiteral::Number {
-                                value: value.to_string(),
-                            },
-                        })
-                        .collect::<Vec<_>>(),
-                }
+            .map(|values| ModelType::Union {
+                variants: values
+                    .iter()
+                    .map(|value| ModelType::Literal {
+                        value: ModelLiteral::Number {
+                            value: value.to_string(),
+                        },
+                    })
+                    .collect::<Vec<_>>(),
             })
             .unwrap_or(ModelType::Number),
         SchemaEnum::Number(v) => v
             .r#enum
             .as_ref()
-            .map(|values| {
-                ModelType::Union {
-                    variants: values
-                        .iter()
-                        .map(|value| ModelType::Literal {
-                            value: ModelLiteral::Number {
-                                value: value.to_string(),
-                            },
-                        })
-                        .collect::<Vec<_>>(),
-                }
+            .map(|values| ModelType::Union {
+                variants: values
+                    .iter()
+                    .map(|value| ModelType::Literal {
+                        value: ModelLiteral::Number {
+                            value: value.to_string(),
+                        },
+                    })
+                    .collect::<Vec<_>>(),
             })
             .unwrap_or(ModelType::Number),
         SchemaEnum::Boolean(_) => ModelType::Boolean,
@@ -186,4 +182,3 @@ fn schema_to_model_type(schema: &SchemaEnum, open_api: &OpenAPIObject) -> ModelT
         },
     }
 }
-
