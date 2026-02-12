@@ -362,7 +362,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Sync package versions
         working-directory: crates/node_binding
-        run: pnpm exec napi prepublish -t npm --skip-gh-release
+        run: pnpm exec napi prepublish -t npm
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
