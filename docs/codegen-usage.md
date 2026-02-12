@@ -18,9 +18,10 @@
 1. `codegen run`
 2. `codegen list-terminals`
 3. `model gen`
-4. `doctor`
-5. `plugin list`
-6. `<native/plugin command>`（由命令注册表动态扩展）
+4. `model ir`
+5. `doctor`
+6. `plugin list`
+7. `<native/plugin command>`（由命令注册表动态扩展）
 
 查看帮助：
 
@@ -129,10 +130,22 @@ aptx-ft plugin list
 aptx-ft model gen --output ./generated/models
 ```
 
+生成模块化模型（`export interface` + `.ts`）：
+
+```bash
+aptx-ft model gen --output ./generated/models --style module
+```
+
 仅生成指定 schema：
 
 ```bash
 aptx-ft model gen --output ./generated/models --name Order --name User
+```
+
+导出模型中间层（Model IR）：
+
+```bash
+aptx-ft model ir --output ./tmp/model-ir.json
 ```
 
 ## 5. 直接调用内置 native 命令

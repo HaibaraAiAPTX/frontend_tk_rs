@@ -3,6 +3,7 @@ use aptx_frontend_tk_binding_plugin::command::{
 };
 pub mod ir;
 pub mod model_gen;
+pub mod model_ir;
 pub mod terminal_codegen;
 
 /// 注册内置的命令
@@ -54,6 +55,13 @@ pub fn register_built_in_command(command: &CommandRegistry) {
           ..Default::default()
         },
         OptionDescriptor {
+          long: "style".to_string(),
+          value_name: Some("declaration|module".to_string()),
+          default_value: Some("declaration".to_string()),
+          description: "Output style: declaration(.d.ts) or module(export interface)".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
           long: "name".to_string(),
           value_name: Some("schema".to_string()),
           multiple: true,
@@ -63,6 +71,7 @@ pub fn register_built_in_command(command: &CommandRegistry) {
       ],
       examples: vec![
         "aptx-ft model:gen --output ./generated/models".to_string(),
+        "aptx-ft model:gen --output ./generated/models --style module".to_string(),
         "aptx-ft model:gen --output ./generated/models --name Order --name User".to_string(),
       ],
       plugin_name: Some("built-in".to_string()),
@@ -70,6 +79,25 @@ pub fn register_built_in_command(command: &CommandRegistry) {
       ..Default::default()
     },
     Box::new(model_gen::run_model_gen),
+  );
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "model:ir".to_string(),
+      summary: "Export model IR snapshot JSON from OpenAPI schemas".to_string(),
+      description: Some("Built-in model intermediate representation export command.".to_string()),
+      options: vec![OptionDescriptor {
+        long: "output".to_string(),
+        value_name: Some("file".to_string()),
+        required: true,
+        description: "Output JSON file path".to_string(),
+        ..Default::default()
+      }],
+      examples: vec!["aptx-ft model:ir --output ./tmp/model-ir.json".to_string()],
+      plugin_name: Some("built-in".to_string()),
+      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+      ..Default::default()
+    },
+    Box::new(model_ir::export_model_ir_snapshot),
   );
   command.register_command_with_descriptor(
     CommandDescriptor {

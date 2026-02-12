@@ -28,14 +28,28 @@ aptx-ft doctor
 
 ### model gen
 
-生成 TypeScript 模型声明文件（基于 OpenAPI `components/schemas`）：
+生成 TypeScript 模型文件（基于 OpenAPI `components/schemas`）：
 
 ```bash
 aptx-ft model gen --output ./generated/models
+```
+
+生成 `export interface` 风格（`.ts`）：
+
+```bash
+aptx-ft model gen --output ./generated/models --style module
 ```
 
 只生成指定模型：
 
 ```bash
 aptx-ft model gen --output ./generated/models --name Order --name User
+```
+
+### model ir
+
+导出模型中间层（Model IR）JSON：
+
+```bash
+aptx-ft model ir --output ./tmp/model-ir.json
 ```

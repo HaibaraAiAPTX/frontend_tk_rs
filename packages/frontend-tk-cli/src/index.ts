@@ -73,7 +73,12 @@ type CodegenRunOptions = {
 
 type ModelGenRunOptions = {
   output: string;
+  style: "declaration" | "module";
   names: string[];
+};
+
+type ModelIrRunOptions = {
+  output: string;
 };
 
 type TerminalRunReport = {
@@ -317,6 +322,13 @@ function parseCacheOption(value: string): boolean {
     throw new InvalidArgumentError("`--cache` expects true/false.");
   }
   return parsed;
+}
+
+function parseModelStyle(value: string): "declaration" | "module" {
+  if (value === "declaration" || value === "module") {
+    return value;
+  }
+  throw new InvalidArgumentError("`--style` expects declaration|module.");
 }
 
 function getGlobalOptionsFromCli(
@@ -1024,7 +1036,7 @@ async function runModelGen(global: GlobalOptions, runOptions: ModelGenRunOptions
     throw new Error("`input` is required. Use -i or set config.input.");
   }
 
-  const options = ["--output", ensureAbsolutePath(runOptions.output)];
+  const options = ["--output", ensureAbsolutePath(runOptions.output), "--style", runOptions.style];
   runOptions.names.forEach((name) => {
     options.push("--name", name);
   });
@@ -1033,6 +1045,20 @@ async function runModelGen(global: GlobalOptions, runOptions: ModelGenRunOptions
     input: await getInput(input),
     command: "model:gen",
     options,
+    plugin: nativePlugins,
+  });
+}
+
+async function runModelIr(global: GlobalOptions, runOptions: ModelIrRunOptions): Promise<void> {
+  const { input, nativePlugins } = await loadMergedConfig(global);
+  if (!input) {
+    throw new Error("`input` is required. Use -i or set config.input.");
+  }
+
+  runCli({
+    input: await getInput(input),
+    command: "model:ir",
+    options: ["--output", ensureAbsolutePath(runOptions.output)],
     plugin: nativePlugins,
   });
 }
@@ -1214,18 +1240,35 @@ function buildProgram(): Command {
 
   model
     .command("gen")
-    .description("Generate TypeScript model declarations from OpenAPI schemas.")
+    .description("Generate TypeScript model files from OpenAPI schemas.")
     .requiredOption("--output <dir>", "Output directory")
+    .addOption(
+      new Option("--style <declaration|module>", "Model output style")
+        .default("declaration")
+        .argParser(parseModelStyle),
+    )
     .addOption(
       new Option("--name <schema>", "Generate specific schema names only; repeatable")
         .default([])
         .argParser((value: string, previous: string[]) => [...previous, value]),
     )
-    .action(async (options: { output: string; name?: string[] }, command: Command) => {
+    .action(async (options: { output: string; style: "declaration" | "module"; name?: string[] }, command: Command) => {
       const global = getGlobalOptionsFromCli(command);
       await runModelGen(global, {
         output: options.output,
+        style: options.style,
         names: options.name || [],
+      });
+    });
+
+  model
+    .command("ir")
+    .description("Export model intermediate representation JSON.")
+    .requiredOption("--output <file>", "Output JSON file path")
+    .action(async (options: { output: string }, command: Command) => {
+      const global = getGlobalOptionsFromCli(command);
+      await runModelIr(global, {
+        output: options.output,
       });
     });
 
