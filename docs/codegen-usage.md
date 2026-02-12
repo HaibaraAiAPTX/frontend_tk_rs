@@ -17,9 +17,10 @@
 
 1. `codegen run`
 2. `codegen list-terminals`
-3. `doctor`
-4. `plugin list`
-5. `<native/plugin command>`（由命令注册表动态扩展）
+3. `model gen`
+4. `doctor`
+5. `plugin list`
+6. `<native/plugin command>`（由命令注册表动态扩展）
 
 查看帮助：
 
@@ -120,6 +121,18 @@ aptx-ft doctor
 
 ```bash
 aptx-ft plugin list
+```
+
+## 4.5 生成模型声明
+
+```bash
+aptx-ft model gen --output ./generated/models
+```
+
+仅生成指定 schema：
+
+```bash
+aptx-ft model gen --output ./generated/models --name Order --name User
 ```
 
 ## 5. 直接调用内置 native 命令

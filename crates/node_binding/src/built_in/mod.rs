@@ -2,6 +2,7 @@ use aptx_frontend_tk_binding_plugin::command::{
   CommandDescriptor, CommandRegistry, OptionDescriptor,
 };
 pub mod ir;
+pub mod model_gen;
 pub mod terminal_codegen;
 
 /// 注册内置的命令
@@ -36,6 +37,39 @@ pub fn register_built_in_command(command: &CommandRegistry) {
       ..Default::default()
     },
     Box::new(terminal_codegen::run_terminal_codegen),
+  );
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "model:gen".to_string(),
+      summary: "Generate TypeScript model declarations from OpenAPI schemas".to_string(),
+      description: Some(
+        "Built-in model declaration generation command. Outputs *.d.ts/*.ts files.".to_string(),
+      ),
+      options: vec![
+        OptionDescriptor {
+          long: "output".to_string(),
+          value_name: Some("dir".to_string()),
+          required: true,
+          description: "Output directory".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "name".to_string(),
+          value_name: Some("schema".to_string()),
+          multiple: true,
+          description: "Generate specific schema names only; repeatable".to_string(),
+          ..Default::default()
+        },
+      ],
+      examples: vec![
+        "aptx-ft model:gen --output ./generated/models".to_string(),
+        "aptx-ft model:gen --output ./generated/models --name Order --name User".to_string(),
+      ],
+      plugin_name: Some("built-in".to_string()),
+      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+      ..Default::default()
+    },
+    Box::new(model_gen::run_model_gen),
   );
   command.register_command_with_descriptor(
     CommandDescriptor {

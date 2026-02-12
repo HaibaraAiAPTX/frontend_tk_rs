@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import crypto from "crypto";
+import { Command, InvalidArgumentError, Option } from "commander";
 import { getHelpTree, runCli } from "@aptx/frontend-tk-binding";
 import { getConfig } from "./config";
 import { getInput } from "./command/input/get-input";
@@ -70,6 +71,11 @@ type CodegenRunOptions = {
   cacheOverride?: boolean;
 };
 
+type ModelGenRunOptions = {
+  output: string;
+  names: string[];
+};
+
 type TerminalRunReport = {
   terminalId: string;
   channel: "native" | "script";
@@ -111,6 +117,12 @@ type GlobalOptions = {
   configFile?: string;
   input?: string;
   plugins: string[];
+};
+
+type GlobalCliOptions = {
+  config?: string;
+  input?: string;
+  plugin?: string[];
 };
 
 type ScriptPluginDescriptor = {
@@ -266,46 +278,55 @@ async function loadScriptPlugins(pluginPaths: string[]): Promise<LoadedScriptPlu
   return loaded;
 }
 
-function parseGlobalOptions(rawArgs: string[]): {
+function parseGlobalOptionsWithCommander(rawArgs: string[]): {
   global: GlobalOptions;
   commandTokens: string[];
 } {
-  const global: GlobalOptions = { plugins: [] };
-  const commandTokens: string[] = [];
-  for (let index = 0; index < rawArgs.length; index++) {
-    const token = rawArgs[index];
-    if (token === "-c" || token === "--config") {
-      const value = rawArgs[index + 1];
-      if (value && !value.startsWith("-")) {
-        global.configFile = value;
-        index += 1;
-      }
-      continue;
-    }
-
-    if (token === "-i" || token === "--input") {
-      const value = rawArgs[index + 1];
-      if (value && !value.startsWith("-")) {
-        global.input = value;
-        index += 1;
-      }
-      continue;
-    }
-
-    if (token === "-p" || token === "--plugin") {
-      while (rawArgs[index + 1] && !rawArgs[index + 1].startsWith("-")) {
-        global.plugins.push(rawArgs[index + 1]);
-        index += 1;
-      }
-      continue;
-    }
-
-    commandTokens.push(token);
-  }
-
+  const parser = new Command()
+    .exitOverride()
+    .allowUnknownOption(true)
+    .option("-c, --config <file>", "Config file path")
+    .option("-i, --input <path>", "Override input OpenAPI path/url")
+    .addOption(new Option("-p, --plugin <paths...>", "Extra plugin dll paths"));
+  const parsed = parser.parseOptions(rawArgs);
+  const options = parser.opts<GlobalCliOptions>();
   return {
-    global,
-    commandTokens,
+    global: {
+      configFile: options.config,
+      input: options.input,
+      plugins: options.plugin || [],
+    },
+    commandTokens: [...parsed.operands, ...parsed.unknown],
+  };
+}
+
+function parseConcurrencyOption(value: string): "auto" | number {
+  if (value === "auto") {
+    return "auto";
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new InvalidArgumentError("`--concurrency` expects `auto` or a positive integer.");
+  }
+  return parsed;
+}
+
+function parseCacheOption(value: string): boolean {
+  const parsed = parseBooleanLike(value);
+  if (parsed === undefined) {
+    throw new InvalidArgumentError("`--cache` expects true/false.");
+  }
+  return parsed;
+}
+
+function getGlobalOptionsFromCli(
+  command: Command,
+): GlobalOptions {
+  const options = command.optsWithGlobals<GlobalCliOptions>();
+  return {
+    configFile: options.config,
+    input: options.input,
+    plugins: options.plugin || [],
   };
 }
 
@@ -326,46 +347,6 @@ function resolveTerminalOutput(
 
 function isBuiltInTerminal(terminalId: string): boolean {
   return SUPPORTED_TERMINALS.some((item) => item.id === terminalId);
-}
-
-function printRootHelp() {
-  console.log("aptx-ft");
-  console.log("New CLI command set:");
-  console.log("  codegen run");
-  console.log("  codegen list-terminals");
-  console.log("  doctor");
-  console.log("  plugin list");
-  console.log("Use `aptx-ft <command> --help` for details.");
-}
-
-function printCodegenRunHelp() {
-  console.log("aptx-ft codegen run");
-  console.log("Run code generation based on config `codegen` section.");
-  console.log("Run options:");
-  console.log("  --dry-run              Build plan without writing files");
-  console.log("  --profile              Print execution timing summary");
-  console.log("  --report-json <file>   Write execution report JSON");
-  console.log("  --concurrency <value>  Override concurrency, e.g. auto/4");
-  console.log("  --cache <true|false>   Override incremental cache switch");
-  console.log("Global options:");
-  console.log("  -c, --config <file>   Config file path");
-  console.log("  -i, --input <path>    Override input OpenAPI path/url");
-  console.log("  -p, --plugin <paths>  Extra plugin dll paths");
-}
-
-function printCodegenListTerminalsHelp() {
-  console.log("aptx-ft codegen list-terminals");
-  console.log("List terminal support status.");
-}
-
-function printDoctorHelp() {
-  console.log("aptx-ft doctor");
-  console.log("Check runtime, binding and command registry status.");
-}
-
-function printPluginListHelp() {
-  console.log("aptx-ft plugin list");
-  console.log("List loaded command providers (built-in + plugins).");
 }
 
 function printPluginCommands(commands: HelpCommandDescriptor[]) {
@@ -545,62 +526,6 @@ function parseBooleanLike(value: string | undefined): boolean | undefined {
     return false;
   }
   return undefined;
-}
-
-function parseCodegenRunOptions(args: string[]): CodegenRunOptions {
-  const runOptions: CodegenRunOptions = {
-    dryRun: false,
-    profile: false,
-  };
-  for (let index = 0; index < args.length; index++) {
-    const token = args[index];
-    if (token === "--dry-run") {
-      runOptions.dryRun = true;
-      continue;
-    }
-    if (token === "--profile") {
-      runOptions.profile = true;
-      continue;
-    }
-    if (token === "--report-json") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) {
-        throw new Error("`--report-json` expects a file path.");
-      }
-      runOptions.reportJson = value;
-      index += 1;
-      continue;
-    }
-    if (token === "--concurrency") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) {
-        throw new Error("`--concurrency` expects `auto` or a positive integer.");
-      }
-      if (value === "auto") {
-        runOptions.concurrencyOverride = "auto";
-      } else {
-        const parsed = Number(value);
-        if (!Number.isInteger(parsed) || parsed <= 0) {
-          throw new Error("`--concurrency` expects `auto` or a positive integer.");
-        }
-        runOptions.concurrencyOverride = parsed;
-      }
-      index += 1;
-      continue;
-    }
-    if (token === "--cache") {
-      const value = args[index + 1];
-      const parsed = parseBooleanLike(value);
-      if (parsed === undefined) {
-        throw new Error("`--cache` expects true/false.");
-      }
-      runOptions.cacheOverride = parsed;
-      index += 1;
-      continue;
-    }
-    throw new Error(`unknown codegen run option: ${token}`);
-  }
-  return runOptions;
 }
 
 function resolveConcurrency(value: "auto" | number | undefined): number {
@@ -1093,6 +1018,25 @@ async function runCodegen(global: GlobalOptions, runOptions: CodegenRunOptions):
   }
 }
 
+async function runModelGen(global: GlobalOptions, runOptions: ModelGenRunOptions): Promise<void> {
+  const { input, nativePlugins } = await loadMergedConfig(global);
+  if (!input) {
+    throw new Error("`input` is required. Use -i or set config.input.");
+  }
+
+  const options = ["--output", ensureAbsolutePath(runOptions.output)];
+  runOptions.names.forEach((name) => {
+    options.push("--name", name);
+  });
+
+  runCli({
+    input: await getInput(input),
+    command: "model:gen",
+    options,
+    plugin: nativePlugins,
+  });
+}
+
 async function listTerminals(): Promise<void> {
   console.log("Terminals:");
   SUPPORTED_TERMINALS.forEach((item) => {
@@ -1188,29 +1132,9 @@ async function runNativeCommand(
   });
 }
 
-async function handleHelp(global: GlobalOptions, commandTokens: string[]): Promise<void> {
-  const noCommand = commandTokens.length === 0;
-  const [cmd1, cmd2] = commandTokens;
-
-  if (noCommand) {
-    printRootHelp();
-    return;
-  }
-
-  if (cmd1 === "codegen" && cmd2 === "run") {
-    printCodegenRunHelp();
-    return;
-  }
-  if (cmd1 === "codegen" && cmd2 === "list-terminals") {
-    printCodegenListTerminalsHelp();
-    return;
-  }
-  if (cmd1 === "doctor") {
-    printDoctorHelp();
-    return;
-  }
-  if (cmd1 === "plugin" && cmd2 === "list") {
-    printPluginListHelp();
+async function handlePluginHelp(global: GlobalOptions, commandTokens: string[]): Promise<void> {
+  const [commandName] = commandTokens;
+  if (!commandName) {
     return;
   }
   const { nativePlugins, scriptPlugins } = await loadMergedConfig(global);
@@ -1219,52 +1143,147 @@ async function handleHelp(global: GlobalOptions, commandTokens: string[]): Promi
     ...collectScriptCommandHelp(scriptPlugins),
   ];
   const found = commands.find(
-    (item) => item.name === cmd1 || (item.aliases || []).includes(cmd1),
+    (item) => item.name === commandName || (item.aliases || []).includes(commandName),
   );
   if (!found) {
-    errorLog(`command not found: ${cmd1}`);
+    errorLog(`command not found: ${commandName}`);
     printPluginCommands(commands);
     return;
   }
   printCommandDetail(found);
 }
 
+function buildProgram(): Command {
+  const program = new Command();
+  program
+    .name("aptx-ft")
+    .description("Frontend toolkit CLI for OpenAPI code generation.")
+    .showHelpAfterError()
+    .addOption(new Option("-c, --config <file>", "Config file path"))
+    .addOption(new Option("-i, --input <path>", "Override input OpenAPI path/url"))
+    .addOption(new Option("-p, --plugin <paths...>", "Extra plugin dll paths"));
+
+  const codegen = program
+    .command("codegen")
+    .description("Code generation related commands.");
+
+  const model = program
+    .command("model")
+    .description("Model generation related commands.");
+
+  codegen
+    .command("run")
+    .description("Run code generation based on config `codegen` section.")
+    .option("--dry-run", "Build plan without writing files", false)
+    .option("--profile", "Print execution timing summary", false)
+    .option("--report-json <file>", "Write execution report JSON")
+    .addOption(
+      new Option("--concurrency <value>", "Override concurrency, e.g. auto/4").argParser(
+        parseConcurrencyOption,
+      ),
+    )
+    .addOption(
+      new Option("--cache <true|false>", "Override incremental cache switch").argParser(
+        parseCacheOption,
+      ),
+    )
+    .action(async (options: {
+      dryRun: boolean;
+      profile: boolean;
+      reportJson?: string;
+      concurrency?: "auto" | number;
+      cache?: boolean;
+    }, command: Command) => {
+      const global = getGlobalOptionsFromCli(command);
+      const runOptions: CodegenRunOptions = {
+        dryRun: options.dryRun,
+        profile: options.profile,
+        reportJson: options.reportJson,
+        concurrencyOverride: options.concurrency,
+        cacheOverride: options.cache,
+      };
+      await runCodegen(global, runOptions);
+    });
+
+  codegen
+    .command("list-terminals")
+    .description("List terminal support status.")
+    .action(async () => {
+      await listTerminals();
+    });
+
+  model
+    .command("gen")
+    .description("Generate TypeScript model declarations from OpenAPI schemas.")
+    .requiredOption("--output <dir>", "Output directory")
+    .addOption(
+      new Option("--name <schema>", "Generate specific schema names only; repeatable")
+        .default([])
+        .argParser((value: string, previous: string[]) => [...previous, value]),
+    )
+    .action(async (options: { output: string; name?: string[] }, command: Command) => {
+      const global = getGlobalOptionsFromCli(command);
+      await runModelGen(global, {
+        output: options.output,
+        names: options.name || [],
+      });
+    });
+
+  program
+    .command("doctor")
+    .description("Check runtime, binding and command registry status.")
+    .action(async (_: unknown, command: Command) => {
+      const global = getGlobalOptionsFromCli(command);
+      await runDoctor(global);
+    });
+
+  program
+    .command("plugin")
+    .description("Plugin related commands.")
+    .command("list")
+    .description("List loaded command providers (built-in + plugins).")
+    .action(async (_: unknown, command: Command) => {
+      const global = getGlobalOptionsFromCli(command);
+      await listPlugins(global);
+    });
+
+  program.addHelpText(
+    "after",
+    "\nPlugin/native commands: `aptx-ft <command> [args...]`",
+  );
+  return program;
+}
+
+function isBuiltInCommand(command?: string): boolean {
+  return command === "codegen" || command === "doctor" || command === "plugin" || command === "model";
+}
+
 async function main() {
   const rawArgs = process.argv.slice(2);
-  const { global, commandTokens } = parseGlobalOptions(rawArgs);
+  const { global, commandTokens } = parseGlobalOptionsWithCommander(rawArgs);
   const helpRequested = commandTokens.includes("--help") || commandTokens.includes("-h");
+  const commandOnlyTokens = commandTokens.filter(
+    (token) => token !== "--help" && token !== "-h",
+  );
+  const [commandName, ...restTokens] = commandOnlyTokens;
+  const program = buildProgram();
+
+  if (!commandName) {
+    program.outputHelp();
+    return;
+  }
+
+  if (isBuiltInCommand(commandName)) {
+    await program.parseAsync(process.argv);
+    return;
+  }
 
   if (helpRequested) {
-    const commandOnly = commandTokens.filter((v) => v !== "--help" && v !== "-h");
-    await handleHelp(global, commandOnly);
+    await handlePluginHelp(global, [commandName, ...restTokens]);
     return;
   }
 
-  const [cmd1, cmd2, ...rest] = commandTokens;
-  if (!cmd1) {
-    printRootHelp();
-    return;
-  }
-
-  if (cmd1 === "codegen" && cmd2 === "run") {
-    const runOptions = parseCodegenRunOptions(rest);
-    await runCodegen(global, runOptions);
-    return;
-  }
-  if (cmd1 === "codegen" && cmd2 === "list-terminals") {
-    await listTerminals();
-    return;
-  }
-  if (cmd1 === "doctor") {
-    await runDoctor(global);
-    return;
-  }
-  if (cmd1 === "plugin" && cmd2 === "list") {
-    await listPlugins(global);
-    return;
-  }
-
-  await runNativeCommand(cmd1, [cmd2, ...rest].filter(Boolean), global);
+  await runNativeCommand(commandName, restTokens, global);
 }
 
 main().catch((error: unknown) => {

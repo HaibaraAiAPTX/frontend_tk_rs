@@ -25,3 +25,17 @@ aptx-ft codegen list-terminals
 ```bash
 aptx-ft doctor
 ```
+
+### model gen
+
+生成 TypeScript 模型声明文件（基于 OpenAPI `components/schemas`）：
+
+```bash
+aptx-ft model gen --output ./generated/models
+```
+
+只生成指定模型：
+
+```bash
+aptx-ft model gen --output ./generated/models --name Order --name User
+```
