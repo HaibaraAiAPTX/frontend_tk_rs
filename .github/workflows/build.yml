@@ -323,7 +323,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Create npm dirs
         working-directory: crates/node_binding
-        run: pnpm run prepublishOnly
+        run: napi prepublish -t npm
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -361,6 +361,11 @@ jobs:
         with:
           generate_release_notes: true
           fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Sync package versions
+        working-directory: crates/node_binding
+        run: napi prepublish -t npm
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
