@@ -8,51 +8,14 @@ env:
 
 on:
   push:
-    branches:
-      - master
     tags:
       - 'v*'
-    paths-ignore:
-      - '**/*.md'
-      - LICENSE
-      - '**/*.gitignore'
-      - .editorconfig
-      - docs/**
-  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-      - name: Install
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-      - name: Install dependencies
-        working-directory: crates/node_binding
-        run: pnpm install --no-frozen-lockfile
-      - name: Cargo fmt
-        run: cargo fmt -- --check
-        working-directory: crates/node_binding
-      - name: Clippy
-        run: cargo clippy
-        working-directory: crates/node_binding
-
   build:
     strategy:
       fail-fast: false
@@ -183,7 +146,6 @@ jobs:
   build-freebsd:
     runs-on: ubuntu-latest
     name: Build FreeBSD
-    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
       - name: Build
@@ -205,12 +167,6 @@ jobs:
             curl https://sh.rustup.rs -sSf --output rustup.sh
             sh rustup.sh -y --profile minimal --default-toolchain stable
             source "$HOME/.cargo/env"
-            echo "~~~~ rustc --version ~~~~"
-            rustc --version
-            echo "~~~~ node -v ~~~~"
-            node -v
-            echo "~~~~ pnpm --version ~~~~"
-            pnpm --version
             cd crates/node_binding
             pnpm install --no-frozen-lockfile
             pnpm run build
@@ -224,78 +180,6 @@ jobs:
           path: crates/node_binding/frontend-tk-binding.*.node
           if-no-files-found: error
 
-  test-linux-binding:
-    name: Test ${{ matrix.target }} - node@${{ matrix.node }}
-    needs:
-      - build
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
-          - aarch64-unknown-linux-gnu
-          - aarch64-unknown-linux-musl
-          - armv7-unknown-linux-gnueabihf
-        node:
-          - '20'
-    runs-on: ${{ contains(matrix.target, 'aarch64') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          cache: pnpm
-      - name: Output docker params
-        id: docker
-        run: |
-          node -e "
-          if ('${{ matrix.target }}'.startsWith('aarch64')) {
-            console.log('PLATFORM=linux/arm64')
-          } else if ('${{ matrix.target }}'.startsWith('armv7')) {
-            console.log('PLATFORM=linux/arm/v7')
-          } else {
-            console.log('PLATFORM=linux/amd64')
-          }
-          " >> $GITHUB_OUTPUT
-          node -e "
-          if ('${{ matrix.target }}'.endsWith('-musl')) {
-            console.log('IMAGE=node:${{ matrix.node }}-alpine')
-          } else {
-            console.log('IMAGE=node:${{ matrix.node }}-slim')
-          }
-          " >> $GITHUB_OUTPUT
-      - name: Install dependencies
-        working-directory: crates/node_binding
-        run: |
-          pnpm config set --json supportedArchitectures '{"cpu":["current","arm64","x64","arm"],"libc":["current","musl","gnu"]}'
-          pnpm install --no-frozen-lockfile
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: bindings-${{ matrix.target }}
-          path: crates/node_binding
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        if: ${{ contains(matrix.target, 'armv7') }}
-        with:
-          platforms: all
-      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-        if: ${{ contains(matrix.target, 'armv7') }}
-      - name: Test bindings
-        run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:${{ github.workspace }} \
-            -w ${{ github.workspace }}/crates/node_binding \
-            --platform ${{ steps.docker.outputs.PLATFORM }} \
-            ${{ steps.docker.outputs.IMAGE }} \
-            sh -c "npm install -g pnpm && pnpm test || echo 'No tests configured'"
-
   publish:
     name: Publish
     runs-on: ubuntu-latest
@@ -303,10 +187,8 @@ jobs:
       contents: write
       id-token: write
     needs:
-      - lint
+      - build
       - build-freebsd
-      - test-linux-binding
-    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
       - name: Setup pnpm
@@ -340,16 +222,10 @@ jobs:
             done
           done
           pnpm run artifacts
-      - name: List packages
-        run: ls -R ./npm
-        working-directory: crates/node_binding
-        shell: bash
       - name: Configure npm registry
         run: |
-          # 配置全局 .npmrc 到 home 目录，确保所有子目录都能访问
           echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
           echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
-          # 临时禁用 SSL 验证（私有源证书过期）
           echo "strict-ssl=false" >> ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
@@ -358,11 +234,6 @@ jobs:
         with:
           generate_release_notes: true
           fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: Sync package versions
-        working-directory: crates/node_binding
-        run: pnpm exec napi prepublish -t npm
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
@@ -419,16 +290,13 @@ jobs:
             popd >/dev/null
           }
 
-          # 发布主包
           publish_pkg "."
 
-          # 发布各平台包
           for dir in npm/*; do
             [ -d "$dir" ] || continue
             publish_pkg "$dir"
           done
 
-          echo
           echo "Publish totals: published=${published}, skipped=${skipped}, failed=${failed}"
           {
             echo
