@@ -321,9 +321,6 @@ jobs:
       - name: Install dependencies
         working-directory: crates/node_binding
         run: pnpm install --no-frozen-lockfile
-      - name: Create npm dirs
-        working-directory: crates/node_binding
-        run: napi prepublish -t npm
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -365,19 +362,19 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Sync package versions
         working-directory: crates/node_binding
-        run: napi prepublish -t npm
+        run: napi prepublish -t npm --skip-gh-release
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
         working-directory: crates/node_binding
         run: |
           # 发布主包
-          npm publish
+          npm publish --ignore-scripts
           # 发布各平台包
           for dir in npm/*; do
             if [ -d "$dir" ]; then
               cd "$dir"
-              npm publish || true
+              npm publish --ignore-scripts || true
               cd ..
             fi
           done
