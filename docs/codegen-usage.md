@@ -8,6 +8,11 @@
 1. 已安装 Node.js（建议与仓库当前版本一致）。
 2. 已安装 pnpm。
 3. 在仓库根目录执行命令。
+4. 在使用项目中安装 aptx 包（使用包名，不使用绝对路径引用）：
+
+```bash
+pnpm add -D @aptx/frontend-tk-cli @aptx/frontend-tk-types
+```
 
 ## 2. CLI 概览
 
@@ -19,9 +24,12 @@
 2. `codegen list-terminals`
 3. `model gen`
 4. `model ir`
-5. `doctor`
-6. `plugin list`
-7. `<native/plugin command>`（由命令注册表动态扩展）
+5. `model enum-plan`
+6. `model enum-apply`
+7. `input download`
+8. `doctor`
+9. `plugin list`
+10. `<native/plugin command>`（由命令注册表动态扩展）
 
 查看帮助：
 
@@ -124,7 +132,13 @@ aptx-ft doctor
 aptx-ft plugin list
 ```
 
-## 4.5 生成模型声明
+## 4.5 下载远程 OpenAPI JSON
+
+```bash
+aptx-ft input download --url http://localhost:5000/swagger/v1/swagger.json --output ./openapi.json
+```
+
+## 4.6 生成模型声明
 
 ```bash
 aptx-ft model gen --output ./generated/models
@@ -148,6 +162,24 @@ aptx-ft model gen --output ./generated/models --name Order --name User
 aptx-ft model ir --output ./tmp/model-ir.json
 ```
 
+导出枚举增强计划（Enum Plan）：
+
+```bash
+aptx-ft model enum-plan --output ./tmp/enum-plan.json
+```
+
+应用枚举补丁并生成模型：
+
+```bash
+aptx-ft model enum-apply --patch ./tmp/enum-patch.json --output ./generated/models
+```
+
+指定冲突策略与生成风格：
+
+```bash
+aptx-ft model enum-apply --patch ./tmp/enum-patch.json --output ./generated/models --style module --conflict-policy patch-first
+```
+
 ## 5. 直接调用内置 native 命令
 
 ## 5.1 导出 IR 快照
@@ -161,6 +193,14 @@ aptx-ft ir:snapshot -i ./openapi.json --output ./tmp/ir.json
 ```bash
 aptx-ft terminal:codegen -i ./openapi.json --terminal axios-ts --output ./generated/services/axios-ts
 ```
+
+## 5.3 Materal 枚举补丁导出（plugin）
+
+```bash
+aptx-ft -i ./openapi.json materal:enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json
+```
+
+可选参数：`--naming-strategy auto|none`（默认 `auto`，自动填充 `suggested_name`）。
 
 ## 6. Script 插件开发最小示例
 

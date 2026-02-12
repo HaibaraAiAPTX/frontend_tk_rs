@@ -6,6 +6,48 @@ pub struct ModelIr {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelEnumPlan {
+    pub schema_version: String,
+    pub enums: Vec<ModelEnumPlanItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelEnumPlanItem {
+    pub enum_name: String,
+    pub description: Option<String>,
+    pub source: String,
+    pub members: Vec<ModelEnumPlanMember>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelEnumPlanMember {
+    pub name: String,
+    pub value: String,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnumPatchDocument {
+    pub schema_version: String,
+    pub patches: Vec<EnumPatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnumPatch {
+    pub enum_name: String,
+    pub members: Vec<EnumPatchMember>,
+    pub source: Option<String>,
+    pub confidence: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnumPatchMember {
+    pub value: String,
+    pub suggested_name: Option<String>,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelNode {
     pub name: String,
     pub description: Option<String>,
@@ -33,6 +75,7 @@ pub struct ModelProperty {
 pub struct ModelEnumMember {
     pub name: String,
     pub value: ModelLiteral,
+    pub comment: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +104,13 @@ pub enum ModelRenderStyle {
     Module,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnumConflictPolicy {
+    OpenApiFirst,
+    PatchFirst,
+    ProviderFirst,
+}
+
 impl ModelRenderStyle {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
@@ -71,3 +121,15 @@ impl ModelRenderStyle {
     }
 }
 
+impl EnumConflictPolicy {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "openapi-first" => Ok(Self::OpenApiFirst),
+            "patch-first" => Ok(Self::PatchFirst),
+            "provider-first" => Ok(Self::ProviderFirst),
+            _ => Err(
+                "`--conflict-policy` expects openapi-first|patch-first|provider-first.".to_string(),
+            ),
+        }
+    }
+}

@@ -14,6 +14,7 @@ libloading = "0.9.0"
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
 napi = { version = "3.6.1", default-features = false, features = ["napi4"] }
 napi-derive = "3.4.0"
+serde_json = "1.0.145"
 swagger_gen = { version = "0.1.0", path = "../swagger_gen" }
 swagger_tk = { version = "0.1.0", path = "../swagger_tk" }
 

@@ -119,8 +119,8 @@ fn generate_axios_ts_v1_test() {
     let open_api_object = get_open_api_object(None);
     let output_root = get_temp_test_dir("pipeline-axios-ts");
 
-    let plan = generate_axios_ts_v1(&open_api_object, &output_root)
-        .expect("axios-ts generation fail");
+    let plan =
+        generate_axios_ts_v1(&open_api_object, &output_root).expect("axios-ts generation fail");
     assert!(plan.endpoint_count > 0);
     assert!(
         plan.planned_files
@@ -145,7 +145,8 @@ fn generate_axios_js_v1_test() {
     let open_api_object = get_open_api_object(None);
     let output_root = get_temp_test_dir("pipeline-axios-js");
 
-    let plan = generate_axios_js_v1(&open_api_object, &output_root).expect("axios-js generation fail");
+    let plan =
+        generate_axios_js_v1(&open_api_object, &output_root).expect("axios-js generation fail");
     assert!(plan.endpoint_count > 0);
     assert!(plan.planned_files.iter().any(|f| f.path == "index.js"));
 

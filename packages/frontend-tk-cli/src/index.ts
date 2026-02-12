@@ -81,6 +81,23 @@ type ModelIrRunOptions = {
   output: string;
 };
 
+type InputDownloadRunOptions = {
+  url: string;
+  output: string;
+};
+
+type ModelEnumPlanRunOptions = {
+  output: string;
+};
+
+type ModelEnumApplyRunOptions = {
+  output: string;
+  patch: string;
+  style: "declaration" | "module";
+  conflictPolicy: "openapi-first" | "patch-first" | "provider-first";
+  names: string[];
+};
+
 type TerminalRunReport = {
   terminalId: string;
   channel: "native" | "script";
@@ -1063,6 +1080,77 @@ async function runModelIr(global: GlobalOptions, runOptions: ModelIrRunOptions):
   });
 }
 
+async function runInputDownload(
+  _global: GlobalOptions,
+  runOptions: InputDownloadRunOptions,
+): Promise<void> {
+  const downloaded = await getInput(runOptions.url);
+  const output = ensureAbsolutePath(runOptions.output);
+  ensureDirectoryForFile(output);
+  fs.copyFileSync(downloaded, output);
+  const stat = fs.statSync(output);
+  console.log(
+    JSON.stringify(
+      {
+        success: true,
+        filePath: output,
+        size: stat.size,
+        url: runOptions.url,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+async function runModelEnumPlan(
+  global: GlobalOptions,
+  runOptions: ModelEnumPlanRunOptions,
+): Promise<void> {
+  const { input, nativePlugins } = await loadMergedConfig(global);
+  if (!input) {
+    throw new Error("`input` is required. Use -i or set config.input.");
+  }
+
+  runCli({
+    input: await getInput(input),
+    command: "model:enum-plan",
+    options: ["--output", ensureAbsolutePath(runOptions.output)],
+    plugin: nativePlugins,
+  });
+}
+
+async function runModelEnumApply(
+  global: GlobalOptions,
+  runOptions: ModelEnumApplyRunOptions,
+): Promise<void> {
+  const { input, nativePlugins } = await loadMergedConfig(global);
+  if (!input) {
+    throw new Error("`input` is required. Use -i or set config.input.");
+  }
+
+  const options = [
+    "--output",
+    ensureAbsolutePath(runOptions.output),
+    "--patch",
+    ensureAbsolutePath(runOptions.patch),
+    "--style",
+    runOptions.style,
+    "--conflict-policy",
+    runOptions.conflictPolicy,
+  ];
+  runOptions.names.forEach((name) => {
+    options.push("--name", name);
+  });
+
+  runCli({
+    input: await getInput(input),
+    command: "model:enum-apply",
+    options,
+    plugin: nativePlugins,
+  });
+}
+
 async function listTerminals(): Promise<void> {
   console.log("Terminals:");
   SUPPORTED_TERMINALS.forEach((item) => {
@@ -1197,6 +1285,10 @@ function buildProgram(): Command {
     .command("model")
     .description("Model generation related commands.");
 
+  const input = program
+    .command("input")
+    .description("Input related commands.");
+
   codegen
     .command("run")
     .description("Run code generation based on config `codegen` section.")
@@ -1272,6 +1364,71 @@ function buildProgram(): Command {
       });
     });
 
+  input
+    .command("download")
+    .description("Download OpenAPI JSON from URL to local file.")
+    .requiredOption("--url <url>", "OpenAPI JSON URL")
+    .requiredOption("--output <file>", "Output JSON file path")
+    .action(async (options: { url: string; output: string }, command: Command) => {
+      const global = getGlobalOptionsFromCli(command);
+      await runInputDownload(global, {
+        url: options.url,
+        output: options.output,
+      });
+    });
+
+  model
+    .command("enum-plan")
+    .description("Export enum enrichment plan JSON from model IR.")
+    .requiredOption("--output <file>", "Output JSON file path")
+    .action(async (options: { output: string }, command: Command) => {
+      const global = getGlobalOptionsFromCli(command);
+      await runModelEnumPlan(global, {
+        output: options.output,
+      });
+    });
+
+  model
+    .command("enum-apply")
+    .description("Apply enum patch JSON and generate model files.")
+    .requiredOption("--output <dir>", "Output directory")
+    .requiredOption("--patch <file>", "Enum patch JSON file path")
+    .addOption(
+      new Option("--style <declaration|module>", "Model output style")
+        .default("declaration")
+        .argParser(parseModelStyle),
+    )
+    .addOption(
+      new Option(
+        "--conflict-policy <openapi-first|patch-first|provider-first>",
+        "Conflict policy for enum merge",
+      ).default("patch-first"),
+    )
+    .addOption(
+      new Option("--name <schema>", "Generate specific schema names only; repeatable")
+        .default([])
+        .argParser((value: string, previous: string[]) => [...previous, value]),
+    )
+    .action(async (
+      options: {
+        output: string;
+        patch: string;
+        style: "declaration" | "module";
+        conflictPolicy?: "openapi-first" | "patch-first" | "provider-first";
+        name?: string[];
+      },
+      command: Command,
+    ) => {
+      const global = getGlobalOptionsFromCli(command);
+      await runModelEnumApply(global, {
+        output: options.output,
+        patch: options.patch,
+        style: options.style,
+        conflictPolicy: options.conflictPolicy || "patch-first",
+        names: options.name || [],
+      });
+    });
+
   program
     .command("doctor")
     .description("Check runtime, binding and command registry status.")
@@ -1298,7 +1455,7 @@ function buildProgram(): Command {
 }
 
 function isBuiltInCommand(command?: string): boolean {
-  return command === "codegen" || command === "doctor" || command === "plugin" || command === "model";
+  return command === "codegen" || command === "doctor" || command === "plugin" || command === "model" || command === "input";
 }
 
 async function main() {

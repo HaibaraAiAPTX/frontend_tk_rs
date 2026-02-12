@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use aptx_frontend_tk_binding_plugin::utils::ensure_path;
 use clap::Parser;
-use swagger_gen::model_pipeline::{ModelRenderStyle, generate_model_files};
+use swagger_gen::model_pipeline::{generate_model_files, ModelRenderStyle};
 use swagger_tk::model::OpenAPIObject;
 
 #[derive(Debug, Clone, Parser)]
