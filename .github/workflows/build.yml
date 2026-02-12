@@ -367,16 +367,78 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
         working-directory: crates/node_binding
+        shell: bash
         run: |
+          set -uo pipefail
+
+          published=0
+          skipped=0
+          failed=0
+          summary_file="${GITHUB_STEP_SUMMARY:-/tmp/publish-summary.md}"
+
+          {
+            echo "## Publish Report"
+            echo
+            echo "| Package | Version | Status | Detail |"
+            echo "|---|---|---|---|"
+          } >> "$summary_file"
+
+          publish_pkg() {
+            local dir="$1"
+            pushd "$dir" >/dev/null
+
+            local name version
+            name=$(node -p "require('./package.json').name")
+            version=$(node -p "require('./package.json').version")
+
+            echo "==> Processing ${name}@${version} (${dir})"
+
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "SKIP: already exists in registry: ${name}@${version}"
+              echo "| ${name} | ${version} | skipped | already exists |" >> "$summary_file"
+              skipped=$((skipped + 1))
+              popd >/dev/null
+              return 0
+            fi
+
+            local log_file
+            log_file=$(mktemp)
+            if npm publish --ignore-scripts 2>&1 | tee "$log_file"; then
+              echo "PUBLISHED: ${name}@${version}"
+              echo "| ${name} | ${version} | published | ok |" >> "$summary_file"
+              published=$((published + 1))
+            else
+              local reason
+              reason=$(tail -n 6 "$log_file" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | sed 's/|/\\|/g')
+              echo "FAILED: ${name}@${version}"
+              echo "| ${name} | ${version} | failed | ${reason} |" >> "$summary_file"
+              failed=$((failed + 1))
+            fi
+
+            rm -f "$log_file"
+            popd >/dev/null
+          }
+
           # 发布主包
-          npm publish --ignore-scripts
+          publish_pkg "."
+
           # 发布各平台包
           for dir in npm/*; do
-            if [ -d "$dir" ]; then
-              cd "$dir"
-              npm publish --ignore-scripts || true
-              cd ..
-            fi
+            [ -d "$dir" ] || continue
+            publish_pkg "$dir"
           done
+
+          echo
+          echo "Publish totals: published=${published}, skipped=${skipped}, failed=${failed}"
+          {
+            echo
+            echo "- Published: ${published}"
+            echo "- Skipped: ${skipped}"
+            echo "- Failed: ${failed}"
+          } >> "$summary_file"
+
+          if [ "$failed" -gt 0 ]; then
+            exit 1
+          fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
