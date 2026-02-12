@@ -352,12 +352,17 @@ jobs:
           # 配置全局 .npmrc 到 home 目录，确保所有子目录都能访问
           echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
           echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
-          # Debug: 验证 .npmrc 格式（不打印 token 值）
-          echo "Generated .npmrc (token hidden):"
-          echo "registry=https://winserver.devserver.ink:14873/"
-          echo "//winserver.devserver.ink:14873/:_authToken=***"
+          # 临时禁用 SSL 验证（私有源证书过期）
+          echo "strict-ssl=false" >> ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
         working-directory: crates/node_binding
         run: |
