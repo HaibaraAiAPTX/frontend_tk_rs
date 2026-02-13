@@ -5,6 +5,7 @@ pub struct GeneratorInput {
     pub project: ProjectContext,
     pub endpoints: Vec<EndpointItem>,
     pub model_import: Option<ModelImportConfig>,
+    pub client_import: Option<ClientImportConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,6 +13,14 @@ pub struct ModelImportConfig {
     pub import_type: String,
     pub package_path: Option<String>,
     pub relative_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientImportConfig {
+    pub mode: String,
+    pub client_path: Option<String>,
+    pub client_package: Option<String>,
+    pub import_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

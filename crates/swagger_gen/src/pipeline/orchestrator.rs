@@ -3,7 +3,7 @@ use swagger_tk::model::OpenAPIObject;
 
 use super::{
     layout::{IdentityLayout, LayoutStrategy},
-    model::{ExecutionMetrics, ExecutionPlan, GeneratorInput, RendererExecution},
+    model::{ClientImportConfig, ExecutionMetrics, ExecutionPlan, GeneratorInput, RendererExecution},
     parser::{OpenApiParser, Parser},
     renderer::{
         AxiosJsRenderer, AxiosTsRenderer, FunctionsRenderer, NoopRenderer, ReactQueryRenderer,
@@ -13,12 +13,31 @@ use super::{
     writer::{DryRunWriter, FileSystemWriter, Writer},
 };
 
+/// Convert client mode options to ClientImportConfig
+fn build_client_import_config(
+    client_mode: Option<&str>,
+    client_path: Option<&str>,
+    client_package: Option<&str>,
+    client_import_name: Option<&str>,
+) -> Option<ClientImportConfig> {
+    match client_mode {
+        None => None, // Default behavior
+        Some(mode) => Some(ClientImportConfig {
+            mode: mode.to_string(),
+            client_path: client_path.map(|s| s.to_string()),
+            client_package: client_package.map(|s| s.to_string()),
+            import_name: client_import_name.map(|s| s.to_string()),
+        }),
+    }
+}
+
 pub struct CodegenPipeline {
     parser: Box<dyn Parser>,
     transforms: Vec<Box<dyn TransformPass>>,
     renderers: Vec<Box<dyn Renderer>>,
     layout: Box<dyn LayoutStrategy>,
     writer: Box<dyn Writer>,
+    client_import: Option<ClientImportConfig>,
 }
 
 impl Default for CodegenPipeline {
@@ -29,7 +48,16 @@ impl Default for CodegenPipeline {
             renderers: vec![Box::new(NoopRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(DryRunWriter),
+            client_import: None,
         }
+    }
+}
+
+impl CodegenPipeline {
+    /// Set client import configuration
+    pub fn with_client_import(mut self, config: Option<ClientImportConfig>) -> Self {
+        self.client_import = config;
+        self
     }
 }
 
@@ -41,6 +69,7 @@ impl CodegenPipeline {
             renderers: vec![Box::new(FunctionsRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
+            client_import: None,
         }
     }
 
@@ -51,6 +80,7 @@ impl CodegenPipeline {
             renderers: vec![Box::new(ReactQueryRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
+            client_import: None,
         }
     }
 
@@ -61,6 +91,7 @@ impl CodegenPipeline {
             renderers: vec![Box::new(VueQueryRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
+            client_import: None,
         }
     }
 
@@ -71,6 +102,7 @@ impl CodegenPipeline {
             renderers: vec![Box::new(AxiosTsRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
+            client_import: None,
         }
     }
 
@@ -81,6 +113,7 @@ impl CodegenPipeline {
             renderers: vec![Box::new(AxiosJsRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
+            client_import: None,
         }
     }
 
@@ -91,6 +124,7 @@ impl CodegenPipeline {
             renderers: vec![Box::new(UniAppRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
+            client_import: None,
         }
     }
 
@@ -103,6 +137,11 @@ impl CodegenPipeline {
         let parse_start = Instant::now();
         let mut input = self.parser.parse(open_api)?;
         let parse_ms = parse_start.elapsed().as_millis();
+
+        // Apply client_import configuration
+        if let Some(ref client_import) = self.client_import {
+            input.client_import = Some(client_import.clone());
+        }
 
         let transform_start = Instant::now();
         let mut transform_steps = Vec::new();
@@ -184,6 +223,20 @@ pub fn generate_functions_contract_v1(
     CodegenPipeline::functions_contract_v1(output_root).plan(open_api)
 }
 
+pub fn generate_functions_contract_v1_with_client(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+    client_mode: Option<&str>,
+    client_path: Option<&str>,
+    client_package: Option<&str>,
+    client_import_name: Option<&str>,
+) -> Result<ExecutionPlan, String> {
+    let client_import = build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    CodegenPipeline::functions_contract_v1(output_root)
+        .with_client_import(client_import)
+        .plan(open_api)
+}
+
 pub fn generate_react_query_contract_v1(
     open_api: &OpenAPIObject,
     output_root: impl AsRef<std::path::Path>,
@@ -191,11 +244,39 @@ pub fn generate_react_query_contract_v1(
     CodegenPipeline::react_query_contract_v1(output_root).plan(open_api)
 }
 
+pub fn generate_react_query_contract_v1_with_client(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+    client_mode: Option<&str>,
+    client_path: Option<&str>,
+    client_package: Option<&str>,
+    client_import_name: Option<&str>,
+) -> Result<ExecutionPlan, String> {
+    let client_import = build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    CodegenPipeline::react_query_contract_v1(output_root)
+        .with_client_import(client_import)
+        .plan(open_api)
+}
+
 pub fn generate_vue_query_contract_v1(
     open_api: &OpenAPIObject,
     output_root: impl AsRef<std::path::Path>,
 ) -> Result<ExecutionPlan, String> {
     CodegenPipeline::vue_query_contract_v1(output_root).plan(open_api)
+}
+
+pub fn generate_vue_query_contract_v1_with_client(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+    client_mode: Option<&str>,
+    client_path: Option<&str>,
+    client_package: Option<&str>,
+    client_import_name: Option<&str>,
+) -> Result<ExecutionPlan, String> {
+    let client_import = build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    CodegenPipeline::vue_query_contract_v1(output_root)
+        .with_client_import(client_import)
+        .plan(open_api)
 }
 
 pub fn generate_axios_ts_v1(

@@ -1,7 +1,7 @@
 use inflector::cases::pascalcase::to_pascal_case;
 use std::collections::BTreeMap;
 
-use super::model::{EndpointItem, GeneratorInput, ModelImportConfig, PlannedFile, RenderOutput};
+use super::model::{ClientImportConfig, EndpointItem, GeneratorInput, ModelImportConfig, PlannedFile, RenderOutput};
 
 pub trait Renderer {
     fn id(&self) -> &'static str;
@@ -43,7 +43,7 @@ impl Renderer for FunctionsRenderer {
             });
             files.push(PlannedFile {
                 path: get_function_file_path(endpoint),
-                content: render_function_file(endpoint, &model_import_base, use_package),
+                content: render_function_file(endpoint, &model_import_base, use_package, &input.client_import),
             });
         }
         Ok(RenderOutput {
@@ -228,7 +228,7 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
     )
 }
 
-fn render_function_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
+fn render_function_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool, client_import: &Option<ClientImportConfig>) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
@@ -237,24 +237,17 @@ fn render_function_file(endpoint: &EndpointItem, model_import_base: &str, use_pa
         model_import_base,
         use_package,
     );
+    let client_import_lines = get_client_import_lines(client_import);
+    let client_call = get_client_call(client_import);
     format!(
-        "import type {{ PerCallOptions }} from \"../../client/client\";
-import {{ getApiClient }} from \"../../client/registry\";
-import {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";
-{type_imports}
-
-export function {operation_name}(
-  input: {input_type},
-  options?: PerCallOptions
-): Promise<{output_type}> {{
-  return getApiClient().execute<{output_type}>({builder}(input), options);
-}}
-",
+        "{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport function {operation_name}(\n  input: {input_type},\n  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder}(input), options);\n}}\n",
         namespace = endpoint.namespace.join("/"),
         operation_name = endpoint.operation_name,
         input_type = input_type,
         output_type = output_type,
         type_imports = type_imports,
+        client_import_lines = client_import_lines,
+        client_call = client_call,
     )
 }
 
@@ -264,18 +257,19 @@ fn render_query_terminal(
 ) -> Result<RenderOutput, String> {
     let model_import_base = get_model_import_base(&input.model_import);
     let use_package = should_use_package_import(&input.model_import);
+    let client_import = &input.client_import;
     let mut files = Vec::new();
     for endpoint in &input.endpoints {
         if endpoint.supports_query {
             files.push(PlannedFile {
                 path: get_query_file_path(endpoint, terminal),
-                content: render_query_file(endpoint, terminal, &model_import_base, use_package),
+                content: render_query_file(endpoint, terminal, &model_import_base, use_package, client_import),
             });
         }
         if endpoint.supports_mutation {
             files.push(PlannedFile {
                 path: get_mutation_file_path(endpoint, terminal),
-                content: render_mutation_file(endpoint, terminal, &model_import_base, use_package),
+                content: render_mutation_file(endpoint, terminal, &model_import_base, use_package, client_import),
             });
         }
     }
@@ -338,7 +332,7 @@ fn get_mutation_file_path(endpoint: &EndpointItem, terminal: QueryTerminal) -> S
     )
 }
 
-fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_import_base: &str, use_package: bool) -> String {
+fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_import_base: &str, use_package: bool, client_import: &Option<ClientImportConfig>) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let hook_name = format!("use{}Query", to_pascal_case(&endpoint.operation_name));
     let query_def = format!("{}QueryDef", endpoint.operation_name);
@@ -360,34 +354,11 @@ fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_imp
         use_package,
     );
 
+    let client_import_lines = get_client_import_lines(client_import);
+    let client_call = get_client_call(client_import);
+
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";
-import {{ {hook_factory} }} from \"@aptx/{terminal_package}\";
-import {{ getApiClient }} from \"../../client/registry\";
-import {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";
-{type_imports}
-
-const normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);
-
-export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{
-  keyPrefix: [{key_prefix}] as const,
-  buildSpec: {builder},
-  execute: (spec, options: any, queryContext: any) =>
-    getApiClient().execute(spec, {{
-      ...(options ?? {{}}),
-      signal: queryContext?.signal,
-      meta: {{
-        ...(options?.meta ?? {{}}),
-        __query: queryContext?.meta,
-      }},
-    }}),
-}});
-
-export const {key_name} = (input: {input_type}) =>
-  [...{query_def}.keyPrefix, normalizeInput(input)] as const;
-
-export const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});
-",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nconst normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n  buildSpec: {builder},\n  execute: (spec, options: any, queryContext: any) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = (input: {input_type}) =>\n  [...{query_def}.keyPrefix, normalizeInput(input)] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -396,10 +367,12 @@ export const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});
         input_type = input_type,
         output_type = output_type,
         type_imports = type_imports,
+        client_import_lines = client_import_lines,
+        client_call = client_call,
     )
 }
 
-fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_import_base: &str, use_package: bool) -> String {
+fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_import_base: &str, use_package: bool, client_import: &Option<ClientImportConfig>) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let hook_name = format!("use{}Mutation", to_pascal_case(&endpoint.operation_name));
     let mutation_def = format!("{}MutationDef", endpoint.operation_name);
@@ -413,20 +386,11 @@ fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_
         use_package,
     );
 
+    let client_import_lines = get_client_import_lines(client_import);
+    let client_call = get_client_call(client_import);
+
     format!(
-        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";
-import {{ {hook_factory} }} from \"@aptx/{terminal_package}\";
-import {{ getApiClient }} from \"../../client/registry\";
-import {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";
-{type_imports}
-
-export const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{
-  buildSpec: {builder},
-  execute: (spec, options) => getApiClient().execute(spec, options),
-}});
-
-export const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});
-",
+        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n  buildSpec: {builder},\n  execute: (spec, options) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
         hook_factory = mutation_hook_factory(terminal),
         hook_alias = mutation_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -435,6 +399,8 @@ export const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});
         input_type = input_type,
         output_type = output_type,
         type_imports = type_imports,
+        client_import_lines = client_import_lines,
+        client_call = client_call,
     )
 }
 
@@ -476,6 +442,56 @@ fn should_use_package_import(model_import: &Option<ModelImportConfig>) -> bool {
     match model_import {
         None => false,
         Some(config) => config.import_type == "package",
+    }
+}
+
+/// Get client import statements based on client_import configuration
+fn get_client_import_lines(client_import: &Option<ClientImportConfig>) -> String {
+    match client_import {
+        None => {
+            // Default: global mode
+            "import type { PerCallOptions } from \"@aptx/api-client\";\nimport { getApiClient } from \"@aptx/api-client\";".to_string()
+        }
+        Some(config) => {
+            let import_name = config.import_name.as_deref().unwrap_or("getApiClient");
+            match config.mode.as_str() {
+                "global" => {
+                    format!(
+                        "import type {{ PerCallOptions }} from \"@aptx/api-client\";\nimport {{ {} }} from \"@aptx/api-client\";",
+                        import_name
+                    )
+                }
+                "local" => {
+                    let client_path = config.client_path.as_deref().unwrap_or("../../api/client");
+                    format!(
+                        "import type {{ PerCallOptions }} from \"{}/types\";\nimport {{ {} }} from \"{}/client\";",
+                        client_path, import_name, client_path
+                    )
+                }
+                "package" => {
+                    let package_name = config.client_package.as_deref().unwrap_or("@my-org/api-client");
+                    format!(
+                        "import type {{ PerCallOptions }} from \"{}/types\";\nimport {{ {} }} from \"{}/client\";",
+                        package_name, import_name, package_name
+                    )
+                }
+                _ => {
+                    // Fallback to global
+                    "import type { PerCallOptions } from \"@aptx/api-client\";\nimport { getApiClient } from \"@aptx/api-client\";".to_string()
+                }
+            }
+        }
+    }
+}
+
+/// Get the client function name to call (e.g., "getApiClient()")
+fn get_client_call(client_import: &Option<ClientImportConfig>) -> String {
+    match client_import {
+        None => "getApiClient()".to_string(),
+        Some(config) => {
+            let import_name = config.import_name.as_deref().unwrap_or("getApiClient");
+            format!("{}()", import_name)
+        }
     }
 }
 

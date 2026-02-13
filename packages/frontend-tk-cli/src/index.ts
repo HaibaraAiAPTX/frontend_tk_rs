@@ -4,7 +4,6 @@ import os from "os";
 import crypto from "crypto";
 import { Command, InvalidArgumentError, Option } from "commander";
 import { getHelpTree, runCli } from "@aptx/frontend-tk-binding";
-import { getConfig } from "./config";
 import { getInput } from "./command/input/get-input";
 import { ensureAbsolutePath, errorLog } from "./utils";
 
@@ -35,9 +34,17 @@ type HelpCommandDescriptor = {
 
 type TerminalConfig = string | { id: string; output?: string };
 
+type ClientImportConfig = {
+  mode: "global" | "local" | "package";
+  clientPath?: string;
+  clientPackage?: string;
+  importName?: string;
+};
+
 type CodegenConfig = {
   outputRoot?: string;
   terminals?: TerminalConfig[];
+  clientImport?: ClientImportConfig;
 };
 
 type AppConfig = {
@@ -69,6 +76,12 @@ type CodegenRunOptions = {
   reportJson?: string;
   concurrencyOverride?: "auto" | number;
   cacheOverride?: boolean;
+  outputRoot?: string;
+  terminals?: string[];
+  clientMode?: "global" | "local" | "package";
+  clientPath?: string;
+  clientPackage?: string;
+  clientImportName?: string;
 };
 
 type ModelGenRunOptions = {
@@ -480,14 +493,17 @@ async function loadMergedConfig(global: GlobalOptions): Promise<{
   scriptPlugins: LoadedScriptPlugin[];
   input?: string;
 }> {
-  const loaded = await getConfig(global.configFile);
-  const config = (loaded.config || {}) as AppConfig;
-  const plugins = [...new Set([...(global.plugins || []), ...(config.plugin || [])])].map((item) =>
+  // Configuration is now assembled directly from CLI parameters
+  const config: AppConfig = {
+    input: global.input,
+    plugin: global.plugins,
+  };
+  const plugins = [...new Set([...(global.plugins || [])])].map((item) =>
     ensureAbsolutePath(item),
   );
   const pluginGroups = splitPluginPaths(plugins);
   const scriptPlugins = await loadScriptPlugins(pluginGroups.scriptPlugins);
-  const input = global.input || config.input;
+  const input = global.input;
   return {
     config,
     plugins,
@@ -535,11 +551,30 @@ function runBuiltInTerminalCodegen(
   input: string,
   output: string,
   nativePlugins: string[],
+  clientImport?: ClientImportConfig,
 ): void {
+  const options = ["--terminal", terminalId, "--output", output];
+
+  // Add client import options if provided
+  if (clientImport) {
+    if (clientImport.mode && clientImport.mode !== "global") {
+      options.push("--client-mode", clientImport.mode);
+    }
+    if (clientImport.mode === "local" && clientImport.clientPath) {
+      options.push("--client-path", clientImport.clientPath);
+    }
+    if (clientImport.mode === "package" && clientImport.clientPackage) {
+      options.push("--client-package", clientImport.clientPackage);
+    }
+    if (clientImport.importName) {
+      options.push("--client-import-name", clientImport.importName);
+    }
+  }
+
   runCli({
     input,
     command: "terminal:codegen",
-    options: ["--terminal", terminalId, "--output", output],
+    options,
     plugin: nativePlugins,
   });
 }
@@ -767,15 +802,39 @@ async function runCodegen(global: GlobalOptions, runOptions: CodegenRunOptions):
     throw new Error("`input` is required. Use -i or set config.input.");
   }
 
-  const codegen = config.codegen;
-  if (!codegen) {
-    throw new Error("`codegen` config is required for `codegen run`.");
-  }
+  // Use CLI parameters if provided, otherwise fall back to config
+  const codegen = config.codegen || {};
 
-  const outputRoot = ensureAbsolutePath(codegen.outputRoot || "./generated");
-  const terminals = codegen.terminals || [];
+  // CLI parameters take priority over config file
+  const outputRoot = ensureAbsolutePath(runOptions.outputRoot || codegen.outputRoot || "./generated");
+
+  // Convert CLI terminal strings to TerminalConfig format
+  const cliTerminals: TerminalConfig[] = (runOptions.terminals || []).map(id => ({ id }));
+  const configTerminals = codegen.terminals || [];
+  const terminals = cliTerminals.length > 0 ? cliTerminals : configTerminals;
+
+  // Build client import config from CLI or config
+  const clientImport: ClientImportConfig | undefined = (() => {
+    // CLI parameters take priority
+    if (runOptions.clientMode) {
+      const result: ClientImportConfig = { mode: runOptions.clientMode };
+      if (runOptions.clientMode === "local" && runOptions.clientPath) {
+        result.clientPath = runOptions.clientPath;
+      }
+      if (runOptions.clientMode === "package" && runOptions.clientPackage) {
+        result.clientPackage = runOptions.clientPackage;
+      }
+      if (runOptions.clientImportName) {
+        result.importName = runOptions.clientImportName;
+      }
+      return result;
+    }
+    // Fall back to config
+    return codegen.clientImport;
+  })();
+
   if (!terminals.length) {
-    throw new Error("`codegen.terminals` must contain at least one terminal.");
+    throw new Error("`--terminal` parameter is required (e.g., --terminal axios-ts). Use --terminal multiple times for multiple terminals.");
   }
 
   const resolvedInput = await getInput(input);
@@ -870,7 +929,7 @@ async function runCodegen(global: GlobalOptions, runOptions: CodegenRunOptions):
         ? ensureAbsolutePath(path.join(os.tmpdir(), `aptx-ir-${task.terminalId}-${Date.now()}`))
         : task.output;
       const started = Date.now();
-      runBuiltInTerminalCodegen(task.terminalId, resolvedInput, outputTarget, nativePlugins);
+      runBuiltInTerminalCodegen(task.terminalId, resolvedInput, outputTarget, nativePlugins, clientImport);
       const outputInventory = buildFileInventoryFromDirectory(outputTarget);
       const reportItem = buildTerminalReport(
         {
@@ -1279,19 +1338,20 @@ function buildProgram(): Command {
 
   const codegen = program
     .command("codegen")
-    .description("Code generation related commands.");
+    .description("Code generation related commands (e.g., codegen:run).");
 
   const model = program
     .command("model")
-    .description("Model generation related commands.");
+    .description("Model generation related commands (e.g., model:gen, model:ir).");
 
   const input = program
     .command("input")
-    .description("Input related commands.");
+    .description("Input related commands (e.g., input:download).");
 
   codegen
     .command("run")
-    .description("Run code generation based on config `codegen` section.")
+    .alias("codegen:run")
+    .description("Run code generation based on config `codegen` section (alias: codegen:run).")
     .option("--dry-run", "Build plan without writing files", false)
     .option("--profile", "Print execution timing summary", false)
     .option("--report-json <file>", "Write execution report JSON")
@@ -1305,12 +1365,40 @@ function buildProgram(): Command {
         parseCacheOption,
       ),
     )
+    .addOption(
+      new Option("--output-root <dir>", "Output root directory for generated files"),
+    )
+    .addOption(
+      new Option("--terminal <id>", "Terminal ID to generate (repeatable for multiple terminals)")
+        .default([])
+        .argParser((value: string, previous: string[]) => [...previous, value]),
+    )
+    .addOption(
+      new Option("--client-mode <mode>", "API client import mode: global (default) | local | package")
+        .choices(["global", "local", "package"])
+        .default("global"),
+    )
+    .addOption(
+      new Option("--client-path <path>", "Relative path to local client file (for --client-mode=local)"),
+    )
+    .addOption(
+      new Option("--client-package <name>", "Package name for custom client (for --client-mode=package)"),
+    )
+    .addOption(
+      new Option("--client-import-name <name>", "Custom import name (default: getApiClient)"),
+    )
     .action(async (options: {
       dryRun: boolean;
       profile: boolean;
       reportJson?: string;
       concurrency?: "auto" | number;
       cache?: boolean;
+      outputRoot?: string;
+      terminal?: string[];
+      clientMode?: "global" | "local" | "package";
+      clientPath?: string;
+      clientPackage?: string;
+      clientImportName?: string;
     }, command: Command) => {
       const global = getGlobalOptionsFromCli(command);
       const runOptions: CodegenRunOptions = {
@@ -1319,20 +1407,28 @@ function buildProgram(): Command {
         reportJson: options.reportJson,
         concurrencyOverride: options.concurrency,
         cacheOverride: options.cache,
+        outputRoot: options.outputRoot,
+        terminals: options.terminal,
+        clientMode: options.clientMode,
+        clientPath: options.clientPath,
+        clientPackage: options.clientPackage,
+        clientImportName: options.clientImportName,
       };
       await runCodegen(global, runOptions);
     });
 
   codegen
     .command("list-terminals")
-    .description("List terminal support status.")
+    .alias("codegen:list-terminals")
+    .description("List terminal support status (alias: codegen:list-terminals).")
     .action(async () => {
       await listTerminals();
     });
 
   model
     .command("gen")
-    .description("Generate TypeScript model files from OpenAPI schemas.")
+    .alias("model:gen")
+    .description("Generate TypeScript model files from OpenAPI schemas (alias: model:gen).")
     .requiredOption("--output <dir>", "Output directory")
     .addOption(
       new Option("--style <declaration|module>", "Model output style")
@@ -1355,7 +1451,8 @@ function buildProgram(): Command {
 
   model
     .command("ir")
-    .description("Export model intermediate representation JSON.")
+    .alias("model:ir")
+    .description("Export model intermediate representation JSON (alias: model:ir).")
     .requiredOption("--output <file>", "Output JSON file path")
     .action(async (options: { output: string }, command: Command) => {
       const global = getGlobalOptionsFromCli(command);
@@ -1366,7 +1463,8 @@ function buildProgram(): Command {
 
   input
     .command("download")
-    .description("Download OpenAPI JSON from URL to local file.")
+    .alias("input:download")
+    .description("Download OpenAPI JSON from URL to local file (alias: input:download).")
     .requiredOption("--url <url>", "OpenAPI JSON URL")
     .requiredOption("--output <file>", "Output JSON file path")
     .action(async (options: { url: string; output: string }, command: Command) => {
@@ -1379,7 +1477,8 @@ function buildProgram(): Command {
 
   model
     .command("enum-plan")
-    .description("Export enum enrichment plan JSON from model IR.")
+    .alias("model:enum-plan")
+    .description("Export enum enrichment plan JSON from model IR (alias: model:enum-plan).")
     .requiredOption("--output <file>", "Output JSON file path")
     .action(async (options: { output: string }, command: Command) => {
       const global = getGlobalOptionsFromCli(command);
@@ -1390,7 +1489,8 @@ function buildProgram(): Command {
 
   model
     .command("enum-apply")
-    .description("Apply enum patch JSON and generate model files.")
+    .alias("model:enum-apply")
+    .description("Apply enum patch JSON and generate model files (alias: model:enum-apply).")
     .requiredOption("--output <dir>", "Output directory")
     .requiredOption("--patch <file>", "Enum patch JSON file path")
     .addOption(
@@ -1449,13 +1549,38 @@ function buildProgram(): Command {
 
   program.addHelpText(
     "after",
-    "\nPlugin/native commands: `aptx-ft <command> [args...]`",
+    `
+Plugin/native commands: \`aptx-ft <command> [args...]\`
+
+Built-in commands:
+  codegen:run          Run code generation based on config or CLI options
+  codegen:list-terminals List terminal support status
+  model:gen            Generate TypeScript model declarations from OpenAPI schemas
+  model:ir             Export model IR snapshot JSON from OpenAPI schemas
+  model:enum-plan      Export enum enrichment plan JSON from model IR
+  model:enum-apply     Apply enum patch file and generate model files
+  input:download        Download OpenAPI JSON from URL to local file
+  terminal:codegen     Generate output for one built-in terminal from OpenAPI input
+  ir:snapshot          Export IR snapshot JSON from OpenAPI input
+
+Use \`aptx-ft <command> --help\` for more details on a specific command.
+`,
   );
   return program;
 }
 
 function isBuiltInCommand(command?: string): boolean {
-  return command === "codegen" || command === "doctor" || command === "plugin" || command === "model" || command === "input";
+  const builtInCategories = ["codegen", "doctor", "plugin", "model", "input"];
+  // Check both category commands (e.g., "model") and full colon commands (e.g., "model:gen")
+  if (builtInCategories.includes(command || "")) {
+    return true;
+  }
+  // Check for colon-format built-in commands
+  if (command && command.includes(":")) {
+    const [category] = command.split(":");
+    return builtInCategories.includes(category);
+  }
+  return false;
 }
 
 async function main() {

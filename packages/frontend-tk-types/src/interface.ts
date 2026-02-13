@@ -12,10 +12,22 @@ export interface APTXModelImportConfig {
   relativePath?: string;
 }
 
+export interface APTXClientImportConfig {
+  // Client mode: "global" for @aptx/api-client, "local" for relative path, "package" for custom package
+  mode: "global" | "local" | "package";
+  // Relative path when mode is "local", e.g., "../../api/myClient"
+  clientPath?: string;
+  // Package name when mode is "package", e.g., "@my-org/api-client"
+  clientPackage?: string;
+  // Optional custom import name (e.g., "getApiClient" -> "getCustomApiClient")
+  importName?: string;
+}
+
 export interface APTXCodegenConfig {
   outputRoot?: string,
   terminals?: APTXTerminalConfig[],
   modelImport?: APTXModelImportConfig,
+  clientImport?: APTXClientImportConfig,
 }
 
 export interface APTXPerformanceConfig {
