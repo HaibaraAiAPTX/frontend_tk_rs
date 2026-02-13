@@ -280,15 +280,16 @@ my-monorepo/
 
 ### 配置支持
 
-```typescript
-// aptx-ft.config.ts
-{
-  codegen: {
-    clientImport: "@my-org/shared/api-client",  // 自定义导入路径
-    // 或
-    generateClient: false,  // 不生成，使用现有
-  }
-}
+用户应通过 CLI 参数传递 client 导入路径，例如：
+
+```bash
+aptx-ft codegen --client-import "@my-org/shared/api-client"
+```
+
+或指定使用现有 client：
+
+```bash
+aptx-ft codegen --use-existing-client
 ```
 
 ---

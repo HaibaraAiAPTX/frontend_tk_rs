@@ -22,7 +22,6 @@ graph TB
 
     subgraph TSCLILayer["TypeScript CLI 层"]
         CLI_ENTRY["frontend-tk-cli 主入口"]
-        CONFIG["配置加载 c12"]
         DOWNLOADER["文件下载器 get-input.ts"]
         PLUGIN_MGR["插件管理器"]
         CONCURRENCY["并发控制 缓存管理"]
@@ -45,7 +44,6 @@ graph TB
     end
 
     CLI --> CLI_ENTRY
-    CLI_ENTRY --> CONFIG
     CLI_ENTRY --> DOWNLOADER
     CLI_ENTRY --> PLUGIN_MGR
     CLI_ENTRY --> CONCURRENCY
@@ -134,11 +132,7 @@ graph LR
 
 ```mermaid
 graph LR
-    subgraph Layer1["第 1 层: 类型定义"]
-        TYPES["frontend-tk-types 配置类型"]
-    end
-
-    subgraph Layer2["第 2 层: CLI 应用"]
+    subgraph Layer1["第 1 层: CLI 应用"]
         CLI["frontend-tk-cli 命令行工具"]
     end
 
@@ -148,10 +142,8 @@ graph LR
     end
 
     CLI --> BINDING
-    CLI --> TYPES
     BINDING -->|"编译为"| RUST
 
-    style TYPES fill:#b39ddb
     style CLI fill:#80cbc4
     style BINDING fill:#81d4fa
 ```
@@ -160,8 +152,7 @@ graph LR
 
 | Package | 职责 | 外部依赖 |
 |---------|------|----------|
-| **frontend-tk-types** | 配置文件类型定义<br/>`defineConfig()` 辅助函数 | - |
-| **frontend-tk-cli** | 用户 CLI 界面<br/>命令解析、配置加载、文件下载<br/>插件管理、并发控制 | `@aptx/frontend-tk-binding`, `c12`, `chalk`, `commander` |
+| **frontend-tk-cli** | 用户 CLI 界面<br/>命令解析、文件下载<br/>插件管理、并发控制 | `@aptx/frontend-tk-binding`, `chalk`, `commander` |
 | **@aptx/frontend-tk-binding** | N-API 绑定模块<br/>编译为跨平台 .node 二进制 | `napi`, `napi-derive`, `libloading` |
 
 ---
@@ -286,7 +277,6 @@ getHelpTree({ plugin?: string[] })
 ```
 frontend-tk-cli/src/
 ├── index.ts                       # 主入口，命令路由
-├── config.ts                      # 配置加载 (c12)
 ├── command/
 │   ├── input/
 │   │   └── get-input.ts        # OpenAPI 文件下载/读取
@@ -317,7 +307,6 @@ types/                            # 类型声明
 sequenceDiagram
     participant User as 用户
     participant CLI as frontend-tk-cli
-    participant Config as 配置加载器
     participant Downloader as 文件下载器
     participant NAPI as N-API 绑定
     participant Parser as OpenAPI 解析器
@@ -326,9 +315,7 @@ sequenceDiagram
     participant Render as 渲染器
     participant Output as 文件系统
 
-    User->>CLI: aptx-ft codegen run -c config.ts
-    CLI->>Config: 加载配置文件
-    Config-->>CLI: APTXFtConfig
+    User->>CLI: aptx-ft codegen run [options]
     CLI->>Downloader: 下载 OpenAPI 文件 (如果 input 是 URL)
     Downloader->>Downloader: HTTP GET / 下载到临时目录
     Downloader-->>CLI: 本地文件路径
@@ -590,39 +577,6 @@ classDiagram
 
 ---
 
-## 配置流程
-
-```mermaid
-flowchart TD
-    A["用户执行命令"] --> B{"指定 -c 配置文件?"}
-    B -->|"是"| C["加载指定配置文件"]
-    B -->|"否"| D["查找默认配置文件 aptx-ft.config.ts"]
-
-    C --> E["c12 库解析配置"]
-    D --> E
-
-    E --> F["获取 APTXFtConfig"]
-    F --> G{"有 input 配置?"}
-    G -->|"否"| H["从命令行 -i 参数获取"]
-    G -->|"是"| I["使用配置中的 input"]
-
-    H --> J{"input 是 URL?"}
-    I --> J
-
-    J -->|"是"| K["下载 OpenAPI 文件"]
-    J -->|"否"| L["使用本地文件路径"]
-
-    K --> M["保存到临时目录"]
-    L --> M
-    M --> N["返回绝对路径"]
-
-    style A fill:#e3f2fd
-    style E fill:#fff9c4
-    style M fill:#c8e6c9
-```
-
----
-
 ## 并发与缓存机制
 
 ### 并发执行
@@ -761,7 +715,7 @@ module.exports = {
       description: "用户名"
     }],
     examples: ["aptx-ft hello --name World"],
-    run: ({ args, input, config, getIrSnapshot }) => {
+    run: ({ args, input, getIrSnapshot }) => {
       const name = args.includes("--name")
         ? args[args.indexOf("--name") + 1]
         : "User";
@@ -771,7 +725,7 @@ module.exports = {
 
   renderers: [{
     id: "custom-terminal",
-    render: ({ input, ir, terminal, outputRoot, config, writeFile, writeFiles }) => {
+    render: ({ input, ir, terminal, outputRoot, writeFile, writeFiles }) => {
       // 自定义渲染逻辑
       writeFile("custom.js", "// Custom code");
     }

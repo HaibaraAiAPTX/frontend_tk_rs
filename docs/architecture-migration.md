@@ -54,13 +54,18 @@ format!(
 
 ### 2.2 耦合度分析
 
-```
-renderer.rs (核心)
-    |
-    +-- @aptx/api-query-adapter (紧耦合)
-    +-- @aptx/react-query (紧耦合)
-    +-- @aptx/vue-query (紧耦合)
-    +-- @aptx/api-client (紧耦合)
+```mermaid
+graph TD
+    A["renderer.rs (Core)"]
+    A --> B["@aptx/api-query-adapter<br/>(紧耦合)"]
+    A --> C["@aptx/react-query<br/>(紧耦合)"]
+    A --> D["@aptx/vue-query<br/>(紧耦合)"]
+    A --> E["@aptx/api-client<br/>(紧耦合)"]
+
+    style B fill:#f99,stroke:#f66
+    style C fill:#f99,stroke:#f66
+    style D fill:#f99,stroke:#f66
+    style E fill:#f99,stroke:#f66
 ```
 
 ### 2.3 影响
@@ -76,31 +81,45 @@ renderer.rs (核心)
 
 ### 3.1 架构图
 
-```
-                    ┌─────────────────────────────────────┐
-                    │      代码生成器核心 (Core)         │
-                    │   - Parser                        │
-                    │   - Transformer                   │
-                    │   - Renderer (纯净化后)            │
-                    │   - Writer                        │
-                    └─────────────┬───────────────────────┘
-                                  │
-                    ┌─────────────▼───────────────────────┐
-                    │      Plugin Registry               │
-                    │   - register(plugin)              │
-                    │   - get(id)                      │
-                    │   - execute(id, context)          │
-                    └─────────────┬───────────────────────┘
-                                  │
-        ┌─────────────────────────┼─────────────────────────┐
-        │                       │                         │
-┌───────▼────────┐    ┌────────▼────────┐    ┌────────▼────────┐
-│ @aptx Plugin   │    │  Standard Plugin │    │ Custom Plugin   │
-│                │    │                 │    │                 │
-│ - Functions    │    │ - AxiosTs       │    │ - User-defined  │
-│ - ReactQuery   │    │ - AxiosJs       │    │                 │
-│ - VueQuery    │    │ - UniApp        │    │                 │
-└────────────────┘    └─────────────────┘    └─────────────────┘
+```mermaid
+graph TB
+    subgraph Core["代码生成器核心"]
+        A["Parser"]
+        B["Transformer"]
+        C["Renderer (纯净化后)"]
+        D["Writer"]
+    end
+
+    subgraph Registry["Plugin Registry"]
+        E["register(plugin)"]
+        F["get(id)"]
+        G["execute(id, context)"]
+    end
+
+    subgraph Plugins["Plugins"]
+        subgraph Aptx["@aptx Plugin"]
+            H1["Functions"]
+            H2["ReactQuery"]
+            H3["VueQuery"]
+        end
+
+        subgraph Standard["Standard Plugin"]
+            I1["AxiosTs"]
+            I2["AxiosJs"]
+            I3["UniApp"]
+        end
+
+        subgraph Custom["Custom Plugin"]
+            J1["User-defined"]
+        end
+    end
+
+    Core -->|uses| Registry
+    Registry -->|loads| Plugins
+
+    style Core fill:#bbf,stroke:#369
+    style Registry fill:#bfb,stroke:#393
+    style Plugins fill:#fcf,stroke:#939
 ```
 
 ### 3.2 插件系统设计
@@ -218,18 +237,6 @@ pub trait TerminalPlugin: Send + Sync {
         "1.0.0"
     }
 
-    // === 能力声明 ===
-
-    /// 是否支持 Query 功能
-    fn supports_query(&self) -> bool {
-        false
-    }
-
-    /// 是否支持 Mutation 功能
-    fn supports_mutation(&self) -> bool {
-        false
-    }
-
     /// 支持的文件扩展名
     fn file_extensions(&self) -> Vec<&'static str> {
         vec![".ts"]
@@ -292,6 +299,20 @@ pub trait TerminalPlugin: Send + Sync {
 }
 ```
 
+#### 4.1.1 设计决策：移除特定框架的能力声明
+
+> **注意**：早期设计中包含 `supports_query()` 和 `supports_mutation()` 方法，但已被移除。
+
+**移除原因**：
+
+1. **概念耦合问题**：Query 和 Mutation 是 Tanstack Query（React Query/Vue Query）特有的概念，不应出现在抽象层。这会导致抽象泄漏，限制未来扩展到其他框架（如 SWR、Apollo、RTK Query）。
+
+2. **实际冗余**：在插件实现中，判断是否生成查询/变更代码是基于 `endpoint.supports_query`（端点属性），而非插件能力。这两个方法在当前设计中是冗余的。
+
+3. **扩展性限制**：如果未来要支持其他功能（如 Stream、Subscription、Batch 操作），当前设计无法优雅扩展。
+
+**替代方案**：插件在 `render_endpoint` 内部根据端点属性自行决定生成什么内容，无需在 trait 层面声明能力。
+
 ### 4.2 PluginRegistry
 
 ```rust
@@ -335,8 +356,6 @@ impl PluginRegistry {
                 name: p.name().to_string(),
                 description: p.description().to_string(),
                 version: p.version().to_string(),
-                supports_query: p.supports_query(),
-                supports_mutation: p.supports_mutation(),
             })
             .collect()
     }
@@ -348,8 +367,6 @@ pub struct PluginInfo {
     pub name: String,
     pub description: String,
     pub version: String,
-    pub supports_query: bool,
-    pub supports_mutation: bool,
 }
 ```
 
@@ -527,14 +544,6 @@ impl TerminalPlugin for AptxReactQueryPlugin {
         "生成使用 @aptx/react-query 的 React Query Hooks"
     }
 
-    fn supports_query(&self) -> bool {
-        true
-    }
-
-    fn supports_mutation(&self) -> bool {
-        true
-    }
-
     fn render_endpoint(
         &self,
         endpoint: &EndpointItem,
@@ -607,14 +616,6 @@ impl TerminalPlugin for AptxVueQueryPlugin {
 
     fn description(&self) -> &'static str {
         "生成使用 @aptx/vue-query 的 Vue Query Composables"
-    }
-
-    fn supports_query(&self) -> bool {
-        true
-    }
-
-    fn supports_mutation(&self) -> bool {
-        true
     }
 
     fn render_endpoint(
@@ -851,9 +852,7 @@ impl Renderer for PluginAdapter {
 }
 ```
 
-### 7.2 配置兼容性
-
-#### 7.2.1 CLI 参数兼容
+### 7.2 CLI 参数兼容
 
 ```bash
 # 现有用法继续有效
@@ -863,56 +862,52 @@ aptx-ft terminal:codegen --terminal react-query --output ./output
 aptx-ft codegen run --terminals react-query,vue-query --output ./output
 ```
 
-#### 7.2.2 配置文件兼容
-
-```typescript
-// aptx-ft.config.ts
-const config: APTXFtConfig = {
-  input: "./openapi.json",
-  codegen: {
-    outputRoot: "./generated",
-    terminals: [
-      "react-query",  // 自动映射到 AptxReactQueryPlugin
-      "vue-query",   // 自动映射到 AptxVueQueryPlugin
-      "functions",   // 自动映射到 AptxFunctionsPlugin
-    ],
-  },
-};
-```
-
 ---
 
 ## 8. 文件结构变更
 
 ### 8.1 当前结构
 
-```
-crates/swagger_gen/src/pipeline/
-├── mod.rs
-├── model.rs
-├── renderer.rs       # 硬编码 @aptx 引用
-├── orchestrator.rs
-├── parser.rs
-├── transform.rs
-└── writer.rs
+```mermaid
+graph LR
+    subgraph pipeline["crates/swagger_gen/src/pipeline/"]
+        A["mod.rs"]
+        B["model.rs"]
+        C["renderer.rs<br/>(硬编码 @aptx 引用)"]
+        D["orchestrator.rs"]
+        E["parser.rs"]
+        F["transform.rs"]
+        G["writer.rs"]
+    end
+
+    style C fill:#f99,stroke:#f66
 ```
 
 ### 8.2 迁移后结构
 
-```
-crates/swagger_gen/src/pipeline/
-├── mod.rs
-├── model.rs
-├── plugin.rs           # 新增：插件核心接口
-├── renderer.rs         # 重构：使用插件系统
-├── plugins/           # 新增：插件实现目录
-│   ├── mod.rs
-│   ├── aptx.rs        # @aptx 系列插件
-│   └── standard.rs    # 标准插件
-├── orchestrator.rs
-├── parser.rs
-├── transform.rs
-└── writer.rs
+```mermaid
+graph LR
+    subgraph pipeline["crates/swagger_gen/src/pipeline/"]
+        A["mod.rs"]
+        B["model.rs"]
+        C["plugin.rs<br/>(新增：插件核心接口)"]
+        D["renderer.rs<br/>(重构：使用插件系统)"]
+
+        subgraph plugins["plugins/ (新增)"]
+            P1["mod.rs"]
+            P2["aptx.rs<br/>(@aptx 系列插件)"]
+            P3["standard.rs<br/>(标准插件)"]
+        end
+
+        E["orchestrator.rs"]
+        F["parser.rs"]
+        G["transform.rs"]
+        H["writer.rs"]
+    end
+
+    style C fill:#9f9,stroke:#393
+    style D fill:#ff9,stroke:#963
+    style plugins fill:#bbf,stroke:#369
 ```
 
 ### 8.3 新增文件清单

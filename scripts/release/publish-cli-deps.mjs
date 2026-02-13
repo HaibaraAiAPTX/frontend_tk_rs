@@ -12,7 +12,7 @@ const repoRoot = path.resolve(__dirname, "../..");
 const args = process.argv.slice(2);
 
 function printHelp() {
-  console.log(`Publish aptx-ft npm packages (binding -> types -> cli)
+  console.log(`Publish aptx-ft npm packages (binding -> cli)
 
 Usage:
   node scripts/release/publish-cli-deps.mjs [options]
@@ -126,17 +126,14 @@ function ensureCleanGit(allowDirty) {
 
 function validateVersions() {
   const bindingPkgPath = path.join(repoRoot, "crates/node_binding/package.json");
-  const typesPkgPath = path.join(repoRoot, "packages/frontend-tk-types/package.json");
   const cliPkgPath = path.join(repoRoot, "packages/frontend-tk-cli/package.json");
   const npmDir = path.join(repoRoot, "crates/node_binding/npm");
 
   const bindingPkg = readJson(bindingPkgPath);
-  const typesPkg = readJson(typesPkgPath);
   const cliPkg = readJson(cliPkgPath);
 
   const versions = [
     [bindingPkg.name, bindingPkg.version, bindingPkgPath],
-    [typesPkg.name, typesPkg.version, typesPkgPath],
     [cliPkg.name, cliPkg.version, cliPkgPath],
   ];
 
@@ -167,7 +164,6 @@ function validateVersions() {
 
   console.log("Version check passed:");
   console.log(`- ${bindingPkg.name}@${bindingPkg.version}`);
-  console.log(`- ${typesPkg.name}@${typesPkg.version}`);
   console.log(`- ${cliPkg.name}@${cliPkg.version}`);
   console.log(`- ${npmPackageDirs.length} binding platform packages aligned`);
 }
@@ -199,14 +195,12 @@ function main() {
 
   if (!options.skipBuild) {
     runCommand("pnpm", ["--filter", "@aptx/frontend-tk-binding", "build"], { dryRun: options.dryRun });
-    runCommand("pnpm", ["--filter", "@aptx/frontend-tk-types", "build"], { dryRun: options.dryRun });
     runCommand("pnpm", ["--filter", "@aptx/frontend-tk-cli", "build"], { dryRun: options.dryRun });
   }
 
   const publishArgs = buildPublishArgs(options);
 
   runCommand("pnpm", ["--filter", "@aptx/frontend-tk-binding", ...publishArgs], { dryRun: options.dryRun });
-  runCommand("pnpm", ["--filter", "@aptx/frontend-tk-types", ...publishArgs], { dryRun: options.dryRun });
   runCommand("pnpm", ["--filter", "@aptx/frontend-tk-cli", ...publishArgs], { dryRun: options.dryRun });
 
   console.log("\nRelease flow finished.");

@@ -18,12 +18,10 @@
   },
   "dependencies": {
     "@aptx/frontend-tk-binding": "workspace:*",
-    "c12": "^2.0.2",
     "chalk": "^5.4.1",
     "commander": "^13.1.0"
   },
   "devDependencies": {
-    "@aptx/frontend-tk-types": "workspace:^",
     "@types/node": "^22.13.1",
     "typescript": "^5.7.3"
   }

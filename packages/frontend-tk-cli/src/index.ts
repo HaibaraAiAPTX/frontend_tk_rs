@@ -149,13 +149,11 @@ type CodegenRunReport = {
 };
 
 type GlobalOptions = {
-  configFile?: string;
   input?: string;
   plugins: string[];
 };
 
 type GlobalCliOptions = {
-  config?: string;
   input?: string;
   plugin?: string[];
 };
@@ -320,14 +318,12 @@ function parseGlobalOptionsWithCommander(rawArgs: string[]): {
   const parser = new Command()
     .exitOverride()
     .allowUnknownOption(true)
-    .option("-c, --config <file>", "Config file path")
     .option("-i, --input <path>", "Override input OpenAPI path/url")
     .addOption(new Option("-p, --plugin <paths...>", "Extra plugin dll paths"));
   const parsed = parser.parseOptions(rawArgs);
   const options = parser.opts<GlobalCliOptions>();
   return {
     global: {
-      configFile: options.config,
       input: options.input,
       plugins: options.plugin || [],
     },
@@ -366,7 +362,6 @@ function getGlobalOptionsFromCli(
 ): GlobalOptions {
   const options = command.optsWithGlobals<GlobalCliOptions>();
   return {
-    configFile: options.config,
     input: options.input,
     plugins: options.plugin || [],
   };
@@ -1332,7 +1327,6 @@ function buildProgram(): Command {
     .name("aptx-ft")
     .description("Frontend toolkit CLI for OpenAPI code generation.")
     .showHelpAfterError()
-    .addOption(new Option("-c, --config <file>", "Config file path"))
     .addOption(new Option("-i, --input <path>", "Override input OpenAPI path/url"))
     .addOption(new Option("-p, --plugin <paths...>", "Extra plugin dll paths"));
 

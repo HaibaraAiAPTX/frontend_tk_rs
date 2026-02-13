@@ -22,38 +22,22 @@ Frontend TK 是一个基于 OpenAPI 规范的代码生成器，专为前端项�
 ### 1.3 安装
 
 ```bash
-pnpm add -D @aptx/frontend-tk-cli @aptx/frontend-tk-types
+pnpm add -D @aptx/frontend-tk-cli
 ```
 
 ### 1.4 快速开始
 
-1. 创建配置文件 `aptx-ft.config.ts`：
-
-```typescript
-import type { APTXFtConfig } from "@aptx/frontend-tk-types";
-
-const config: APTXFtConfig = {
-  input: "./openapi.json",
-  codegen: {
-    outputRoot: "./generated",
-    terminals: ["axios-ts", "react-query"],
-  },
-};
-
-export default config;
-```
-
-2. 运行生成命令：
+运行生成命令：
 
 ```bash
-aptx-ft codegen run
+aptx-ft -i ./openapi.json codegen run --terminals axios-ts react-query --output ./generated
 ```
 
 ## 2. CLI 命令完整列表
 
 ### 2.1 `codegen run` - 主生成命令
 
-执行基于配置文件的代码生成。
+执行代码生成。
 
 #### 语法
 
@@ -63,9 +47,10 @@ aptx-ft codegen run [options]
 
 #### 全局选项
 
-- `-c, --config <file>` - 指定配置文件路径（默认：`./aptx-ft.config.ts`）
-- `-i, --input <path>` - 覆盖配置中的输入 OpenAPI 路径/URL
+- `-i, --input <path>` - 输入 OpenAPI 路径/URL
 - `-p, --plugin <paths...>` - 追加插件路径
+- `--terminals <ids...>` - 指定要生成的终端（如 axios-ts、react-query）
+- `--output <dir>` - 输出根目录
 
 #### 命令选项
 
@@ -79,13 +64,10 @@ aptx-ft codegen run [options]
 
 ```bash
 # 基本使用
-aptx-ft codegen run
+aptx-ft codegen run -i ./openapi.json --terminals axios-ts react-query --output ./generated
 
-# 使用自定义配置文件
-aptx-ft codegen run -c ./custom-config.ts
-
-# 覆盖输入源
-aptx-ft codegen run -i https://api.example.com/openapi.json
+# 使用远程 OpenAPI
+aptx-ft codegen run -i https://api.example.com/openapi.json --terminals axios-ts --output ./generated
 
 # 仅预览生成计划
 aptx-ft codegen run --dry-run
@@ -379,90 +361,9 @@ aptx-ft input download --url <url> --output <file>
 aptx-ft input download --url http://localhost:5000/swagger/v1/swagger.json --output ./openapi.json
 ```
 
-## 3. 配置文件说明
+## 3. 内置 Terminal 说明
 
-### 3.1 配置文件位置
-
-默认配置文件：`./aptx-ft.config.ts`
-可通过 `-c` 或 `--config` 选项指定其他路径。
-
-### 3.2 完整配置结构
-
-```typescript
-import type { APTXFtConfig } from "@aptx/frontend-tk-types";
-
-const config: APTXFtConfig = {
-  // 输入源配置
-  input: "./openapi.json",
-
-  // 插件配置
-  plugin: [
-    // "./plugins/native-plugin.dll",     // Native 插件（.dll/.so/.dylib）
-    // "./plugins/custom-renderer.cjs",    // Script 插件（.js/.cjs/.mjs）
-  ],
-
-  // 代码生成配置
-  codegen: {
-    outputRoot: "./generated",
-    terminals: [
-      "axios-ts",                              // 简写形式
-      { id: "react-query", output: "./rq" },   // 完整形式
-      "vue-query",
-    ],
-  },
-
-  // 性能配置
-  performance: {
-    concurrency: "auto",  // 或具体数字，如 4
-    cache: true,
-  },
-
-  // 脚本插件安全策略
-  scriptPluginPolicy: {
-    timeoutMs: 30_000,              // 超时时间（毫秒）
-    maxWriteFiles: 10_000,          // 最大写入文件数
-    maxWriteBytes: 100 * 1024 * 1024,  // 最大写入字节数（100MB）
-    maxHeapMb: 1024,                // 最大堆内存（MB）
-  },
-};
-
-export default config;
-```
-
-### 3.3 配置字段详解
-
-#### `input` (string?)
-
-OpenAPI 规范文件的路径或 URL。支持本地文件路径和 HTTP(S) URL。
-
-#### `plugin` (string[])
-
-插件路径数组，支持：
-- Native 插件：动态库文件（`.dll`、`.so`、`.dylib`）
-- Script 插件：JavaScript 文件（`.js`、`.cjs`、`.mjs`）
-
-#### `codegen` (object)
-
-- `outputRoot` (string?) - 输出根目录，默认 `./generated`
-- `terminals` (APTXTerminalConfig[]) - 要生成的终端列表
-  - 简写形式：字符串，如 `"axios-ts"`
-  - 完整形式：`{ id: string, output?: string }`
-
-#### `performance` (object)
-
-- `concurrency` ("auto" | number) - 并发度，`"auto"` 表示自动检测 CPU 核心数
-- `cache` (boolean) - 是否启用增量缓存
-
-#### `scriptPluginPolicy` (object)
-
-- `timeoutMs` (number) - 脚本插件执行超时时间（毫秒），最小 1000
-- `maxWriteFiles` (number) - 最大写入文件数，最小 1
-- `maxWriteBytes` (number) - 最大写入字节数，最小 1024
-- `maxHeapMb` (number) - 最大堆内存使用（MB），最小 64
-
-## 4. 内置 Terminal 说明
-
-### 4.1 `axios-ts`
+### 3.1 `axios-ts`
 
 **输出特征**：
 - 按命名空间（第一个标签）分组生成 TypeScript 类
@@ -493,7 +394,7 @@ export class UserService extends BaseService {
 }
 ```
 
-### 4.2 `axios-js`
+### 3.2 `axios-js`
 
 **输出特征**：
 - 单个 `index.js` 文件
@@ -519,7 +420,7 @@ export function GetUserList(input) {
 }
 ```
 
-### 4.3 `uniapp`
+### 3.3 `uniapp`
 
 **输出特征**：
 - 按命名空间分组生成 TypeScript 类
@@ -546,7 +447,7 @@ export class UserService extends BaseService {
 }
 ```
 
-### 4.4 `functions`
+### 3.4 `functions`
 
 **输出特征**：
 - 为每个端点生成两个文件：
@@ -580,7 +481,7 @@ export function getUserList(
 }
 ```
 
-### 4.5 `react-query`
+### 3.5 `react-query`
 
 **输出特征**：
 - 为支持查询的端点生成 `{operation}.query.ts` 文件
@@ -608,7 +509,7 @@ export const getUserListQueryDef = createQueryDefinition<GetUserListInput, UserL
 export const { useAptxQuery: useGetUserListQuery } = createReactQueryHooks(getUserListQueryDef);
 ```
 
-### 4.6 `vue-query`
+### 3.6 `vue-query`
 
 **输出特征**：
 - 为支持查询的端点生成 `{operation}.query.ts` 文件
@@ -636,9 +537,9 @@ export const getUserListQueryDef = createQueryDefinition<GetUserListInput, UserL
 export const { useAptxQuery: useGetUserListQuery } = createVueQueryHooks(getUserListQueryDef);
 ```
 
-## 5. Script Plugin 扩展开发指南
+## 4. Script Plugin 扩展开发指南
 
-### 5.1 插件协议
+### 4.1 插件协议
 
 Script Plugin 必须导出以下字段：
 
@@ -652,7 +553,7 @@ Script Plugin 必须导出以下字段：
 }
 ```
 
-### 5.2 命令注册
+### 4.2 命令注册
 
 #### ScriptPluginCommand 类型
 
@@ -708,7 +609,7 @@ module.exports = {
 };
 ```
 
-### 5.3 Renderer 注册
+### 4.3 Renderer 注册
 
 #### ScriptPluginRenderer 类型
 
@@ -758,7 +659,7 @@ module.exports = {
 };
 ```
 
-### 5.4 安全策略说明
+### 4.4 安全策略说明
 
 Script Plugin 受以下安全策略限制：
 
@@ -768,7 +669,7 @@ Script Plugin 受以下安全策略限制：
 4. **堆内存限制**：堆内存使用不能超过 `maxHeapMb` MB
 5. **路径限制**：只能写入终端输出根目录内，不能逃逸
 
-### 5.5 完整示例
+### 4.5 完整示例
 
 ```javascript
 /** @type {import("node:module")} */
@@ -829,13 +730,13 @@ module.exports = {
 };
 ```
 
-## 6. Native Plugin 扩展开发指南
+## 5. Native Plugin 扩展开发指南
 
-### 6.1 插件结构
+### 5.1 插件结构
 
 Native Plugin 使用 Rust 编写，编译为动态库（`.dll`、`.so`、`.dylib`）。
 
-### 6.2 init_plugin 导出函数
+### 5.2 init_plugin 导出函数
 
 插件必须导出 `init_plugin` 函数：
 
@@ -848,7 +749,7 @@ pub extern "C" fn init_plugin(command: &CommandRegistry) {
 }
 ```
 
-### 6.3 CommandDescriptor 使用
+### 5.3 CommandDescriptor 使用
 
 ```rust
 command.register_command_with_descriptor(
@@ -879,7 +780,7 @@ command.register_command_with_descriptor(
 );
 ```
 
-### 6.4 完整示例
+### 5.4 完整示例
 
 ```rust
 use aptx_frontend_tk_binding_plugin::command::{
@@ -925,7 +826,7 @@ pub extern "C" fn init_plugin(command: &CommandRegistry) {
 }
 ```
 
-### 6.5 编译和分发
+### 5.5 编译和分发
 
 1. 在 `Cargo.toml` 中配置：
 
@@ -940,21 +841,15 @@ crate-type = ["cdylib"]
 cargo build --release
 ```
 
-3. 在配置中引用：
+3. 使用 `-p` 参数引用插件：
 
-```typescript
-{
-  plugin: [
-    "./target/release/libmy_native_plugin.dll",  // Windows
-    "./target/release/libmy_native_plugin.so",   // Linux
-    "./target/release/libmy_native_plugin.dylib", // macOS
-  ],
-}
+```bash
+aptx-ft -i ./openapi.json -p ./target/release/libmy_native_plugin.dll codegen run --terminals axios-ts --output ./generated
 ```
 
-## 7. IR 结构说明
+## 6. IR 结构说明
 
-### 7.1 GeneratorInputIR
+### 6.1 GeneratorInputIR
 
 ```typescript
 type GeneratorInputIR = {
@@ -963,7 +858,7 @@ type GeneratorInputIR = {
 };
 ```
 
-### 7.2 GeneratorProjectContextIR
+### 6.2 GeneratorProjectContextIR
 
 ```typescript
 type GeneratorProjectContextIR = {
@@ -974,7 +869,7 @@ type GeneratorProjectContextIR = {
 };
 ```
 
-### 7.3 GeneratorEndpointIR
+### 6.3 GeneratorEndpointIR
 
 ```typescript
 type GeneratorEndpointIR = {
@@ -994,21 +889,19 @@ type GeneratorEndpointIR = {
 };
 ```
 
-## 8. 故障排查
+## 7. 故障排查
 
-### 8.1 常见错误
+### 7.1 常见错误
 
 #### `input is required`
 
 缺少输入源配置。解决方法：
 - 使用 `-i` 选项指定输入源
-- 或在配置文件中设置 `input` 字段
 
-#### `codegen config is required`
+#### `terminals is required`
 
-缺少代码生成配置。解决方法：
-- 在配置文件中添加 `codegen` 字段
-- 确保 `codegen.terminals` 至少包含一个终端
+未指定要生成的终端。解决方法：
+- 使用 `--terminals` 选项指定至少一个终端
 
 #### `Terminal ... not supported`
 
@@ -1019,19 +912,18 @@ type GeneratorEndpointIR = {
 #### Script 超时或写入超限
 
 解决方法：
-- 调整 `scriptPluginPolicy` 配置
-- 或拆分生成任务
+- 拆分生成任务
 
-### 8.2 调试技巧
+### 7.2 调试技巧
 
 1. 使用 `--dry-run` 预览生成计划
 2. 使用 `--profile` 查看性能瓶颈
 3. 使用 `aptx-ft doctor` 检查环境状态
 4. 检查缓存文件 `<outputRoot>/.aptx-cache/run-cache.json`
 
-## 9. 附录
+## 8. 附录
 
-### 9.1 内置终端列表
+### 8.1 内置终端列表
 
 | ID | 状态 | 说明 |
 |-----|------|------|
@@ -1042,11 +934,7 @@ type GeneratorEndpointIR = {
 | react-query | available | React Query Hooks |
 | vue-query | available | Vue Query Composables |
 
-### 9.2 配置类型定义
-
-完整的 TypeScript 类型定义位于 `@aptx/frontend-tk-types` 包中。
-
-### 9.3 相关文档
+### 8.2 相关文档
 
 - 架构文档：`docs/final-codegen-architecture.md`
 - 使用说明：`docs/codegen-usage.md`

@@ -9,7 +9,7 @@
 执行生成主流程：
 
 ```bash
-aptx-ft codegen run -c ./aptx-ft.config.ts
+aptx-ft codegen run --input ./openapi.json --output ./generated
 ```
 
 #### codegen list-terminals

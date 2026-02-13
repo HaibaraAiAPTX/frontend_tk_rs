@@ -130,10 +130,9 @@ IR 最小核心结构：
 ## 8. 关键实现位置
 
 1. CLI 主入口：`packages/frontend-tk-cli/src/index.ts`
-2. 配置类型：`packages/frontend-tk-types/src/interface.ts`
-3. Built-in 命令注册：`crates/node_binding/src/built_in/mod.rs`
-4. Built-in terminal 生成：`crates/node_binding/src/built_in/terminal_codegen.rs`
-5. IR pipeline：`crates/swagger_gen/src/pipeline/*`
+2. Built-in 命令注册：`crates/node_binding/src/built_in/mod.rs`
+3. Built-in terminal 生成：`crates/node_binding/src/built_in/terminal_codegen.rs`
+4. IR pipeline：`crates/swagger_gen/src/pipeline/*`
 
 ## 9. 演进规则
 
