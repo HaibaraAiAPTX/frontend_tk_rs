@@ -12,7 +12,7 @@ type ConflictPolicy = "openapi-first" | "patch-first" | "provider-first";
 type ModelStyle = "declaration" | "module";
 
 /**
- * Run model:enum-apply command
+ * Run material:enum-apply command
  * Applies enum patch JSON and generates model files
  */
 export const runModelEnumApply: CommandHandler = async (
@@ -26,10 +26,10 @@ export const runModelEnumApply: CommandHandler = async (
   const names = (args.names as string[]) ?? [];
 
   if (!output) {
-    throw new Error("`--output` is required for model:enum-apply");
+    throw new Error("`--output` is required for material:enum-apply");
   }
   if (!patch) {
-    throw new Error("`--patch` is required for model:enum-apply");
+    throw new Error("`--patch` is required for material:enum-apply");
   }
 
   const outputAbsolutePath = path.resolve(process.cwd(), output);
@@ -64,12 +64,12 @@ export const runModelEnumApply: CommandHandler = async (
 };
 
 /**
- * Command descriptor for model:enum-apply
+ * Command descriptor for material:enum-apply
  */
 export const enumApplyCommand = {
-  name: "model:enum-apply",
+  name: "material:enum-apply",
   summary: "Apply enum patch JSON and generate model files",
-  description: "Applies an enum patch JSON file (created by model:enum-plan) and generates TypeScript model files with enum types.",
+  description: "Applies an enum patch JSON file (created by material:enum-plan) and generates TypeScript model files with enum types.",
   options: [
     {
       flags: "-o, --output <dir>",
@@ -98,9 +98,9 @@ export const enumApplyCommand = {
     },
   ],
   examples: [
-    "aptx-ft model enum-apply -o ./src/models -p enum-plan.json",
-    "aptx-ft model enum-apply -o ./models -p ./plans/enums.json --style module",
-    "aptx-ft model enum-apply -o ./src/models -p enum-plan.json --conflict-policy openapi-first",
+    "aptx-ft material enum-apply -o ./src/models -p enum-plan.json",
+    "aptx-ft material enum-apply -o ./models -p ./plans/enums.json --style module",
+    "aptx-ft material enum-apply -o ./src/models -p enum-plan.json --conflict-policy openapi-first",
   ],
   handler: runModelEnumApply,
 };

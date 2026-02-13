@@ -16,6 +16,7 @@ const materialPlugin: Plugin = {
   descriptor: {
     name: "@aptx/frontend-tk-plugin-material",
     version: "0.1.0",
+    namespaceDescription: 'Material UI integration',
   },
   commands: [
     enumPlanCommand,

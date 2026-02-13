@@ -194,6 +194,7 @@ const modelPlugin: Plugin = {
   descriptor: {
     name: '@aptx/frontend-tk-plugin-model',
     version: '0.1.0',
+    namespaceDescription: 'Model generation',
   },
   commands: createModelCommands(),
   renderers: [],

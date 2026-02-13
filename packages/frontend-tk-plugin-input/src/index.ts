@@ -13,6 +13,7 @@ import { runInputDownload } from "./download";
 const descriptor: PluginDescriptor = {
   name: "@aptx/frontend-tk-plugin-input",
   version: "0.1.0",
+  namespaceDescription: "Input handling (download)",
 };
 
 /**

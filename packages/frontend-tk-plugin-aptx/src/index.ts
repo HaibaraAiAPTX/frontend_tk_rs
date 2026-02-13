@@ -60,6 +60,7 @@ const aptxPlugin: Plugin = {
   descriptor: {
     name: '@aptx/frontend-tk-plugin-aptx',
     version: '0.1.0',
+    namespaceDescription: '@aptx ecosystem (functions, react-query, vue-query)',
   },
   commands: createAptxCommands(),
   renderers: [],

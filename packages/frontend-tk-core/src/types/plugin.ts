@@ -6,6 +6,8 @@ export interface PluginDescriptor {
   name: string;
   /** Plugin version string */
   version: string;
+  /** Optional description for the namespace (e.g., "Model generation") */
+  namespaceDescription?: string;
 }
 
 /**

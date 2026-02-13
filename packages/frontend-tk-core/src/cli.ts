@@ -13,6 +13,7 @@ import type {
 export interface Cli {
   use(plugin: Plugin): Cli;
   registerCommand(command: CommandDescriptor): Cli;
+  registerNamespaceDescription(namespace: string, description: string): Cli;
   run(argv: string[]): Promise<void>;
   findRenderer(id: string): RendererDescriptor | undefined;
   getRegisteredCommands(): CommandDescriptor[];
@@ -27,6 +28,7 @@ interface CliState {
   renderers: Map<string, RendererDescriptor>;
   program: Command;
   context: PluginContext;
+  namespaceDescriptions: Map<string, string>;
 }
 
 /**
@@ -69,6 +71,7 @@ class CliImpl implements Cli {
       renderers: new Map(),
       program: new Command(),
       context: createPluginContext(),
+      namespaceDescriptions: new Map(),
     };
     this.subcommandGroups = new Map();
 
@@ -81,21 +84,24 @@ class CliImpl implements Cli {
       .allowUnknownOption(true)
       .addOption(new Option('-i, --input <path>', 'Override input OpenAPI path/url'))
       .addOption(new Option('-p, --plugin <paths...>', 'Extra plugin dll paths'));
+  }
 
-    // Add help text
-    this.state.program.addHelpText(
-      'after',
-      `
-Commands are organized by namespace:
-  aptx       - @aptx ecosystem (functions, react-query, vue-query)
-  std        - Standard library (axios-ts, axios-js, uniapp)
-  model      - Model generation (gen, ir, enum-plan, enum-apply)
-  input      - Input handling (download)
-  codegen    - Code generation (run)
+  /**
+   * Generate help text for namespaces (shows available commands per namespace)
+   */
+  private generateNamespaceHelp(): string {
+    const namespaces = Array.from(this.subcommandGroups.keys()).sort();
+    if (namespaces.length === 0) {
+      return '';
+    }
 
-Use 'aptx-ft <namespace> <command> --help' for details.
-`,
-    );
+    // Note: namespace descriptions are already shown by Commander's built-in help
+    // This method just adds a tip about the namespace:command pattern
+    const lines = [
+      "Use 'aptx-ft <namespace> <command> --help' for details on specific commands.",
+    ];
+
+    return lines.join('\n');
   }
 
   /**
@@ -103,6 +109,20 @@ Use 'aptx-ft <namespace> <command> --help' for details.
    */
   use(plugin: Plugin): Cli {
     this.state.plugins.push(plugin);
+
+    // Pre-register namespaces with descriptions from plugin descriptor
+    const namespaces = new Set<string>();
+    for (const command of plugin.commands) {
+      const parsed = parseCommandName(command.name);
+      if (parsed.namespace && !namespaces.has(parsed.namespace)) {
+        namespaces.add(parsed.namespace);
+        // Create namespace with description from plugin descriptor if available
+        this.getOrCreateNamespace(
+          parsed.namespace,
+          plugin.descriptor.namespaceDescription,
+        );
+      }
+    }
 
     // Register plugin's commands
     for (const command of plugin.commands) {
@@ -127,14 +147,23 @@ Use 'aptx-ft <namespace> <command> --help' for details.
   /**
    * Get or create a subcommand group for a namespace
    */
-  private getOrCreateNamespace(namespace: string): Command {
+  private getOrCreateNamespace(namespace: string, description?: string): Command {
     if (this.subcommandGroups.has(namespace)) {
       return this.subcommandGroups.get(namespace)!;
     }
 
     const group = new Command(namespace);
+    if (description) {
+      group.description(description);
+    }
     this.state.program.addCommand(group);
     this.subcommandGroups.set(namespace, group);
+
+    // Store namespace description for help text
+    if (description) {
+      this.state.namespaceDescriptions.set(namespace, description);
+    }
+
     return group;
   }
 
@@ -193,6 +222,15 @@ Use 'aptx-ft <namespace> <command> --help' for details.
   }
 
   /**
+   * Register a description for a namespace (for help text)
+   */
+  registerNamespaceDescription(namespace: string, description: string): Cli {
+    // Create namespace if it doesn't exist, with the description
+    this.getOrCreateNamespace(namespace, description);
+    return this;
+  }
+
+  /**
    * Find a registered renderer by ID
    */
   findRenderer(id: string): RendererDescriptor | undefined {
@@ -211,6 +249,12 @@ Use 'aptx-ft <namespace> <command> --help' for details.
    */
   async run(argv: string[]): Promise<void> {
     try {
+      // Add dynamic namespace help text before parsing
+      const namespaceHelp = this.generateNamespaceHelp();
+      if (namespaceHelp) {
+        this.state.program.addHelpText('after', '\n' + namespaceHelp);
+      }
+
       await this.state.program.parseAsync(argv, { from: 'user' });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

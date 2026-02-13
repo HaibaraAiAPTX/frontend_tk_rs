@@ -24,6 +24,7 @@ cli.use(materialPlugin);
 cli.use(inputPlugin);
 
 // Register CLI-specific convenience command (codegen:run)
+cli.registerNamespaceDescription('codegen', 'Code generation (run)');
 cli.registerCommand(createCodegenRunCommand());
 
 // Start the CLI

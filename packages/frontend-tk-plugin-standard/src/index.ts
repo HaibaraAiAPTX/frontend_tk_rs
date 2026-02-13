@@ -60,6 +60,7 @@ const standardPlugin: Plugin = {
   descriptor: {
     name: '@aptx/frontend-tk-plugin-standard',
     version: '0.1.0',
+    namespaceDescription: 'Standard library (axios-ts, axios-js, uniapp)',
   },
   commands: createStandardCommands(),
   renderers: [],
