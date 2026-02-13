@@ -44,9 +44,18 @@ aptx-ft (Node CLI)
 
 当前内置命令：
 
-1. `ir:snapshot`：导出 IR JSON。
-2. `terminal:codegen`：按单 terminal 执行内置生成。
-3. 其他内置插件命令（如 `materal:antd-init`）通过同一注册表暴露。
+1. **IR 相关**
+   - `ir:snapshot`：导出 IR JSON 快照。
+2. **Terminal 生成**
+   - `terminal:codegen`：按单 terminal 执行内置生成。
+3. **Model 生成**
+   - `model:gen`：生成 TypeScript 类型声明。
+   - `model:ir`：导出模型 IR 快照。
+   - `model:enum-plan`：导出枚举增强计划 JSON。
+   - `model:enum-apply`：应用枚举补丁并生成模型。
+4. **插件命令**（通过 native plugin 提供）
+   - `materal:antd-init`：生成 Ant Design 脚手架。
+   - `materal:enum-patch`：获取 Materal 枚举值并输出补丁。
 
 帮助发现机制：
 
@@ -131,4 +140,6 @@ IR 最小核心结构：
 1. 新增命令必须提供 descriptor，确保帮助可发现。
 2. 新增 terminal 优先实现 renderer，不改 CLI 主流程。
 3. 新增插件能力必须先定义稳定契约，再开放实现。
-4. 文档仅维护本文件与 `docs/codegen-usage.md`，避免再次分叉。
+4. 文档维护：
+   - 本文件（架构设计）与 `docs/codegen-guide.md`（使用指南）为唯二核心文档
+   - 避免创建重复文档，保持单一信息源
