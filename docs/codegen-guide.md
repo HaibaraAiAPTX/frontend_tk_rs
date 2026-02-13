@@ -227,7 +227,7 @@ aptx-ft model enum-apply --patch ./tmp/enum-patch.json --output ./generated/mode
 aptx-ft -i ./openapi.json model enum-plan --output ./tmp/enum-plan.json
 
 # 步骤 2：从 Materal API 获取枚举补丁（如果后端支持）
-aptx-ft -i ./openapi.json materal:enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json
+aptx-ft -i ./openapi.json materal enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json
 
 # 步骤 3：手动编辑补丁文件，优化 suggested_name（重要！）
 # 将 "AssignmentStatusValue0" 改为 "Enabled" 等有意义的名称
@@ -243,7 +243,7 @@ aptx-ft -i ./openapi.json model enum-apply --patch ./tmp/enum-patch.json --outpu
 #### 语法
 
 ```bash
-aptx-ft ir:snapshot [options]
+aptx-ft ir snapshot [options]
 ```
 
 #### 选项
@@ -253,17 +253,17 @@ aptx-ft ir:snapshot [options]
 #### 示例
 
 ```bash
-aptx-ft ir:snapshot --output ./tmp/ir.json
+aptx-ft ir snapshot --output ./tmp/ir.json
 ```
 
-### 2.7 `terminal:codegen` - 按单 terminal 执行内置生成
+### 2.7 `terminal codegen` - 按单 terminal 执行内置生成
 
 为单个内置终端执行代码生成。
 
 #### 语法
 
 ```bash
-aptx-ft terminal:codegen [options]
+aptx-ft terminal codegen [options]
 ```
 
 #### 选项
@@ -274,17 +274,17 @@ aptx-ft terminal:codegen [options]
 #### 示例
 
 ```bash
-aptx-ft terminal:codegen --terminal axios-ts --output ./generated/services/axios-ts
+aptx-ft terminal codegen --terminal axios-ts --output ./generated/services/axios-ts
 ```
 
-### 2.8 `materal:antd-init` - 生成 Ant Design 脚手架
+### 2.8 `materal antd-init` - 生成 Ant Design 脚手架
 
 从 OpenAPI 生成 Ant Design 物料脚手架。
 
 #### 语法
 
 ```bash
-aptx-ft materal:antd-init [options]
+aptx-ft materal antd-init [options]
 ```
 
 #### 选项
@@ -294,17 +294,17 @@ aptx-ft materal:antd-init [options]
 #### 示例
 
 ```bash
-aptx-ft materal:antd-init -i ./openapi.json --store true
+aptx-ft materal antd-init -i ./openapi.json --store true
 ```
 
-### 2.9 `materal:enum-patch` - 获取 Materal 枚举值并输出补丁
+### 2.9 `materal enum-patch` - 获取 Materal 枚举值并输出补丁
 
 从 Materal API 获取枚举值并输出标准枚举补丁 JSON。
 
 #### 语法
 
 ```bash
-aptx-ft materal:enum-patch [options]
+aptx-ft materal enum-patch [options]
 ```
 
 #### 选项
@@ -318,10 +318,10 @@ aptx-ft materal:enum-patch [options]
 #### 示例
 
 ```bash
-aptx-ft -i ./openapi.json materal:enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json
+aptx-ft -i ./openapi.json materal enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json
 
 # 自定义超时和重试
-aptx-ft -i ./openapi.json materal:enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json --timeout-ms 30000 --max-retries 5
+aptx-ft -i ./openapi.json materal enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json --timeout-ms 30000 --max-retries 5
 ```
 
 ### 2.10 其他实用命令
@@ -537,7 +537,180 @@ export const getUserListQueryDef = createQueryDefinition<GetUserListInput, UserL
 export const { useAptxQuery: useGetUserListQuery } = createVueQueryHooks(getUserListQueryDef);
 ```
 
-## 4. Script Plugin 扩展开发指南
+## 4. TypeScript 插件接口详解
+
+本节详细介绍 frontend-tk-core 中定义的插件接口。
+
+### 4.1 完整 Plugin 接口
+
+```typescript
+// packages/frontend-tk-core/src/types/plugin.ts
+
+/**
+ * 插件描述符 - 标识一个插件模块
+ */
+export interface PluginDescriptor {
+  /** 唯一插件名 */
+  name: string;
+  /** 插件版本 */
+  version: string;
+  /** 命名空间描述 (可选) - 用于 CLI 帮助信息分组显示 */
+  namespaceDescription?: string;
+}
+
+/**
+ * 插件上下文 - 提供给命令和渲染器使用
+ */
+export interface PluginContext {
+  /** 访问 Rust binding */
+  binding: typeof import('@aptx/frontend-tk-binding');
+  /** 日志输出函数 */
+  log: (msg: string) => void;
+}
+
+/**
+ * 命令处理器类型
+ */
+export type CommandHandler = (
+  ctx: PluginContext,
+  args: Record<string, unknown>,
+) => Promise<void> | void;
+
+/**
+ * 选项描述符
+ */
+export interface OptionDescriptor {
+  /** 选项标志 (如 "-o, --output <path>") */
+  flags: string;
+  /** 选项描述 */
+  description: string;
+  /** 默认值 */
+  defaultValue?: string | boolean;
+  /** 是否必需 */
+  required?: boolean;
+}
+
+/**
+ * 命令描述符 - 定义 CLI 命令
+ */
+export interface CommandDescriptor {
+  /** 命令名 (格式: "namespace:command") */
+  name: string;
+  /** 简要描述 */
+  summary: string;
+  /** 详细描述 (可选) */
+  description?: string;
+  /** 命令选项 */
+  options: OptionDescriptor[];
+  /** 使用示例 */
+  examples?: string[];
+  /** 处理器函数 */
+  handler: CommandHandler;
+}
+
+/**
+ * 渲染器描述符 - 定义代码生成渲染器
+ */
+export interface RendererDescriptor {
+  /** 唯一渲染器 ID */
+  id: string;
+  /** 渲染函数 */
+  render: (
+    ctx: PluginContext,
+    options: Record<string, unknown>,
+  ) => Promise<void> | void;
+}
+
+/**
+ * 插件主接口
+ */
+export interface Plugin {
+  /** 插件元信息 */
+  descriptor: PluginDescriptor;
+  /** 命令列表 */
+  commands: CommandDescriptor[];
+  /** 渲染器 (可选) */
+  renderers?: RendererDescriptor[];
+  /** 初始化回调 (可选) - 插件加载时调用 */
+  init?(context: PluginContext): void | Promise<void>;
+}
+```
+
+### 4.2 命令命名规范
+
+CLI 使用 `命名空间:命令` 格式命名命令。解析规则如下：
+
+| 注册的命令名 | 实际调用方式 | 说明 |
+|--------------|--------------|------|
+| `aptx:functions` | `aptx-ft aptx functions` | 冒号前的部分作为一级子命令 |
+| `model:gen` | `aptx-ft model gen` | 冒号后的部分作为二级子命令 |
+| `std:axios-ts` | `aptx-ft std axios-ts` | 支持连字符的终端名 |
+
+### 4.3 创建自定义插件示例
+
+```typescript
+// my-custom-plugin/src/index.ts
+import type { Plugin, PluginDescriptor, CommandDescriptor } from '@aptx/frontend-tk-core';
+
+/**
+ * 定义插件元信息
+ */
+const descriptor: PluginDescriptor = {
+  name: 'my-custom-plugin',
+  version: '1.0.0',
+  namespaceDescription: 'Custom commands for my project',
+};
+
+/**
+ * 定义命令列表
+ */
+const commands: CommandDescriptor[] = [
+  {
+    name: 'my:hello',
+    summary: 'Say hello',
+    description: 'Prints a greeting message',
+    options: [
+      {
+        flags: '-n, --name <name>',
+        description: 'Name to greet',
+        defaultValue: 'World',
+      },
+    ],
+    examples: [
+      'aptx-ft my hello',
+      'aptx-ft my hello --name Alice',
+    ],
+    handler: async (ctx, args) => {
+      const name = args.name as string || 'World';
+      ctx.log(`Hello, ${name}!`);
+    },
+  },
+];
+
+/**
+ * 导出插件
+ */
+const myPlugin: Plugin = {
+  descriptor,
+  commands,
+};
+
+export default myPlugin;
+```
+
+### 4.4 插件注册
+
+```typescript
+// 在 CLI 中注册插件
+import { createCli } from '@aptx/frontend-tk-core';
+import myPlugin from './my-custom-plugin';
+
+const cli = createCli();
+cli.use(myPlugin);  // 自动注册所有命令和渲染器
+cli.run(process.argv);
+```
+
+## 5. Script Plugin 扩展开发指南
 
 ### 4.1 插件协议
 
@@ -596,8 +769,8 @@ module.exports = {
         },
       ],
       examples: [
-        "aptx-ft demo:count",
-        "aptx-ft demo:count --verbose",
+        "aptx-ft demo count",
+        "aptx-ft demo count --verbose",
       ],
       run: async ({ args, input, config, getIrSnapshot }) => {
         const ir = await getIrSnapshot();
@@ -732,7 +905,105 @@ module.exports = {
 
 ## 5. Native Plugin 扩展开发指南
 
-### 5.1 插件结构
+### 5.1 Rust CommandHandler Trait 详解
+
+本节详细介绍 node_binding_plugin 中定义的命令处理接口。
+
+#### 5.1.1 核心 Trait 定义
+
+```rust
+// crates/node_binding_plugin/src/command.rs
+
+/**
+ * 命令处理器 Trait - 必须实现此 trait 来创建命令
+ */
+pub trait CommandHandler: Send + Sync {
+    /// 返回命令描述符
+    fn descriptor(&self) -> CommandDescriptor;
+
+    /// 执行命令逻辑
+    fn run(&self, ctx: CommandContext<'_>) -> Result<(), CommandError>;
+}
+
+/**
+ * 命令上下文 - 提供给 handler 使用
+ */
+pub struct CommandContext<'a> {
+    /// 命令参数（解析后的字符串数组）
+    pub args: &'a [String],
+    /// OpenAPI 规范对象
+    pub open_api: &'a OpenAPIObject,
+}
+
+/// 命令执行回调类型
+pub type CommandFn = Box<dyn for<'a> Fn(&'a [String], &'a OpenAPIObject)>;
+```
+
+#### 5.1.2 CommandDescriptor 结构
+
+```rust
+#[derive(Debug, Clone, Default)]
+pub struct CommandDescriptor {
+    /// 命令名称 (格式: "namespace:command")
+    pub name: String,
+    /// 简要描述
+    pub summary: String,
+    /// 详细描述
+    pub description: Option<String>,
+    /// 命令别名
+    pub aliases: Vec<String>,
+    /// 选项定义列表
+    pub options: Vec<OptionDescriptor>,
+    /// 使用示例
+    pub examples: Vec<String>,
+    /// 插件名称
+    pub plugin_name: Option<String>,
+    /// 插件版本
+    pub plugin_version: Option<String>,
+}
+```
+
+#### 5.1.3 OptionDescriptor 配置
+
+```rust
+#[derive(Debug, Clone, Default)]
+pub struct OptionDescriptor {
+    /// 长选项名 (如 "output")
+    pub long: String,
+    /// 短选项字符 (如 'o')
+    pub short: Option<char>,
+    /// 值占位符 (如 "PATH")
+    pub value_name: Option<String>,
+    /// 是否必需
+    pub required: bool,
+    /// 是否接受多个值
+    pub multiple: bool,
+    /// 默认值
+    pub default_value: Option<String>,
+    /// 选项描述
+    pub description: String,
+}
+```
+
+#### 5.1.4 命令注册流程
+
+```rust
+use node_binding_plugin::command::{CommandRegistry, CommandDescriptor, OptionDescriptor};
+
+/// 注册命令
+registry.register_command_with_descriptor(
+    descriptor,  // CommandDescriptor
+    callback,   // CommandFn = Box<dyn Fn(&[String], &OpenAPIObject)>
+);
+
+/// 获取所有已注册的命令
+let commands = registry.list_descriptors();
+
+/// 执行命令
+registry.execute_command("namespace:command", &args, &open_api)?;
+```
+
+### 5.2 插件结构
 
 Native Plugin 使用 Rust 编写，编译为动态库（`.dll`、`.so`、`.dylib`）。
 
@@ -767,7 +1038,7 @@ command.register_command_with_descriptor(
             },
         ],
         examples: vec![
-            "aptx-ft my:command --option value".to_string(),
+            "aptx-ft my command --option value".to_string(),
         ],
         plugin_name: Some("my-plugin".to_string()),
         plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
@@ -804,7 +1075,7 @@ pub extern "C" fn init_plugin(command: &CommandRegistry) {
                 },
             ],
             examples: vec![
-                "aptx-ft my-plugin:generate --output ./custom-output".to_string(),
+                "aptx-ft my-plugin generate --output ./custom-output".to_string(),
             ],
             plugin_name: Some("my-native-plugin".to_string()),
             plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),

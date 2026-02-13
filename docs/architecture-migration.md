@@ -489,7 +489,7 @@ pub use swagger_gen_standard::{
 
 ```bash
 # 现有用法继续有效（通过 feature flag）
-aptx-ft terminal:codegen --terminal react-query --output ./output
+aptx-ft terminal codegen --terminal react-query --output ./output
 
 # 新增 crate 式用法
 aptx-ft codegen run --renderers aptx-react-query,aptx-vue-query --output ./output
@@ -852,7 +852,7 @@ sequenceDiagram
     Std->>Reg: register("std:axios-js", ...)
     Std->>Reg: register("std:uniapp", ...)
 
-    User->>CLI: aptx-ft aptx:react-query -o ./output
+    User->>CLI: aptx-ft aptx react-query -o ./output
     CLI->>Reg: execute("aptx:react-query", args)
     Reg->>Aptx: 执行命令回调
 ```
@@ -864,17 +864,17 @@ sequenceDiagram
 aptx-ft --help
 
 # @aptx 命令
-aptx-ft aptx:functions -o ./src/generated
-aptx-ft aptx:react-query -o ./src/generated
-aptx-ft aptx:vue-query -o ./src/generated
+aptx-ft aptx functions -o ./src/generated
+aptx-ft aptx react-query -o ./src/generated
+aptx-ft aptx vue-query -o ./src/generated
 
 # 标准命令
-aptx-ft std:axios-ts -o ./src/services
-aptx-ft std:axios-js -o ./src/api
-aptx-ft std:uniapp -o ./src/services
+aptx-ft std axios-ts -o ./src/services
+aptx-ft std axios-js -o ./src/api
+aptx-ft std uniapp -o ./src/services
 
 # 带客户端配置
-aptx-ft aptx:react-query -o ./src/generated --client-mode local --client-path ./api
+aptx-ft aptx react-query -o ./src/generated --client-mode local --client-path ./api
 ```
 
 ### 10.6 内置命令变更

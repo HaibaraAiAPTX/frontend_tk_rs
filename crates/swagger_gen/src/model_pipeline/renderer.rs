@@ -129,7 +129,9 @@ fn render_type(
         ModelType::Boolean => "boolean".to_string(),
         ModelType::Object => "object".to_string(),
         ModelType::Ref { name } => {
-            if style == ModelRenderStyle::Module && name != current_model_name {
+            // Both Module and Declaration styles need import for cross-references
+            if name != current_model_name {
+                // Use dynamic import for both Module and Declaration styles
                 format!("import(\"./{}\").{}", name, name)
             } else {
                 name.to_string()

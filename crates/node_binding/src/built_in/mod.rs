@@ -1,5 +1,5 @@
 use aptx_frontend_tk_binding_plugin::command::{
-  CommandDescriptor, CommandRegistry, OptionDescriptor,
+  CommandDescriptor, CommandRegistry,
 };
 pub mod aptx_commands;
 pub mod ir;
@@ -15,30 +15,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "terminal:codegen".to_string(),
-      summary: "Generate output for one built-in terminal from OpenAPI input".to_string(),
-      description: Some("Built-in IR terminal generation command.".to_string()),
-      options: vec![
-        OptionDescriptor {
-          long: "terminal".to_string(),
-          value_name: Some("id".to_string()),
-          required: true,
-          description: "Terminal id, e.g. axios-ts/react-query".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft terminal:codegen --terminal axios-ts --output ./generated/services/axios-ts"
-          .to_string(),
-      ],
-      plugin_name: Some("built-in".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(terminal_codegen::run_terminal_codegen),
@@ -46,40 +22,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "model:gen".to_string(),
-      summary: "Generate TypeScript model declarations from OpenAPI schemas".to_string(),
-      description: Some(
-        "Built-in model declaration generation command. Outputs *.d.ts/*.ts files.".to_string(),
-      ),
-      options: vec![
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "style".to_string(),
-          value_name: Some("declaration|module".to_string()),
-          default_value: Some("declaration".to_string()),
-          description: "Output style: declaration(.d.ts) or module(export interface)".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "name".to_string(),
-          value_name: Some("schema".to_string()),
-          multiple: true,
-          description: "Generate specific schema names only; repeatable".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft model:gen --output ./generated/models".to_string(),
-        "aptx-ft model:gen --output ./generated/models --style module".to_string(),
-        "aptx-ft model:gen --output ./generated/models --name Order --name User".to_string(),
-      ],
-      plugin_name: Some("built-in".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(model_gen::run_model_gen),
@@ -87,18 +29,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "model:ir".to_string(),
-      summary: "Export model IR snapshot JSON from OpenAPI schemas".to_string(),
-      description: Some("Built-in model intermediate representation export command.".to_string()),
-      options: vec![OptionDescriptor {
-        long: "output".to_string(),
-        value_name: Some("file".to_string()),
-        required: true,
-        description: "Output JSON file path".to_string(),
-        ..Default::default()
-      }],
-      examples: vec!["aptx-ft model:ir --output ./tmp/model-ir.json".to_string()],
-      plugin_name: Some("built-in".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(model_ir::export_model_ir_snapshot),
@@ -106,21 +36,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "model:enum-plan".to_string(),
-      summary: "Export enum enrichment plan JSON from model IR".to_string(),
-      description: Some(
-        "Built-in enum enrichment planning command. Outputs enum candidates in a stable contract."
-          .to_string(),
-      ),
-      options: vec![OptionDescriptor {
-        long: "output".to_string(),
-        value_name: Some("file".to_string()),
-        required: true,
-        description: "Output JSON file path".to_string(),
-        ..Default::default()
-      }],
-      examples: vec!["aptx-ft model:enum-plan --output ./tmp/enum-plan.json".to_string()],
-      plugin_name: Some("built-in".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(model_enum_plan::export_model_enum_plan),
@@ -128,54 +43,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "model:enum-apply".to_string(),
-      summary: "Apply enum patch file and generate model files".to_string(),
-      description: Some(
-        "Built-in enum enrichment apply command. Merges enum patch into model IR before rendering."
-          .to_string(),
-      ),
-      options: vec![
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "patch".to_string(),
-          value_name: Some("file".to_string()),
-          required: true,
-          description: "Enum patch JSON file path".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "style".to_string(),
-          value_name: Some("declaration|module".to_string()),
-          default_value: Some("declaration".to_string()),
-          description: "Output style: declaration(.d.ts) or module(export interface)".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "conflict-policy".to_string(),
-          value_name: Some("openapi-first|patch-first|provider-first".to_string()),
-          default_value: Some("patch-first".to_string()),
-          description: "Conflict policy when patch and OpenAPI enum members overlap".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "name".to_string(),
-          value_name: Some("schema".to_string()),
-          multiple: true,
-          description: "Generate specific schema names only; repeatable".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft model:enum-apply --patch ./tmp/enum-patch.json --output ./generated/models"
-          .to_string(),
-      ],
-      plugin_name: Some("built-in".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(model_enum_apply::run_model_enum_apply),
@@ -183,20 +50,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "ir:snapshot".to_string(),
-      summary: "Export IR snapshot JSON from OpenAPI input".to_string(),
-      description: Some(
-        "Built-in IR export command used by script renderers/commands.".to_string(),
-      ),
-      options: vec![OptionDescriptor {
-        long: "output".to_string(),
-        value_name: Some("file".to_string()),
-        required: true,
-        description: "Output JSON file path".to_string(),
-        ..Default::default()
-      }],
-      examples: vec!["aptx-ft ir:snapshot --output ./tmp/ir.json".to_string()],
-      plugin_name: Some("built-in".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(ir::export_ir_snapshot),
@@ -206,50 +59,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "aptx:functions".to_string(),
-      summary: "Generate @aptx function-style API calls".to_string(),
-      description: Some("Generates TypeScript function calls using @aptx/api-client.".to_string()),
-      options: vec![
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-mode".to_string(),
-          value_name: Some("global|local|package".to_string()),
-          required: false,
-          description: "Client import mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-path".to_string(),
-          value_name: Some("path".to_string()),
-          required: false,
-          description: "Client path for local mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-package".to_string(),
-          value_name: Some("name".to_string()),
-          required: false,
-          description: "Client package name for package mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-import-name".to_string(),
-          value_name: Some("name".to_string()),
-          required: false,
-          description: "Client import function name".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft aptx:functions --output ./generated/functions".to_string(),
-      ],
-      plugin_name: Some("swagger_gen_aptx".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(aptx_commands::run_aptx_functions),
@@ -258,50 +67,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "aptx:react-query".to_string(),
-      summary: "Generate @aptx React Query hooks".to_string(),
-      description: Some("Generates React Query hooks using @aptx/react-query.".to_string()),
-      options: vec![
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-mode".to_string(),
-          value_name: Some("global|local|package".to_string()),
-          required: false,
-          description: "Client import mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-path".to_string(),
-          value_name: Some("path".to_string()),
-          required: false,
-          description: "Client path for local mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-package".to_string(),
-          value_name: Some("name".to_string()),
-          required: false,
-          description: "Client package name for package mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-import-name".to_string(),
-          value_name: Some("name".to_string()),
-          required: false,
-          description: "Client import function name".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft aptx:react-query --output ./generated/react-query".to_string(),
-      ],
-      plugin_name: Some("swagger_gen_aptx".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(aptx_commands::run_aptx_react_query),
@@ -310,50 +75,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "aptx:vue-query".to_string(),
-      summary: "Generate @aptx Vue Query composables".to_string(),
-      description: Some("Generates Vue Query composables using @aptx/vue-query.".to_string()),
-      options: vec![
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-mode".to_string(),
-          value_name: Some("global|local|package".to_string()),
-          required: false,
-          description: "Client import mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-path".to_string(),
-          value_name: Some("path".to_string()),
-          required: false,
-          description: "Client path for local mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-package".to_string(),
-          value_name: Some("name".to_string()),
-          required: false,
-          description: "Client package name for package mode".to_string(),
-          ..Default::default()
-        },
-        OptionDescriptor {
-          long: "client-import-name".to_string(),
-          value_name: Some("name".to_string()),
-          required: false,
-          description: "Client import function name".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft aptx:vue-query --output ./generated/vue-query".to_string(),
-      ],
-      plugin_name: Some("swagger_gen_aptx".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(aptx_commands::run_aptx_vue_query),
@@ -363,22 +84,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "std:axios-ts".to_string(),
-      summary: "Generate Axios TypeScript service classes".to_string(),
-      description: Some("Generates TypeScript service classes using axios and tsyringe.".to_string()),
-      options: vec![
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft std:axios-ts --output ./generated/services".to_string(),
-      ],
-      plugin_name: Some("swagger_gen_standard".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(std_commands::run_std_axios_ts),
@@ -387,22 +92,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "std:axios-js".to_string(),
-      summary: "Generate Axios JavaScript functions".to_string(),
-      description: Some("Generates JavaScript functions using axios.".to_string()),
-      options: vec![
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft std:axios-js --output ./generated/api".to_string(),
-      ],
-      plugin_name: Some("swagger_gen_standard".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(std_commands::run_std_axios_js),
@@ -411,22 +100,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
   command.register_command_with_descriptor(
     CommandDescriptor {
       name: "std:uniapp".to_string(),
-      summary: "Generate UniApp service classes".to_string(),
-      description: Some("Generates UniApp service classes using tsyringe.".to_string()),
-      options: vec![
-        OptionDescriptor {
-          long: "output".to_string(),
-          value_name: Some("dir".to_string()),
-          required: true,
-          description: "Output directory".to_string(),
-          ..Default::default()
-        },
-      ],
-      examples: vec![
-        "aptx-ft std:uniapp --output ./generated/services".to_string(),
-      ],
-      plugin_name: Some("swagger_gen_standard".to_string()),
-      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
       ..Default::default()
     },
     Box::new(std_commands::run_std_uniapp),

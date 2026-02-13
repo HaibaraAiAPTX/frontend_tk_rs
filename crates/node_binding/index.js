@@ -576,5 +576,4 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding
-module.exports.getHelpTree = nativeBinding.getHelpTree
 module.exports.runCli = nativeBinding.runCli

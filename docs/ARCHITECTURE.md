@@ -238,8 +238,7 @@ swagger_gen/src/
 ```
 node_binding/src/
 ├── lib.rs                         # N-API 入口，暴露函数
-│   ├── run_cli()                 # 执行 CLI 命令
-│   └── get_help_tree()          # 获取帮助树
+│   └── run_cli()                 # 执行 CLI 命令
 ├── bootstrap.rs                   # 命令工厂初始化
 │   └── init_command_factory()    # 加载插件并初始化
 ├── built_in/                      # 内置命令
@@ -255,7 +254,7 @@ node_binding/src/
 
 ```typescript
 // packages/frontend-tk-cli/src/index.ts
-import { runCli, getHelpTree } from "@aptx/frontend-tk-binding";
+import { runCli } from "@aptx/frontend-tk-binding";
 
 // 执行命令
 runCli({
@@ -264,10 +263,6 @@ runCli({
   plugin?: string[],      // 插件路径列表
   options: string[]       // 命令选项
 })
-
-// 获取帮助树
-getHelpTree({ plugin?: string[] })
-  → HelpCommandDescriptor[]
 ```
 
 ---
