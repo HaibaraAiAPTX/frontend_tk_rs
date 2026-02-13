@@ -255,7 +255,10 @@ class CliImpl implements Cli {
         this.state.program.addHelpText('after', '\n' + namespaceHelp);
       }
 
-      await this.state.program.parseAsync(argv, { from: 'user' });
+      // Skip argv[0] (node executable) and argv[1] (script path) to avoid
+      // Windows path issues with commander. Pass only user-provided arguments.
+      const userArgs = argv.slice(2);
+      await this.state.program.parseAsync(userArgs, { from: 'user' });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`Error: ${message}`);

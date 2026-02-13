@@ -27,7 +27,8 @@ function createAptxCommands(): CommandDescriptor[] {
     summary: `Generate ${name.replace('aptx:', '')} code from OpenAPI spec`,
     description: `Native command for generating ${name} frontend code.`,
     options: [],
-    examples: [`aptx-ft ${name} --input openapi.json --output ./src`],
+    // Convert namespace:command to "namespace command" for CLI usage
+    examples: [`aptx-ft ${name.replace(':', ' ')} --input openapi.json --output ./src`],
     handler: async (ctx: PluginContext, args: Record<string, unknown>) => {
       // Delegate to the native binding's runCli function
       const binding = ctx.binding as any;
