@@ -260,8 +260,27 @@ class CliImpl implements Cli {
       const userArgs = argv.slice(2);
       await this.state.program.parseAsync(userArgs, { from: 'user' });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`Error: ${message}`);
+      // Commander with .exitOverride() throws errors for --help and --version
+      // These are not actual errors, so we check for specific error patterns
+      const err = error as Error & { code?: string };
+      const message = err.message;
+
+      // Skip logging for known Commander "errors" that are actually just help/version output
+      // Commander throws these errors after outputting help/version
+      // The exact messages may vary by Commander version - check for common patterns
+      if (message === '(outputHelp)' ||
+          message === '(outputVersion)' ||
+          message === '(displayHelp)' ||
+          message === '(displayVersion)' ||
+          message.startsWith('output') ||
+          message.startsWith('display') ||
+          // Version number as message (some Commander versions)
+          /^\d+\.\d+\.\d+$/.test(message)) {
+        return; // Help/version was shown successfully, no error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Error: ${errorMessage}`);
       process.exitCode = 1;
     }
   }
