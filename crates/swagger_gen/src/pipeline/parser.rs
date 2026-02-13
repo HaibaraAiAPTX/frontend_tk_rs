@@ -44,6 +44,7 @@ impl Parser for OpenApiParser {
                 retry_ownership: None,
             },
             endpoints,
+            model_import: None, // Will be set by configuration later
         })
     }
 }

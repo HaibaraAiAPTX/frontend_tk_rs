@@ -733,13 +733,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gen_plugin"
-version = "0.1.0"
-dependencies = [
- "aptx_frontend_tk_binding_plugin",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"

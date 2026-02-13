@@ -4,6 +4,14 @@ use serde::{Deserialize, Serialize};
 pub struct GeneratorInput {
     pub project: ProjectContext,
     pub endpoints: Vec<EndpointItem>,
+    pub model_import: Option<ModelImportConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelImportConfig {
+    pub import_type: String,
+    pub package_path: Option<String>,
+    pub relative_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

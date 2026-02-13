@@ -211,6 +211,49 @@ aptx-ft model enum-apply --patch ./tmp/enum-patch.json --output ./generated/mode
 aptx-ft model enum-apply --patch ./tmp/enum-patch.json --output ./generated/models --name Order
 ```
 
+#### 枚举补丁 JSON 格式
+
+枚举补丁文件必须符合以下格式（**注意：使用 `suggested_name` 而非 `name`**）：
+
+```json
+{
+  "schema_version": "1",
+  "patches": [
+    {
+      "enum_name": "AssignmentStatus",
+      "members": [
+        { "value": "0", "suggested_name": "Enabled", "comment": "启用" },
+        { "value": "1", "suggested_name": "Disabled", "comment": "禁用" },
+        { "value": "2", "suggested_name": "Banned", "comment": "封禁" }
+      ]
+    }
+  ]
+}
+```
+
+**字段说明**：
+- `enum_name`：枚举名称，必须与 OpenAPI 中的枚举名称匹配
+- `members`：枚举成员数组
+  - `value`：枚举值（字符串）
+  - `suggested_name`：建议的成员名称（**必填**，用于替换 Value1/Value2 等默认名称）
+  - `comment`：成员注释（可选）
+
+#### 枚举优化完整流程
+
+```bash
+# 步骤 1：导出枚举计划（查看当前枚举情况）
+aptx-ft -i ./openapi.json model enum-plan --output ./tmp/enum-plan.json
+
+# 步骤 2：从 Materal API 获取枚举补丁（如果后端支持）
+aptx-ft -i ./openapi.json materal:enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json
+
+# 步骤 3：手动编辑补丁文件，优化 suggested_name（重要！）
+# 将 "AssignmentStatusValue0" 改为 "Enabled" 等有意义的名称
+
+# 步骤 4：应用补丁并生成模型
+aptx-ft -i ./openapi.json model enum-apply --patch ./tmp/enum-patch.json --output ./generated/models --style module
+```
+
 ### 2.6 `ir:snapshot` - 导出 IR 快照 JSON
 
 导出完整的中间表示快照，供脚本插件使用。

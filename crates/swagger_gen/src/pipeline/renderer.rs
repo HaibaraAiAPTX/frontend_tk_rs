@@ -1,7 +1,7 @@
 use inflector::cases::pascalcase::to_pascal_case;
 use std::collections::BTreeMap;
 
-use super::model::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput};
+use super::model::{EndpointItem, GeneratorInput, ModelImportConfig, PlannedFile, RenderOutput};
 
 pub trait Renderer {
     fn id(&self) -> &'static str;
@@ -33,15 +33,17 @@ impl Renderer for FunctionsRenderer {
     }
 
     fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
+        let model_import_base = get_model_import_base(&input.model_import);
+        let use_package = should_use_package_import(&input.model_import);
         let mut files = Vec::new();
         for endpoint in &input.endpoints {
             files.push(PlannedFile {
                 path: get_spec_file_path(endpoint),
-                content: render_spec_file(endpoint),
+                content: render_spec_file(endpoint, &model_import_base, use_package),
             });
             files.push(PlannedFile {
                 path: get_function_file_path(endpoint),
-                content: render_function_file(endpoint),
+                content: render_function_file(endpoint, &model_import_base, use_package),
             });
         }
         Ok(RenderOutput {
@@ -182,13 +184,13 @@ fn get_spec_file_path(endpoint: &EndpointItem) -> String {
 
 fn get_function_file_path(endpoint: &EndpointItem) -> String {
     let namespace = endpoint.namespace.join("/");
-    format!("api/functions/{namespace}/{}.ts", endpoint.operation_name)
+    format!("functions/api/{namespace}/{}.ts", endpoint.operation_name)
 }
 
-fn render_spec_file(endpoint: &EndpointItem) -> String {
+fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let input_type = normalize_type_ref(&endpoint.input_type_name);
-    let input_import = render_type_import_line(&input_type, "../../types");
+    let input_import = render_type_import_line(&input_type, model_import_base, use_package);
     let payload_field = endpoint
         .request_body_field
         .as_ref()
@@ -206,10 +208,14 @@ fn render_spec_file(endpoint: &EndpointItem) -> String {
         format!("  query: {{ {keys} }},\n")
     };
 
-    format!(
-        "{input_import}
+    let prefix = if input_import.is_empty() {
+        String::new()
+    } else {
+        input_import
+    };
 
-export function {builder}(input: {input_type}) {{
+    format!(
+        "{prefix}export function {builder}(input: {input_type}) {{
   return {{
     method: \"{method}\",
     path: \"{path}\",
@@ -222,18 +228,19 @@ export function {builder}(input: {input_type}) {{
     )
 }
 
-fn render_function_file(endpoint: &EndpointItem) -> String {
+fn render_function_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
     let type_imports = render_type_import_block(
         &[input_type.as_str(), output_type.as_str()],
-        "../../../spec/types",
+        model_import_base,
+        use_package,
     );
     format!(
-        "import type {{ PerCallOptions }} from \"../../../client/client\";
-import {{ getApiClient }} from \"../../../client/registry\";
-import {{ {builder} }} from \"../../../spec/endpoints/{namespace}/{operation_name}\";
+        "import type {{ PerCallOptions }} from \"../../client/client\";
+import {{ getApiClient }} from \"../../client/registry\";
+import {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";
 {type_imports}
 
 export function {operation_name}(
@@ -255,18 +262,20 @@ fn render_query_terminal(
     input: &GeneratorInput,
     terminal: QueryTerminal,
 ) -> Result<RenderOutput, String> {
+    let model_import_base = get_model_import_base(&input.model_import);
+    let use_package = should_use_package_import(&input.model_import);
     let mut files = Vec::new();
     for endpoint in &input.endpoints {
         if endpoint.supports_query {
             files.push(PlannedFile {
                 path: get_query_file_path(endpoint, terminal),
-                content: render_query_file(endpoint, terminal),
+                content: render_query_file(endpoint, terminal, &model_import_base, use_package),
             });
         }
         if endpoint.supports_mutation {
             files.push(PlannedFile {
                 path: get_mutation_file_path(endpoint, terminal),
-                content: render_mutation_file(endpoint, terminal),
+                content: render_mutation_file(endpoint, terminal, &model_import_base, use_package),
             });
         }
     }
@@ -314,7 +323,7 @@ fn mutation_hook_alias(terminal: QueryTerminal) -> &'static str {
 fn get_query_file_path(endpoint: &EndpointItem, terminal: QueryTerminal) -> String {
     let namespace = endpoint.namespace.join("/");
     format!(
-        "api/{}/{namespace}/{}.query.ts",
+        "{}/{namespace}/{}.query.ts",
         terminal_dir(terminal),
         endpoint.operation_name
     )
@@ -323,13 +332,13 @@ fn get_query_file_path(endpoint: &EndpointItem, terminal: QueryTerminal) -> Stri
 fn get_mutation_file_path(endpoint: &EndpointItem, terminal: QueryTerminal) -> String {
     let namespace = endpoint.namespace.join("/");
     format!(
-        "api/{}/{namespace}/{}.mutation.ts",
+        "{}/{namespace}/{}.mutation.ts",
         terminal_dir(terminal),
         endpoint.operation_name
     )
 }
 
-fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal) -> String {
+fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_import_base: &str, use_package: bool) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let hook_name = format!("use{}Query", to_pascal_case(&endpoint.operation_name));
     let query_def = format!("{}QueryDef", endpoint.operation_name);
@@ -347,14 +356,15 @@ fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal) -> String
     let output_type = normalize_type_ref(&endpoint.output_type_name);
     let type_imports = render_type_import_block(
         &[input_type.as_str(), output_type.as_str()],
-        "../../../spec/types",
+        model_import_base,
+        use_package,
     );
 
     format!(
         "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";
 import {{ {hook_factory} }} from \"@aptx/{terminal_package}\";
-import {{ getApiClient }} from \"../../../client/registry\";
-import {{ {builder} }} from \"../../../spec/endpoints/{namespace}/{operation_name}\";
+import {{ getApiClient }} from \"../../client/registry\";
+import {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";
 {type_imports}
 
 const normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);
@@ -389,7 +399,7 @@ export const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});
     )
 }
 
-fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal) -> String {
+fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_import_base: &str, use_package: bool) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let hook_name = format!("use{}Mutation", to_pascal_case(&endpoint.operation_name));
     let mutation_def = format!("{}MutationDef", endpoint.operation_name);
@@ -399,14 +409,15 @@ fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal) -> Str
     let output_type = normalize_type_ref(&endpoint.output_type_name);
     let type_imports = render_type_import_block(
         &[input_type.as_str(), output_type.as_str()],
-        "../../../spec/types",
+        model_import_base,
+        use_package,
     );
 
     format!(
         "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";
 import {{ {hook_factory} }} from \"@aptx/{terminal_package}\";
-import {{ getApiClient }} from \"../../../client/registry\";
-import {{ {builder} }} from \"../../../spec/endpoints/{namespace}/{operation_name}\";
+import {{ getApiClient }} from \"../../client/registry\";
+import {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";
 {type_imports}
 
 export const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{
@@ -440,15 +451,49 @@ fn normalize_type_ref(type_name: &str) -> String {
     "unknown".to_string()
 }
 
-fn render_type_import_line(type_name: &str, base_import_path: &str) -> String {
+/// Calculate the model import base path based on configuration
+fn get_model_import_base(model_import: &Option<ModelImportConfig>) -> String {
+    match model_import {
+        None => "../../../spec/types".to_string(), // Default backward-compatible path
+        Some(config) => {
+            match config.import_type.as_str() {
+                "package" => {
+                    // For package import, use the configured package path
+                    config.package_path.clone().unwrap_or_else(|| "@my-org/models".to_string())
+                }
+                "relative" => {
+                    // For relative import, use the configured relative path
+                    config.relative_path.clone().unwrap_or_else(|| "../../../spec/types".to_string())
+                }
+                _ => "../../../spec/types".to_string(), // Fallback to default
+            }
+        }
+    }
+}
+
+/// Check if we should use package-style imports (no type file suffix)
+fn should_use_package_import(model_import: &Option<ModelImportConfig>) -> bool {
+    match model_import {
+        None => false,
+        Some(config) => config.import_type == "package",
+    }
+}
+
+fn render_type_import_line(type_name: &str, base_import_path: &str, use_package: bool) -> String {
     if is_identifier_type(type_name) && !is_primitive_type(type_name) {
-        format!("import type {{ {type_name} }} from \"{base_import_path}/{type_name}\";\n")
+        if use_package {
+            // Package-style import: import type { TypeName } from "package-name"
+            format!("import type {{ {type_name} }} from \"{base_import_path}\";\n")
+        } else {
+            // Relative-style import: import type { TypeName } from "path/TypeName"
+            format!("import type {{ {type_name} }} from \"{base_import_path}/{type_name}\";\n")
+        }
     } else {
         String::new()
     }
 }
 
-fn render_type_import_block(type_names: &[&str], base_import_path: &str) -> String {
+fn render_type_import_block(type_names: &[&str], base_import_path: &str, use_package: bool) -> String {
     let mut unique = Vec::<String>::new();
     for type_name in type_names {
         if is_identifier_type(type_name)
@@ -460,7 +505,7 @@ fn render_type_import_block(type_names: &[&str], base_import_path: &str) -> Stri
     }
     unique
         .iter()
-        .map(|type_name| render_type_import_line(type_name, base_import_path))
+        .map(|type_name| render_type_import_line(type_name, base_import_path, use_package))
         .collect::<Vec<_>>()
         .join("")
 }

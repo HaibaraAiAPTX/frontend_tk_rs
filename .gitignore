@@ -30,3 +30,5 @@ Thumbs.db
 crates/**/target
 !scripts/release
 frontend-openapi-skills
+aptx/
+test-generate/

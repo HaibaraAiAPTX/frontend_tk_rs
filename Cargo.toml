@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "examples/frontend-tk-cli/plugins/gen_plugin"]
+members = ["crates/*"]
 exclude = []
