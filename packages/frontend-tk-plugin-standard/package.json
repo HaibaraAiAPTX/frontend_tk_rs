@@ -1,0 +1,25 @@
+{
+  "name": "@aptx/frontend-tk-plugin-standard",
+  "version": "0.1.0",
+  "description": "Standard namespace commands for frontend toolkit CLI",
+  "keywords": ["frontend", "toolkit", "cli", "plugin", "standard"],
+  "author": "",
+  "license": "ISC",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "dependencies": {
+    "@aptx/frontend-tk-core": "workspace:*",
+    "@aptx/frontend-tk-binding": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "typescript": "^5.7.3"
+  }
+}

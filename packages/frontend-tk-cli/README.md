@@ -94,26 +94,34 @@ aptx-ft input download --url https://example.com/openapi.json --output ./openapi
 aptx-ft plugin list
 ```
 
-### 原生命令 (Native Commands)
+### 所有命令一览
 
-原生命令通过 `aptx-ft <command> [args...]` 的方式直接调用：
+所有命令通过 `aptx-ft <namespace> <command>` 的方式调用：
 
-| 命令 | 描述 |
-|------|------|
-| `terminal:codegen` | 从 OpenAPI 输入生成单个内置 terminal 的输出 |
-| `model:gen` | 从 OpenAPI schemas 生成 TypeScript 模型声明 |
-| `model:ir` | 从 OpenAPI schemas 导出模型 IR 快照 JSON |
-| `model:enum-plan` | 从模型 IR 导出枚举增强计划 JSON |
-| `model:enum-apply` | 应用枚举补丁文件并生成模型文件 |
-| `ir:snapshot` | 从 OpenAPI 输入导出 IR 快照 JSON |
+| 命名空间 | 命令 | 描述 |
+|----------|------|------|
+| aptx | `functions` | 生成 @aptx 函数式 API 调用 |
+| aptx | `react-query` | 生成 React Query hooks |
+| aptx | `vue-query` | 生成 Vue Query composables |
+| std | `axios-ts` | 生成 Axios TypeScript 服务类 |
+| std | `axios-js` | 生成 Axios JavaScript 函数 |
+| std | `uniapp` | 生成 UniApp 服务 |
+| model | `gen` | 生成 TypeScript 模型声明 |
+| model | `ir` | 导出模型 IR 快照 JSON |
+| model | `enum-plan` | 导出枚举增强计划 JSON |
+| model | `enum-apply` | 应用枚举补丁并生成模型 |
+| input | `download` | 从 URL 下载 OpenAPI JSON |
+| codegen | `run` | 执行多终端代码生成 |
 
-查看原生命令的详细帮助：
+查看命令详细帮助：
 
 ```bash
-aptx-ft terminal:codegen --help
-aptx-ft model:gen --help
-aptx-ft model:ir --help
-aptx-ft model:enum-plan --help
-aptx-ft model:enum-apply --help
-aptx-ft ir:snapshot --help
+aptx-ft aptx functions --help
+aptx-ft std axios-ts --help
+aptx-ft model gen --help
+aptx-ft model ir --help
+aptx-ft model enum-plan --help
+aptx-ft model enum-apply --help
+aptx-ft input download --help
+aptx-ft codegen run --help
 ```

@@ -105,14 +105,15 @@ pub fn run_cli(options: RunCliOptions) -> napi::Result<()> {
 }
 
 #[napi]
-pub fn get_help_tree(options: Option<GetHelpTreeOptions>) -> Vec<HelpCommandDescriptor> {
+pub fn get_help_tree(options: Option<GetHelpTreeOptions>) -> napi::Result<Vec<HelpCommandDescriptor>> {
   let plugin = options.and_then(|v| v.plugin);
-  let command_factory = init_command_factory(&plugin).unwrap();
+  let command_factory = init_command_factory(&plugin)
+    .map_err(|e| napi::Error::from_reason(format!("Failed to init command factory: {}", e)))?;
   register_built_in_command(&command_factory.command);
-  command_factory
+  Ok(command_factory
     .command
     .list_descriptors()
     .into_iter()
     .map(to_help_descriptor)
-    .collect()
+    .collect())
 }

@@ -1,0 +1,9 @@
+[package]
+name = "swagger_gen_standard"
+version = "0.1.0"
+edition = "2021"
+description = "Standard renderers for swagger_gen"
+
+[dependencies]
+swagger_gen = { path = "../swagger_gen" }
+Inflector = "0.11.4"

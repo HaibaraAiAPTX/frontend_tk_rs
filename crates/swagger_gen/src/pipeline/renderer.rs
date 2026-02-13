@@ -1,13 +1,33 @@
+//! Renderer trait and implementations for code generation.
+//!
+//! This module defines the core `Renderer` trait and provides implementations.
+//!
+//! **Note**: The concrete renderer implementations (FunctionsRenderer, ReactQueryRenderer, etc.)
+//! will be moved to separate crates in a future migration:
+//! - `swagger_gen_aptx`: @aptx-specific renderers
+//! - `swagger_gen_standard`: Standard renderers
+
 use inflector::cases::pascalcase::to_pascal_case;
 use std::collections::BTreeMap;
 
-use super::model::{ClientImportConfig, EndpointItem, GeneratorInput, ModelImportConfig, PlannedFile, RenderOutput};
+use super::model::{ClientImportConfig, EndpointItem, GeneratorInput, PlannedFile, RenderOutput};
+use super::utils::{
+    get_client_call, get_client_import_lines, get_model_import_base, normalize_type_ref,
+    render_type_import_block, should_use_package_import,
+};
 
-pub trait Renderer {
+/// Core trait for code generation renderers.
+///
+/// All renderers (regardless of which crate they're in) must implement this trait.
+pub trait Renderer: Send + Sync {
+    /// Returns a unique identifier for this renderer.
     fn id(&self) -> &'static str;
+
+    /// Renders the generated code from the input.
     fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String>;
 }
 
+/// A no-operation renderer that produces no output.
 #[derive(Default)]
 pub struct NoopRenderer;
 
@@ -24,6 +44,11 @@ impl Renderer for NoopRenderer {
     }
 }
 
+// ============================================================================
+// @aptx-specific renderers (will be moved to swagger_gen_aptx crate)
+// ============================================================================
+
+/// Functions renderer for @aptx/api-client
 #[derive(Default)]
 pub struct FunctionsRenderer;
 
@@ -53,6 +78,7 @@ impl Renderer for FunctionsRenderer {
     }
 }
 
+/// React Query renderer for @aptx/react-query
 #[derive(Default)]
 pub struct ReactQueryRenderer;
 
@@ -66,6 +92,7 @@ impl Renderer for ReactQueryRenderer {
     }
 }
 
+/// Vue Query renderer for @aptx/vue-query
 #[derive(Default)]
 pub struct VueQueryRenderer;
 
@@ -79,12 +106,19 @@ impl Renderer for VueQueryRenderer {
     }
 }
 
+// ============================================================================
+// Standard renderers (will be moved to swagger_gen_standard crate)
+// ============================================================================
+
+/// Axios TypeScript renderer
 #[derive(Default)]
 pub struct AxiosTsRenderer;
 
+/// Axios JavaScript renderer
 #[derive(Default)]
 pub struct AxiosJsRenderer;
 
+/// UniApp renderer
 #[derive(Default)]
 pub struct UniAppRenderer;
 
@@ -171,6 +205,10 @@ impl Renderer for UniAppRenderer {
     }
 }
 
+// ============================================================================
+// Private helper functions (will be moved to respective crates)
+// ============================================================================
+
 #[derive(Clone, Copy)]
 enum QueryTerminal {
     React,
@@ -190,7 +228,7 @@ fn get_function_file_path(endpoint: &EndpointItem) -> String {
 fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let input_type = normalize_type_ref(&endpoint.input_type_name);
-    let input_import = render_type_import_line(&input_type, model_import_base, use_package);
+    let input_import = super::utils::render_type_import_line(&input_type, model_import_base, use_package);
     let payload_field = endpoint
         .request_body_field
         .as_ref()
@@ -404,142 +442,6 @@ fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_
     )
 }
 
-fn normalize_type_ref(type_name: &str) -> String {
-    let trimmed = type_name.trim();
-    if is_primitive_type(trimmed) {
-        return trimmed.to_string();
-    }
-
-    if is_identifier_type(trimmed) {
-        return trimmed.to_string();
-    }
-
-    "unknown".to_string()
-}
-
-/// Calculate the model import base path based on configuration
-fn get_model_import_base(model_import: &Option<ModelImportConfig>) -> String {
-    match model_import {
-        None => "../../../spec/types".to_string(), // Default backward-compatible path
-        Some(config) => {
-            match config.import_type.as_str() {
-                "package" => {
-                    // For package import, use the configured package path
-                    config.package_path.clone().unwrap_or_else(|| "@my-org/models".to_string())
-                }
-                "relative" => {
-                    // For relative import, use the configured relative path
-                    config.relative_path.clone().unwrap_or_else(|| "../../../spec/types".to_string())
-                }
-                _ => "../../../spec/types".to_string(), // Fallback to default
-            }
-        }
-    }
-}
-
-/// Check if we should use package-style imports (no type file suffix)
-fn should_use_package_import(model_import: &Option<ModelImportConfig>) -> bool {
-    match model_import {
-        None => false,
-        Some(config) => config.import_type == "package",
-    }
-}
-
-/// Get client import statements based on client_import configuration
-fn get_client_import_lines(client_import: &Option<ClientImportConfig>) -> String {
-    match client_import {
-        None => {
-            // Default: global mode
-            "import type { PerCallOptions } from \"@aptx/api-client\";\nimport { getApiClient } from \"@aptx/api-client\";".to_string()
-        }
-        Some(config) => {
-            let import_name = config.import_name.as_deref().unwrap_or("getApiClient");
-            match config.mode.as_str() {
-                "global" => {
-                    format!(
-                        "import type {{ PerCallOptions }} from \"@aptx/api-client\";\nimport {{ {} }} from \"@aptx/api-client\";",
-                        import_name
-                    )
-                }
-                "local" => {
-                    let client_path = config.client_path.as_deref().unwrap_or("../../api/client");
-                    format!(
-                        "import type {{ PerCallOptions }} from \"{}/types\";\nimport {{ {} }} from \"{}/client\";",
-                        client_path, import_name, client_path
-                    )
-                }
-                "package" => {
-                    let package_name = config.client_package.as_deref().unwrap_or("@my-org/api-client");
-                    format!(
-                        "import type {{ PerCallOptions }} from \"{}/types\";\nimport {{ {} }} from \"{}/client\";",
-                        package_name, import_name, package_name
-                    )
-                }
-                _ => {
-                    // Fallback to global
-                    "import type { PerCallOptions } from \"@aptx/api-client\";\nimport { getApiClient } from \"@aptx/api-client\";".to_string()
-                }
-            }
-        }
-    }
-}
-
-/// Get the client function name to call (e.g., "getApiClient()")
-fn get_client_call(client_import: &Option<ClientImportConfig>) -> String {
-    match client_import {
-        None => "getApiClient()".to_string(),
-        Some(config) => {
-            let import_name = config.import_name.as_deref().unwrap_or("getApiClient");
-            format!("{}()", import_name)
-        }
-    }
-}
-
-fn render_type_import_line(type_name: &str, base_import_path: &str, use_package: bool) -> String {
-    if is_identifier_type(type_name) && !is_primitive_type(type_name) {
-        if use_package {
-            // Package-style import: import type { TypeName } from "package-name"
-            format!("import type {{ {type_name} }} from \"{base_import_path}\";\n")
-        } else {
-            // Relative-style import: import type { TypeName } from "path/TypeName"
-            format!("import type {{ {type_name} }} from \"{base_import_path}/{type_name}\";\n")
-        }
-    } else {
-        String::new()
-    }
-}
-
-fn render_type_import_block(type_names: &[&str], base_import_path: &str, use_package: bool) -> String {
-    let mut unique = Vec::<String>::new();
-    for type_name in type_names {
-        if is_identifier_type(type_name)
-            && !is_primitive_type(type_name)
-            && !unique.iter().any(|item| item == type_name)
-        {
-            unique.push(type_name.to_string());
-        }
-    }
-    unique
-        .iter()
-        .map(|type_name| render_type_import_line(type_name, base_import_path, use_package))
-        .collect::<Vec<_>>()
-        .join("")
-}
-
-fn is_identifier_type(type_name: &str) -> bool {
-    let mut chars = type_name.chars();
-    let first = chars.next();
-    first.is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_')
-        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
-}
-
-fn is_primitive_type(type_name: &str) -> bool {
-    matches!(
-        type_name,
-        "string" | "number" | "boolean" | "void" | "object" | "unknown"
-    )
-}
-
 fn render_axios_ts_service_file(group: &str, endpoints: &[&EndpointItem]) -> String {
     let class_name = format!("{}Service", to_pascal_case(group));
     let methods = endpoints
@@ -549,14 +451,7 @@ fn render_axios_ts_service_file(group: &str, endpoints: &[&EndpointItem]) -> Str
         .join("\n\n");
 
     format!(
-        "import {{ singleton }} from \"tsyringe\";
-import {{ BaseService }} from \"./BaseService\";
-
-@singleton()
-export class {class_name} extends BaseService {{
-{methods}
-}}
-"
+        "import {{ singleton }} from \"tsyringe\";\nimport {{ BaseService }} from \"./BaseService\";\n\n@singleton()\nexport class {class_name} extends BaseService {{\n{methods}\n}}\n"
     )
 }
 
@@ -630,15 +525,11 @@ fn render_axios_ts_method(endpoint: &EndpointItem) -> String {
 
     if signature.is_empty() {
         format!(
-            "{summary}  {method_name}() {{
-    return {call};
-  }}"
+            "{summary}  {method_name}() {{\n    return {call};\n  }}"
         )
     } else {
         format!(
-            "{summary}  {method_name}({signature}) {{
-    return {call};
-  }}"
+            "{summary}  {method_name}({signature}) {{\n    return {call};\n  }}"
         )
     }
 }
@@ -686,20 +577,12 @@ fn render_axios_js_function(endpoint: &EndpointItem) -> String {
 
     if signature.is_empty() {
         format!(
-            "{summary}export function {func_name}() {{
-  return axios.request({{
-    {}
-  }});
-}}",
+            "{summary}export function {func_name}() {{\n  return axios.request({{\n    {}\n  }});\n}}",
             config_lines.join(",\n    ")
         )
     } else {
         format!(
-            "{summary}export function {func_name}({signature}) {{
-  return axios.request({{
-    {}
-  }});
-}}",
+            "{summary}export function {func_name}({signature}) {{\n  return axios.request({{\n    {}\n  }});\n}}",
             config_lines.join(",\n    ")
         )
     }
@@ -714,14 +597,7 @@ fn render_uniapp_service_file(group: &str, endpoints: &[&EndpointItem]) -> Strin
         .join("\n\n");
 
     format!(
-        "import {{ singleton }} from \"tsyringe\";
-import {{ BaseService }} from \"./BaseService\";
-
-@singleton()
-export class {class_name} extends BaseService {{
-{methods}
-}}
-"
+        "import {{ singleton }} from \"tsyringe\";\nimport {{ BaseService }} from \"./BaseService\";\n\n@singleton()\nexport class {class_name} extends BaseService {{\n{methods}\n}}\n"
     )
 }
 
@@ -788,15 +664,11 @@ fn render_uniapp_method(endpoint: &EndpointItem) -> String {
 
     if signature.is_empty() {
         format!(
-            "{summary}  {method_name}() {{
-    return {call};
-  }}"
+            "{summary}  {method_name}() {{\n    return {call};\n  }}"
         )
     } else {
         format!(
-            "{summary}  {method_name}({signature}) {{
-    return {call};
-  }}"
+            "{summary}  {method_name}({signature}) {{\n    return {call};\n }}"
         )
     }
 }

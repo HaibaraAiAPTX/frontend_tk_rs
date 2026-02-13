@@ -1,11 +1,13 @@
 use aptx_frontend_tk_binding_plugin::command::{
   CommandDescriptor, CommandRegistry, OptionDescriptor,
 };
+pub mod aptx_commands;
 pub mod ir;
 pub mod model_enum_apply;
 pub mod model_enum_plan;
 pub mod model_gen;
 pub mod model_ir;
+pub mod std_commands;
 pub mod terminal_codegen;
 
 /// 注册内置的命令
@@ -199,5 +201,236 @@ pub fn register_built_in_command(command: &CommandRegistry) {
     },
     Box::new(ir::export_ir_snapshot),
   );
+
+  // Register @aptx namespace commands
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "aptx:functions".to_string(),
+      summary: "Generate @aptx function-style API calls".to_string(),
+      description: Some("Generates TypeScript function calls using @aptx/api-client.".to_string()),
+      options: vec![
+        OptionDescriptor {
+          long: "output".to_string(),
+          value_name: Some("dir".to_string()),
+          required: true,
+          description: "Output directory".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-mode".to_string(),
+          value_name: Some("global|local|package".to_string()),
+          required: false,
+          description: "Client import mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-path".to_string(),
+          value_name: Some("path".to_string()),
+          required: false,
+          description: "Client path for local mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-package".to_string(),
+          value_name: Some("name".to_string()),
+          required: false,
+          description: "Client package name for package mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-import-name".to_string(),
+          value_name: Some("name".to_string()),
+          required: false,
+          description: "Client import function name".to_string(),
+          ..Default::default()
+        },
+      ],
+      examples: vec![
+        "aptx-ft aptx:functions --output ./generated/functions".to_string(),
+      ],
+      plugin_name: Some("swagger_gen_aptx".to_string()),
+      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+      ..Default::default()
+    },
+    Box::new(aptx_commands::run_aptx_functions),
+  );
+
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "aptx:react-query".to_string(),
+      summary: "Generate @aptx React Query hooks".to_string(),
+      description: Some("Generates React Query hooks using @aptx/react-query.".to_string()),
+      options: vec![
+        OptionDescriptor {
+          long: "output".to_string(),
+          value_name: Some("dir".to_string()),
+          required: true,
+          description: "Output directory".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-mode".to_string(),
+          value_name: Some("global|local|package".to_string()),
+          required: false,
+          description: "Client import mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-path".to_string(),
+          value_name: Some("path".to_string()),
+          required: false,
+          description: "Client path for local mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-package".to_string(),
+          value_name: Some("name".to_string()),
+          required: false,
+          description: "Client package name for package mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-import-name".to_string(),
+          value_name: Some("name".to_string()),
+          required: false,
+          description: "Client import function name".to_string(),
+          ..Default::default()
+        },
+      ],
+      examples: vec![
+        "aptx-ft aptx:react-query --output ./generated/react-query".to_string(),
+      ],
+      plugin_name: Some("swagger_gen_aptx".to_string()),
+      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+      ..Default::default()
+    },
+    Box::new(aptx_commands::run_aptx_react_query),
+  );
+
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "aptx:vue-query".to_string(),
+      summary: "Generate @aptx Vue Query composables".to_string(),
+      description: Some("Generates Vue Query composables using @aptx/vue-query.".to_string()),
+      options: vec![
+        OptionDescriptor {
+          long: "output".to_string(),
+          value_name: Some("dir".to_string()),
+          required: true,
+          description: "Output directory".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-mode".to_string(),
+          value_name: Some("global|local|package".to_string()),
+          required: false,
+          description: "Client import mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-path".to_string(),
+          value_name: Some("path".to_string()),
+          required: false,
+          description: "Client path for local mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-package".to_string(),
+          value_name: Some("name".to_string()),
+          required: false,
+          description: "Client package name for package mode".to_string(),
+          ..Default::default()
+        },
+        OptionDescriptor {
+          long: "client-import-name".to_string(),
+          value_name: Some("name".to_string()),
+          required: false,
+          description: "Client import function name".to_string(),
+          ..Default::default()
+        },
+      ],
+      examples: vec![
+        "aptx-ft aptx:vue-query --output ./generated/vue-query".to_string(),
+      ],
+      plugin_name: Some("swagger_gen_aptx".to_string()),
+      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+      ..Default::default()
+    },
+    Box::new(aptx_commands::run_aptx_vue_query),
+  );
+
+  // Register std namespace commands
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "std:axios-ts".to_string(),
+      summary: "Generate Axios TypeScript service classes".to_string(),
+      description: Some("Generates TypeScript service classes using axios and tsyringe.".to_string()),
+      options: vec![
+        OptionDescriptor {
+          long: "output".to_string(),
+          value_name: Some("dir".to_string()),
+          required: true,
+          description: "Output directory".to_string(),
+          ..Default::default()
+        },
+      ],
+      examples: vec![
+        "aptx-ft std:axios-ts --output ./generated/services".to_string(),
+      ],
+      plugin_name: Some("swagger_gen_standard".to_string()),
+      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+      ..Default::default()
+    },
+    Box::new(std_commands::run_std_axios_ts),
+  );
+
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "std:axios-js".to_string(),
+      summary: "Generate Axios JavaScript functions".to_string(),
+      description: Some("Generates JavaScript functions using axios.".to_string()),
+      options: vec![
+        OptionDescriptor {
+          long: "output".to_string(),
+          value_name: Some("dir".to_string()),
+          required: true,
+          description: "Output directory".to_string(),
+          ..Default::default()
+        },
+      ],
+      examples: vec![
+        "aptx-ft std:axios-js --output ./generated/api".to_string(),
+      ],
+      plugin_name: Some("swagger_gen_standard".to_string()),
+      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+      ..Default::default()
+    },
+    Box::new(std_commands::run_std_axios_js),
+  );
+
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "std:uniapp".to_string(),
+      summary: "Generate UniApp service classes".to_string(),
+      description: Some("Generates UniApp service classes using tsyringe.".to_string()),
+      options: vec![
+        OptionDescriptor {
+          long: "output".to_string(),
+          value_name: Some("dir".to_string()),
+          required: true,
+          description: "Output directory".to_string(),
+          ..Default::default()
+        },
+      ],
+      examples: vec![
+        "aptx-ft std:uniapp --output ./generated/services".to_string(),
+      ],
+      plugin_name: Some("swagger_gen_standard".to_string()),
+      plugin_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+      ..Default::default()
+    },
+    Box::new(std_commands::run_std_uniapp),
+  );
+
   frontend_plugin_materal::init_plugin(command);
 }

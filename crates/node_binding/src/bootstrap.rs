@@ -15,14 +15,16 @@ impl CommandFactory {
 
 pub fn init_command_factory(plugin: &Option<Vec<String>>) -> Result<CommandFactory, Error> {
   let mut command_factory = CommandFactory::default();
-  plugin.as_ref().iter().for_each(|&v| {
-    v.iter().for_each(|p| unsafe {
-      let lib = Library::new(p).unwrap();
-      let init_plugin: Symbol<unsafe extern "C" fn(&CommandRegistry)> =
-        lib.get(b"init_plugin").unwrap();
-      init_plugin(&command_factory.command);
-      command_factory.insert_lib(lib);
-    })
-  });
+  if let Some(plugin_paths) = plugin {
+    for p in plugin_paths {
+      unsafe {
+        let lib = Library::new(p)?;
+        let init_plugin: Symbol<unsafe extern "C" fn(&CommandRegistry)> =
+          lib.get(b"init_plugin")?;
+        init_plugin(&command_factory.command);
+        command_factory.insert_lib(lib);
+      }
+    }
+  }
   Ok(command_factory)
 }

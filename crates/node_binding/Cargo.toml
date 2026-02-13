@@ -16,6 +16,8 @@ napi = { version = "3.6.1", default-features = false, features = ["napi4"] }
 napi-derive = "3.4.0"
 serde_json = "1.0.145"
 swagger_gen = { version = "0.1.0", path = "../swagger_gen" }
+swagger_gen_aptx = { version = "0.1.0", path = "../swagger_gen_aptx" }
+swagger_gen_standard = { version = "0.1.0", path = "../swagger_gen_standard" }
 swagger_tk = { version = "0.1.0", path = "../swagger_tk" }
 
 [build-dependencies]

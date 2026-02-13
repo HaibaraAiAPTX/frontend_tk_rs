@@ -59,6 +59,23 @@ impl CodegenPipeline {
         self.client_import = config;
         self
     }
+
+    /// Add a renderer to the pipeline
+    pub fn with_renderer(mut self, renderer: Box<dyn Renderer>) -> Self {
+        // If we only have the default NoopRenderer, replace it
+        if self.renderers.len() == 1 && self.renderers[0].id() == "noop" {
+            self.renderers = vec![renderer];
+        } else {
+            self.renderers.push(renderer);
+        }
+        self
+    }
+
+    /// Set the writer for the pipeline
+    pub fn with_writer(mut self, writer: Box<dyn Writer>) -> Self {
+        self.writer = writer;
+        self
+    }
 }
 
 impl CodegenPipeline {

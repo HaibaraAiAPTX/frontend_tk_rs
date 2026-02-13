@@ -4,25 +4,23 @@
 
 ### 1.1 迁移目标
 
-核心纯净化：将代码生成器核心与 `@aptx` 包引用解耦，实现插件化架构，使核心代码生成器不依赖任何特定的基础库包。
+**核心纯净化**：将代码生成器核心与 `@aptx` 包引用完全解耦，通过独立 crate 架构实现框架纯净，使核心代码生成器不依赖任何特定的业务包。
 
 ### 1.2 当前问题
 
 在 `renderer.rs` 中存在以下硬编码的 `@aptx` 引用：
 
-- 第 360 行：`import { createQueryDefinition } from "@aptx/api-query-adapter"`
-- 第 390 行：`import { createMutationDefinition } from "@aptx/api-query-adapter"`
-- 第 390-391 行：`import { hook_factory } from "@aptx/{terminal_package}"`
-- 第 391 行：`import { getApiClient } from "@aptx/api-client"`
-- 第 459 行：`import type { PerCallOptions } from "@aptx/api-client"`
-- 第 466 行：`import { PerCallOptions } from "@aptx/api-client"`
-- 第 486 行：默认回退路径仍使用 `@aptx/api-client`
+| 位置 | 引用 | 说明 |
+|------|------|------|
+| L361, L393 | `@aptx/api-query-adapter` | Query/Mutation 定义 |
+| L361, L393 | `@aptx/react-query`, `@aptx/vue-query` | Hook 工厂函数 |
+| L453, L460, L480 | `@aptx/api-client` | API 客户端和类型 |
 
 这些硬编码违反了核心纯净化原则，使得代码生成器无法在不依赖 `@aptx` 包的情况下运行。
 
 ### 1.3 解决方案
 
-引入插件系统，将 `@aptx` 相关功能抽象为插件，使核心代码生成器不直接依赖任何特定包。
+**独立 Crate 架构**：将渲染器分离到独立的 crate 中，核心框架只保留抽象接口和通用工具。
 
 ---
 
@@ -37,829 +35,464 @@
 format!(
     "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\n\
      import {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n\
-     {client_import_lines}\
-     import {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n\
-     {type_imports}\n\n\
-     const normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);\n\n\
-     export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{...\
+     ...
 ```
 
-**问题分类**：
+### 2.2 渲染器分类
 
-| 类型 | 位置 | 说明 |
-|------|------|------|
-| 导入语句 | L360, L389-391 | 硬编码 `@aptx/api-query-adapter` 和 `@aptx/{terminal}` |
-| 类型导入 | L459, L466 | 硬编码 `@aptx/api-client` 类型导入 |
-| 默认回退 | L486 | 全局模式默认使用 `@aptx/api-client` |
+| 渲染器 | 依赖包 | 类型 |
+|--------|--------|------|
+| `FunctionsRenderer` | @aptx/api-client | @aptx 专用 |
+| `ReactQueryRenderer` | @aptx/api-query-adapter, @aptx/react-query | @aptx 专用 |
+| `VueQueryRenderer` | @aptx/api-query-adapter, @aptx/vue-query | @aptx 专用 |
+| `AxiosTsRenderer` | tsyringe, axios | 标准通用 |
+| `AxiosJsRenderer` | axios | 标准通用 |
+| `UniAppRenderer` | tsyringe | 标准通用 |
 
-### 2.2 耦合度分析
+### 2.3 耦合度分析
 
 ```mermaid
 graph TD
-    A["renderer.rs (Core)"]
+    A["swagger_gen crate"]
     A --> B["@aptx/api-query-adapter<br/>(紧耦合)"]
     A --> C["@aptx/react-query<br/>(紧耦合)"]
     A --> D["@aptx/vue-query<br/>(紧耦合)"]
     A --> E["@aptx/api-client<br/>(紧耦合)"]
 
+    style A fill:#f99,stroke:#f66
     style B fill:#f99,stroke:#f66
     style C fill:#f99,stroke:#f66
     style D fill:#f99,stroke:#f66
     style E fill:#f99,stroke:#f66
 ```
 
-### 2.3 影响
+### 2.4 影响
 
-1. **灵活性受限**：无法切换到其他 API 客户端或 Query 库
-2. **测试困难**：核心功能测试必须依赖 `@aptx` 包
-3. **扩展性差**：添加新的终端类型需要修改核心代码
-4. **版本耦合**：核心代码与 `@aptx` 包版本绑定
+1. **框架不纯净**：核心 crate 包含业务特定代码
+2. **灵活性受限**：无法切换到其他 API 客户端或 Query 库
+3. **测试困难**：核心功能测试必须依赖 `@aptx` 包
+4. **扩展性差**：添加新的终端类型需要修改核心代码
 
 ---
 
 ## 3. 目标架构
 
-### 3.1 架构图
+### 3.1 独立 Crate 架构图
 
 ```mermaid
 graph TB
-    subgraph Core["代码生成器核心"]
+    subgraph Core["swagger_gen (核心框架)"]
         A["Parser"]
         B["Transformer"]
-        C["Renderer (纯净化后)"]
+        C["Renderer Trait"]
         D["Writer"]
+        E["Orchestrator"]
+        F["Utils (共享工具)"]
     end
 
-    subgraph Registry["Plugin Registry"]
-        E["register(plugin)"]
-        F["get(id)"]
-        G["execute(id, context)"]
+    subgraph Aptx["swagger_gen_aptx (独立 crate)"]
+        H1["FunctionsRenderer"]
+        H2["ReactQueryRenderer"]
+        H3["VueQueryRenderer"]
     end
 
-    subgraph Plugins["Plugins"]
-        subgraph Aptx["@aptx Plugin"]
-            H1["Functions"]
-            H2["ReactQuery"]
-            H3["VueQuery"]
-        end
-
-        subgraph Standard["Standard Plugin"]
-            I1["AxiosTs"]
-            I2["AxiosJs"]
-            I3["UniApp"]
-        end
-
-        subgraph Custom["Custom Plugin"]
-            J1["User-defined"]
-        end
+    subgraph Standard["swagger_gen_standard (独立 crate)"]
+        I1["AxiosTsRenderer"]
+        I2["AxiosJsRenderer"]
+        I3["UniAppRenderer"]
     end
 
-    Core -->|uses| Registry
-    Registry -->|loads| Plugins
+    subgraph Custom["用户自定义 crate"]
+        J1["CustomRenderer"]
+    end
 
-    style Core fill:#bbf,stroke:#369
-    style Registry fill:#bfb,stroke:#393
-    style Plugins fill:#fcf,stroke:#939
+    Aptx -->|depends on| Core
+    Standard -->|depends on| Core
+    Custom -->|depends on| Core
+
+    style Core fill:#9f9,stroke:#393
+    style Aptx fill:#bbf,stroke:#369
+    style Standard fill:#bbf,stroke:#369
+    style Custom fill:#fcf,stroke:#939
 ```
 
-### 3.2 插件系统设计
+### 3.2 Crate 职责划分
 
-#### 3.2.1 核心接口
+| Crate | 职责 | 依赖 |
+|-------|------|------|
+| `swagger_gen` | 核心框架、接口定义、通用工具 | 无业务依赖 |
+| `swagger_gen_aptx` | @aptx 专用渲染器 | swagger_gen |
+| `swagger_gen_standard` | 标准通用渲染器 | swagger_gen |
+
+### 3.3 架构优势
+
+| 优势 | 说明 |
+|------|------|
+| **框架纯净** | swagger_gen 核心不依赖任何特定业务包 |
+| **独立演进** | @aptx 适配可以独立版本迭代，不影响核心 |
+| **可选依赖** | 用户只需引入需要的渲染器 crate |
+| **清晰边界** | 核心框架和业务适配的职责明确分离 |
+| **易于扩展** | 第三方可以基于公开接口开发自己的渲染器 |
+
+---
+
+## 4. 核心接口设计
+
+### 4.1 Renderer Trait (保留在核心)
 
 ```rust
-/// 终端插件核心 Trait
-pub trait TerminalPlugin: Send + Sync {
-    /// 插件唯一标识符
+// swagger_gen/src/pipeline/renderer.rs
+
+/// 渲染器核心 Trait
+///
+/// 所有渲染器（无论在哪个 crate）都必须实现此接口
+pub trait Renderer: Send + Sync {
+    /// 渲染器唯一标识符
     fn id(&self) -> &'static str;
 
-    /// 插件名称
-    fn name(&self) -> &'static str;
-
-    /// 插件描述
-    fn description(&self) -> &'static str;
-
-    /// 渲染单个端点
-    fn render_endpoint(
-        &self,
-        endpoint: &EndpointItem,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String>;
-
-    /// 渲染所有端点（可选，用于批量优化）
-    fn render_all(
-        &self,
-        input: &GeneratorInput,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String> {
-        // 默认实现：逐个调用 render_endpoint
-        let mut files = Vec::new();
-        for endpoint in &input.endpoints {
-            files.extend(self.render_endpoint(endpoint, ctx)?);
-        }
-        Ok(files)
-    }
-}
-
-/// 渲染上下文
-pub struct RenderContext {
-    /// 模型导入配置
-    pub model_import: Option<ModelImportConfig>,
-
-    /// 客户端导入配置
-    pub client_import: Option<ClientImportConfig>,
-
-    /// 项目上下文
-    pub project: ProjectContext,
-
-    /// 用户自定义配置
-    pub user_config: serde_json::Value,
+    /// 渲染生成代码
+    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String>;
 }
 ```
 
-#### 3.2.2 插件注册表
+### 4.2 核心类型导出
 
 ```rust
-/// 插件注册表
-pub struct PluginRegistry {
-    plugins: HashMap<String, Box<dyn TerminalPlugin>>,
+// swagger_gen/src/lib.rs
+
+pub mod pipeline {
+    // === 核心接口 ===
+    pub use self::renderer::Renderer;
+
+    // === 数据模型 ===
+    pub use self::model::{
+        ClientImportConfig,      // 客户端导入配置
+        EndpointItem,            // 端点信息
+        ExecutionPlan,           // 执行计划
+        GeneratorInput,          // 生成器输入
+        ModelImportConfig,       // 模型导入配置
+        PlannedFile,             // 计划文件
+        ProjectContext,          // 项目上下文
+        RenderOutput,            // 渲染输出
+    };
+
+    // === Pipeline 组件 ===
+    pub use self::parser::{Parser, OpenApiParser};
+    pub use self::transform::TransformPass;
+    pub use self::layout::LayoutStrategy;
+    pub use self::writer::Writer;
+    pub use self::orchestrator::CodegenPipeline;
 }
 
-impl PluginRegistry {
-    pub fn new() -> Self {
-        Self {
-            plugins: HashMap::new(),
-        }
-    }
+// === 共享工具函数 ===
+pub mod utils {
+    pub use self::type_utils::{
+        normalize_type_ref,
+        is_identifier_type,
+        is_primitive_type,
+        render_type_import_block,
+        render_type_import_line,
+    };
+    pub use self::import_utils::{
+        get_model_import_base,
+        should_use_package_import,
+    };
+}
+```
 
-    /// 注册插件
-    pub fn register(&mut self, plugin: Box<dyn TerminalPlugin>) {
-        let id = plugin.id().to_string();
-        self.plugins.insert(id, plugin);
-    }
+### 4.3 共享工具模块
 
-    /// 获取插件
-    pub fn get(&self, id: &str) -> Option<&dyn TerminalPlugin> {
-        self.plugins.get(id).map(|p| p.as_ref())
-    }
+```rust
+// swagger_gen/src/pipeline/utils/type_utils.rs
 
-    /// 列出所有插件
-    pub fn list(&self) -> Vec<&dyn TerminalPlugin> {
-        self.plugins.values().map(|p| p.as_ref()).collect()
+/// 标准化类型引用
+pub fn normalize_type_ref(type_name: &str) -> String {
+    let trimmed = type_name.trim();
+    if is_primitive_type(trimmed) || is_identifier_type(trimmed) {
+        return trimmed.to_string();
     }
+    "unknown".to_string()
+}
+
+/// 检查是否为标识符类型
+pub fn is_identifier_type(type_name: &str) -> bool {
+    let mut chars = type_name.chars();
+    let first = chars.next();
+    first.is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_')
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+/// 检查是否为原始类型
+pub fn is_primitive_type(type_name: &str) -> bool {
+    matches!(
+        type_name,
+        "string" | "number" | "boolean" | "void" | "object" | "unknown"
+    )
+}
+
+/// 渲染类型导入块
+pub fn render_type_import_block(
+    type_names: &[&str],
+    base_import_path: &str,
+    use_package: bool
+) -> String {
+    // ... 实现
 }
 ```
 
 ---
 
-## 4. 插件接口设计
+## 5. 独立 Crate 实现
 
-### 4.1 TerminalPlugin Trait
+### 5.1 swagger_gen_aptx
 
-```rust
-use async_trait::async_trait;
+**Cargo.toml**:
 
-/// 终端插件核心 Trait
-#[async_trait]
-pub trait TerminalPlugin: Send + Sync {
-    // === 基础信息 ===
+```toml
+[package]
+name = "swagger_gen_aptx"
+version = "0.1.0"
+edition = "2021"
+description = "@aptx specific renderers for swagger_gen"
 
-    /// 插件唯一标识符 (如: "react-query", "vue-query")
-    fn id(&self) -> &'static str;
-
-    /// 插件显示名称
-    fn name(&self) -> &'static str;
-
-    /// 插件描述
-    fn description(&self) -> &'static str;
-
-    /// 插件版本
-    fn version(&self) -> &'static str {
-        "1.0.0"
-    }
-
-    /// 支持的文件扩展名
-    fn file_extensions(&self) -> Vec<&'static str> {
-        vec![".ts"]
-    }
-
-    // === 渲染方法 ===
-
-    /// 渲染单个端点
-    ///
-    /// 这是主要的渲染方法，大多数插件只需实现此方法
-    fn render_endpoint(
-        &self,
-        endpoint: &EndpointItem,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String>;
-
-    /// 批量渲染所有端点
-    ///
-    /// 默认实现逐个调用 render_endpoint
-    /// 插件可以覆盖此方法以实现批量优化
-    fn render_all(
-        &self,
-        input: &GeneratorInput,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String> {
-        let mut files = Vec::new();
-        for endpoint in &input.endpoints {
-            files.extend(self.render_endpoint(endpoint, ctx)?);
-        }
-        Ok(files)
-    }
-
-    // === 钩子函数 ===
-
-    /// 渲染前钩子
-    fn before_render(&self, _ctx: &RenderContext) -> Result<(), String> {
-        Ok(())
-    }
-
-    /// 渲染后钩子
-    fn after_render(
-        &self,
-        _files: &Vec<PlannedFile>,
-        _ctx: &RenderContext
-    ) -> Result<Vec<String>, String> {
-        Ok(vec![]) // 返回警告列表
-    }
-
-    // === 配置 ===
-
-    /// 验证配置
-    fn validate_config(&self, _config: &serde_json::Value) -> Result<(), String> {
-        Ok(())
-    }
-
-    /// 获取默认配置
-    fn default_config(&self) -> serde_json::Value {
-        serde_json::json!({})
-    }
-}
+[dependencies]
+swagger_gen = { path = "../swagger_gen" }
+Inflector = "0.11.4"
 ```
 
-#### 4.1.1 设计决策：移除特定框架的能力声明
+**目录结构**:
 
-> **注意**：早期设计中包含 `supports_query()` 和 `supports_mutation()` 方法，但已被移除。
-
-**移除原因**：
-
-1. **概念耦合问题**：Query 和 Mutation 是 Tanstack Query（React Query/Vue Query）特有的概念，不应出现在抽象层。这会导致抽象泄漏，限制未来扩展到其他框架（如 SWR、Apollo、RTK Query）。
-
-2. **实际冗余**：在插件实现中，判断是否生成查询/变更代码是基于 `endpoint.supports_query`（端点属性），而非插件能力。这两个方法在当前设计中是冗余的。
-
-3. **扩展性限制**：如果未来要支持其他功能（如 Stream、Subscription、Batch 操作），当前设计无法优雅扩展。
-
-**替代方案**：插件在 `render_endpoint` 内部根据端点属性自行决定生成什么内容，无需在 trait 层面声明能力。
-
-### 4.2 PluginRegistry
-
-```rust
-/// 插件注册表
-pub struct PluginRegistry {
-    plugins: HashMap<String, Box<dyn TerminalPlugin>>,
-    aliases: HashMap<String, String>, // 别名支持
-}
-
-impl PluginRegistry {
-    pub fn new() -> Self {
-        Self {
-            plugins: HashMap::new(),
-            aliases: HashMap::new(),
-        }
-    }
-
-    /// 注册插件
-    pub fn register(&mut self, plugin: Box<dyn TerminalPlugin>) {
-        let id = plugin.id().to_string();
-        self.plugins.insert(id.clone(), plugin);
-    }
-
-    /// 注册别名
-    pub fn register_alias(&mut self, alias: String, target: String) {
-        self.aliases.insert(alias, target);
-    }
-
-    /// 获取插件（支持别名解析）
-    pub fn get(&self, id: &str) -> Option<&dyn TerminalPlugin> {
-        let target_id = self.aliases.get(id).unwrap_or(&id.to_string());
-        self.plugins.get(target_id).map(|p| p.as_ref())
-    }
-
-    /// 列出所有插件
-    pub fn list(&self) -> Vec<PluginInfo> {
-        self.plugins
-            .values()
-            .map(|p| PluginInfo {
-                id: p.id().to_string(),
-                name: p.name().to_string(),
-                description: p.description().to_string(),
-                version: p.version().to_string(),
-            })
-            .collect()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PluginInfo {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub version: String,
-}
+```
+swagger_gen_aptx/
+├── Cargo.toml
+└── src/
+    ├── lib.rs
+    ├── functions.rs      # FunctionsRenderer
+    ├── query_base.rs     # React/Vue Query 共享逻辑
+    ├── react_query.rs    # ReactQueryRenderer
+    └── vue_query.rs      # VueQueryRenderer
 ```
 
-### 4.3 RenderContext
+**lib.rs**:
 
 ```rust
-/// 渲染上下文
-///
-/// 提供渲染过程中所需的所有配置和状态信息
-#[derive(Debug, Clone)]
-pub struct RenderContext {
-    /// 模型导入配置
-    pub model_import: Option<ModelImportConfig>,
+//! @aptx 专用渲染器
+//!
+//! 提供与 @aptx 包集成的渲染器实现
 
-    /// 客户端导入配置
-    pub client_import: Option<ClientImportConfig>,
+pub use swagger_gen::pipeline::{Renderer, GeneratorInput, RenderOutput, EndpointItem};
+pub use swagger_gen::utils::{normalize_type_ref, render_type_import_block, ...};
 
-    /// 项目上下文
-    pub project: ProjectContext,
+mod functions;
+mod query_base;
+mod react_query;
+mod vue_query;
 
-    /// 用户自定义配置
-    pub user_config: serde_json::Value,
-
-    /// 输出目录
-    pub output_dir: PathBuf,
-
-    /// 是否为 dry-run 模式
-    pub dry_run: bool,
-}
-
-impl RenderContext {
-    pub fn new(project: ProjectContext) -> Self {
-        Self {
-            model_import: None,
-            client_import: None,
-            project,
-            user_config: serde_json::json!({}),
-            output_dir: PathBuf::from("./generated"),
-            dry_run: false,
-        }
-    }
-
-    /// 创建子上下文（用于批量渲染）
-    pub fn with_config(&self, config: serde_json::Value) -> Self {
-        let mut ctx = self.clone();
-        ctx.user_config = config;
-        ctx
-    }
-}
+pub use functions::AptxFunctionsRenderer;
+pub use react_query::AptxReactQueryRenderer;
+pub use vue_query::AptxVueQueryRenderer;
 ```
 
----
-
-## 5. @aptx 插件实现
-
-### 5.1 AptxFunctionsPlugin
+**react_query.rs**:
 
 ```rust
-use crate::pipeline::{EndpointItem, PlannedFile, RenderContext, TerminalPlugin};
-use inflector::cases::pascalcase::to_pascal_case;
+use swagger_gen::pipeline::{Renderer, GeneratorInput, RenderOutput, PlannedFile};
+use swagger_gen::utils::{normalize_type_ref, render_type_import_block, ...};
 
-/// @aptx Functions 终端插件
-///
-/// 生成使用 @aptx/api-client 的函数式 API 调用代码
-pub struct AptxFunctionsPlugin;
-
-impl AptxFunctionsPlugin {
-    pub fn new() -> Self {
-        Self
-    }
-
-    fn get_spec_file_path(endpoint: &EndpointItem) -> String {
-        let namespace = endpoint.namespace.join("/");
-        format!("spec/endpoints/{namespace}/{}.ts", endpoint.operation_name)
-    }
-
-    fn get_function_file_path(endpoint: &EndpointItem) -> String {
-        let namespace = endpoint.namespace.join("/");
-        format!("functions/api/{namespace}/{}.ts", endpoint.operation_name)
-    }
-
-    fn render_spec_file(endpoint: &EndpointItem, ctx: &RenderContext) -> String {
-        let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
-        let input_type = normalize_type_ref(&endpoint.input_type_name);
-        let model_import_base = get_model_import_base(&ctx.model_import);
-        let use_package = should_use_package_import(&ctx.model_import);
-
-        // ... 渲染逻辑
-        todo!()
-    }
-
-    fn render_function_file(endpoint: &EndpointItem, ctx: &RenderContext) -> String {
-        // ... 渲染逻辑
-        todo!()
-    }
-}
-
-impl TerminalPlugin for AptxFunctionsPlugin {
-    fn id(&self) -> &'static str {
-        "functions"
-    }
-
-    fn name(&self) -> &'static str {
-        "@aptx Functions"
-    }
-
-    fn description(&self) -> &'static str {
-        "生成使用 @aptx/api-client 的函数式 API 调用代码"
-    }
-
-    fn render_endpoint(
-        &self,
-        endpoint: &EndpointItem,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String> {
-        Ok(vec![
-            PlannedFile {
-                path: Self::get_spec_file_path(endpoint),
-                content: self.render_spec_file(endpoint, ctx),
-            },
-            PlannedFile {
-                path: Self::get_function_file_path(endpoint),
-                content: self.render_function_file(endpoint, ctx),
-            },
-        ])
-    }
-}
-```
-
-### 5.2 AptxReactQueryPlugin
-
-```rust
-/// @aptx React Query 终端插件
+/// @aptx React Query 渲染器
 ///
 /// 生成使用 @aptx/react-query 的 React Query Hooks
-pub struct AptxReactQueryPlugin;
+pub struct AptxReactQueryRenderer;
 
-impl AptxReactQueryPlugin {
-    pub fn new() -> Self {
-        Self
-    }
-
-    fn get_query_file_path(endpoint: &EndpointItem) -> String {
-        let namespace = endpoint.namespace.join("/");
-        format!("react-query/{namespace}/{}.query.ts", endpoint.operation_name)
-    }
-
-    fn get_mutation_file_path(endpoint: &EndpointItem) -> String {
-        let namespace = endpoint.namespace.join("/");
-        format!("react-query/{namespace}/{}.mutation.ts", endpoint.operation_name)
-    }
-
-    fn render_query_file(endpoint: &EndpointItem, ctx: &RenderContext) -> String {
-        // 渲染查询文件
-        // 使用 @aptx/api-query-adapter 和 @aptx/react-query
-        todo!()
-    }
-
-    fn render_mutation_file(endpoint: &EndpointItem, ctx: &RenderContext) -> String {
-        // 渲染变更文件
-        todo!()
-    }
-}
-
-impl TerminalPlugin for AptxReactQueryPlugin {
+impl Renderer for AptxReactQueryRenderer {
     fn id(&self) -> &'static str {
-        "react-query"
+        "aptx-react-query"
     }
 
-    fn name(&self) -> &'static str {
-        "@aptx React Query"
-    }
-
-    fn description(&self) -> &'static str {
-        "生成使用 @aptx/react-query 的 React Query Hooks"
-    }
-
-    fn render_endpoint(
-        &self,
-        endpoint: &EndpointItem,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String> {
-        let mut files = Vec::new();
-
-        if endpoint.supports_query {
-            files.push(PlannedFile {
-                path: Self::get_query_file_path(endpoint),
-                content: self.render_query_file(endpoint, ctx),
-            });
-        }
-
-        if endpoint.supports_mutation {
-            files.push(PlannedFile {
-                path: Self::get_mutation_file_path(endpoint),
-                content: self.render_mutation_file(endpoint, ctx),
-            });
-        }
-
-        Ok(files)
+    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
+        // 使用 @aptx 包的完整实现
+        // 可以自由引用 @aptx/api-query-adapter, @aptx/react-query 等
+        render_query_terminal(input, QueryTerminal::React)
     }
 }
 ```
 
-### 5.3 AptxVueQueryPlugin
+### 5.2 swagger_gen_standard
 
-```rust
-/// @aptx Vue Query 终端插件
-///
-/// 生成使用 @aptx/vue-query 的 Vue Query Composables
-pub struct AptxVueQueryPlugin;
+**Cargo.toml**:
 
-impl AptxVueQueryPlugin {
-    pub fn new() -> Self {
-        Self
-    }
+```toml
+[package]
+name = "swagger_gen_standard"
+version = "0.1.0"
+edition = "2021"
+description = "Standard renderers for swagger_gen"
 
-    fn get_query_file_path(endpoint: &EndpointItem) -> String {
-        let namespace = endpoint.namespace.join("/");
-        format!("vue-query/{namespace}/{}.query.ts", endpoint.operation_name)
-    }
-
-    fn get_mutation_file_path(endpoint: &EndpointItem) -> String {
-        let namespace = endpoint.namespace.join("/");
-        format!("vue-query/{namespace}/{}.mutation.ts", endpoint.operation_name)
-    }
-
-    fn render_query_file(endpoint: &EndpointItem, ctx: &RenderContext) -> String {
-        // 渲染查询文件
-        // 使用 @aptx/api-query-adapter 和 @aptx/vue-query
-        todo!()
-    }
-
-    fn render_mutation_file(endpoint: &EndpointItem, ctx: &RenderContext) -> String {
-        // 渲染变更文件
-        todo!()
-    }
-}
-
-impl TerminalPlugin for AptxVueQueryPlugin {
-    fn id(&self) -> &'static str {
-        "vue-query"
-    }
-
-    fn name(&self) -> &'static str {
-        "@aptx Vue Query"
-    }
-
-    fn description(&self) -> &'static str {
-        "生成使用 @aptx/vue-query 的 Vue Query Composables"
-    }
-
-    fn render_endpoint(
-        &self,
-        endpoint: &EndpointItem,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String> {
-        let mut files = Vec::new();
-
-        if endpoint.supports_query {
-            files.push(PlannedFile {
-                path: Self::get_query_file_path(endpoint),
-                content: self.render_query_file(endpoint, ctx),
-            });
-        }
-
-        if endpoint.supports_mutation {
-            files.push(PlannedFile {
-                path: Self::get_mutation_file_path(endpoint),
-                content: self.render_mutation_file(endpoint, ctx),
-            });
-        }
-
-        Ok(files)
-    }
-}
+[dependencies]
+swagger_gen = { path = "../swagger_gen" }
+Inflector = "0.11.4"
 ```
 
-### 5.4 标准终端插件
+**目录结构**:
+
+```
+swagger_gen_standard/
+├── Cargo.toml
+└── src/
+    ├── lib.rs
+    ├── axios_ts.rs    # AxiosTsRenderer
+    ├── axios_js.rs    # AxiosJsRenderer
+    └── uniapp.rs      # UniAppRenderer
+```
+
+**lib.rs**:
 
 ```rust
-/// 标准 Axios TypeScript 终端插件
-///
-/// 生成使用 tsyringe 和 axios 的服务类
-pub struct StandardAxiosTsPlugin;
+//! 标准通用渲染器
+//!
+//! 提供不依赖特定业务包的通用渲染器实现
 
-impl TerminalPlugin for StandardAxiosTsPlugin {
-    fn id(&self) -> &'static str {
-        "axios-ts"
-    }
+pub use swagger_gen::pipeline::{Renderer, GeneratorInput, RenderOutput};
+pub use swagger_gen::utils::{normalize_type_ref, ...};
 
-    fn name(&self) -> &'static str {
-        "Axios TypeScript"
-    }
+mod axios_ts;
+mod axios_js;
+mod uniapp;
 
-    fn description(&self) -> &'static str {
-        "生成使用 tsyringe 和 axios 的 TypeScript 服务类"
-    }
-
-    fn render_endpoint(
-        &self,
-        endpoint: &EndpointItem,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String> {
-        // 不依赖 @aptx 包的纯 axios 实现
-        todo!()
-    }
-}
+pub use axios_ts::AxiosTsRenderer;
+pub use axios_js::AxiosJsRenderer;
+pub use uniapp::UniAppRenderer;
 ```
 
 ---
 
 ## 6. 迁移步骤
 
-### 步骤 1：定义插件接口
+### 步骤 1：提取共享工具到核心
 
-**目标**：在 `swagger_gen` 中创建插件基础设施
+**目标**：将渲染器共享的工具函数提取到 swagger_gen 核心
 
-**文件**：`crates/swagger_gen/src/pipeline/plugin.rs`
+**新增文件**：`crates/swagger_gen/src/pipeline/utils/`
 
-```rust
-// plugin.rs
-pub trait TerminalPlugin: Send + Sync {
-    fn id(&self) -> &'static str;
-    fn name(&self) -> &'static str;
-    fn description(&self) -> &'static str;
-    fn render_endpoint(&self, endpoint: &EndpointItem, ctx: &RenderContext)
-        -> Result<Vec<PlannedFile>, String>;
-    fn render_all(&self, input: &GeneratorInput, ctx: &RenderContext)
-        -> Result<Vec<PlannedFile>, String>;
-}
-
-pub struct RenderContext {
-    pub model_import: Option<ModelImportConfig>,
-    pub client_import: Option<ClientImportConfig>,
-    pub project: ProjectContext,
-    pub user_config: serde_json::Value,
-    pub output_dir: std::path::PathBuf,
-    pub dry_run: bool,
-}
-
-pub struct PluginRegistry {
-    plugins: HashMap<String, Box<dyn TerminalPlugin>>,
-}
-
-impl PluginRegistry {
-    pub fn new() -> Self;
-    pub fn register(&mut self, plugin: Box<dyn TerminalPlugin>);
-    pub fn get(&self, id: &str) -> Option<&dyn TerminalPlugin>;
-    pub fn list(&self) -> Vec<PluginInfo>;
-}
 ```
-
-### 步骤 2：创建 @aptx 插件
-
-**目标**：将现有的 `@aptx` 相关代码迁移到独立插件
-
-**文件结构**：
-```
-crates/swagger_gen/src/pipeline/plugins/
+utils/
 ├── mod.rs
-├── aptx.rs          # AptxFunctionsPlugin, AptxReactQueryPlugin, AptxVueQueryPlugin
-└── standard.rs      # StandardAxiosTsPlugin, StandardAxiosJsPlugin, StandardUniAppPlugin
+├── type_utils.rs      # normalize_type_ref, is_identifier_type, is_primitive_type
+└── import_utils.rs    # get_model_import_base, should_use_package_import
 ```
 
-**迁移内容**：
-- `FunctionsRenderer` → `AptxFunctionsPlugin`
-- `ReactQueryRenderer` → `AptxReactQueryPlugin`
-- `VueQueryRenderer` → `AptxVueQueryPlugin`
+**修改**：`swagger_gen/src/lib.rs` 添加 utils 模块导出
 
-### 步骤 3：修改核心使用插件
+### 步骤 2：创建 swagger_gen_aptx crate
 
-**目标**：重构 `renderer.rs` 使用插件系统
+**目标**：创建独立 crate 并迁移 @aptx 专用渲染器
 
-**修改**：`crates/swagger_gen/src/pipeline/renderer.rs`
+**操作**：
+1. 创建 `crates/swagger_gen_aptx/` 目录结构
+2. 迁移 `FunctionsRenderer`, `ReactQueryRenderer`, `VueQueryRenderer`
+3. 迁移相关私有函数（`render_query_terminal`, `render_query_file` 等）
+4. 更新使用 `swagger_gen::utils` 中的共享函数
+
+### 步骤 3：创建 swagger_gen_standard crate
+
+**目标**：创建独立 crate 并迁移标准渲染器
+
+**操作**：
+1. 创建 `crates/swagger_gen_standard/` 目录结构
+2. 迁移 `AxiosTsRenderer`, `AxiosJsRenderer`, `UniAppRenderer`
+3. 迁移相关私有函数
+
+### 步骤 4：重构核心 orchestrator
+
+**目标**：支持外部渲染器注入
+
+**修改**：`crates/swagger_gen/src/pipeline/orchestrator.rs`
 
 ```rust
-// 修改前
-impl Renderer for ReactQueryRenderer {
-    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
-        render_query_terminal(input, QueryTerminal::React)  // 硬编码 @aptx
-    }
-}
-
-// 修改后
-pub struct PluginRenderer {
-    registry: Arc<PluginRegistry>,
-}
-
-impl PluginRenderer {
-    pub fn new(registry: Arc<PluginRegistry>) -> Self {
-        Self { registry }
-    }
-}
-
-impl Renderer for PluginRenderer {
-    fn id(&self) -> &'static str {
-        "plugin"
+impl CodegenPipeline {
+    /// 添加渲染器
+    pub fn with_renderer(mut self, renderer: Box<dyn Renderer>) -> Self {
+        self.renderers.push(renderer);
+        self
     }
 
-    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
-        let mut all_files = Vec::new();
-        let mut all_warnings = Vec::new();
-
-        // 从配置获取要使用的终端列表
-        for terminal_id in &input.project.terminals {
-            if let Some(plugin) = self.registry.get(terminal_id) {
-                let ctx = RenderContext::new(input.project.clone());
-                let files = plugin.render_all(input, &ctx)?;
-                all_files.extend(files);
-
-                // 执行 after_render 钩子
-                let warnings = plugin.after_render(&all_files, &ctx)?;
-                all_warnings.extend(warnings);
-            } else {
-                return Err(format!("Terminal not found: {terminal_id}"));
-            }
-        }
-
-        Ok(RenderOutput {
-            files: all_files,
-            warnings: all_warnings,
-        })
+    /// 添加多个渲染器
+    pub fn with_renderers(mut self, renderers: Vec<Box<dyn Renderer>>) -> Self {
+        self.renderers.extend(renderers);
+        self
     }
 }
 ```
 
-### 步骤 4：测试验证
+### 步骤 5：更新 Cargo Workspace
 
-**测试矩阵**：
+**修改**：`Cargo.toml` (workspace 根)
+
+```toml
+[workspace]
+members = [
+    "crates/swagger_tk",
+    "crates/swagger_gen",
+    "crates/swagger_gen_aptx",      # 新增
+    "crates/swagger_gen_standard",  # 新增
+    # ...
+]
+```
+
+### 步骤 6：测试验证
 
 | 测试项 | 描述 | 预期结果 |
 |--------|------|----------|
-| 现有终端 | 运行现有所有终端 | 输出与迁移前一致 |
-| 新增终端 | 添加自定义插件 | 成功注册和运行 |
-| 错误处理 | 不存在的终端 | 返回清晰错误信息 |
-| 配置切换 | 切换客户端导入模式 | 生成正确的导入语句 |
-| 并发执行 | 多个终端同时运行 | 无竞态条件 |
+| 核心纯净 | swagger_gen 不含 @aptx 引用 | 编译通过，无业务依赖 |
+| 渲染器迁移 | 使用新 crate 渲染器 | 输出与迁移前一致 |
+| 组合使用 | 同时使用多个 crate | 正确生成所有代码 |
+| 向后兼容 | 旧 API 继续工作 | 现有代码无需修改 |
 
 ---
 
 ## 7. 向后兼容策略
 
-### 7.1 API 兼容性
-
-#### 7.1.1 保留现有 Renderer 实现
+### 7.1 保留现有 Renderer Trait
 
 ```rust
-// 保留现有的 Renderer trait 和实现
-pub trait Renderer {
+// swagger_gen/src/pipeline/renderer.rs
+// Renderer trait 保持不变，确保现有代码兼容
+
+pub trait Renderer: Send + Sync {
     fn id(&self) -> &'static str;
     fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String>;
 }
-
-// 现有实现标记为 deprecated 但保持功能
-#[deprecated(since = "2.0.0", note = "Use AptxFunctionsPlugin instead")]
-impl Renderer for FunctionsRenderer {
-    // ... 现有实现
-}
 ```
 
-#### 7.1.2 提供适配器
+### 7.2 预设工厂方法 (可选保留)
 
 ```rust
-/// 将 TerminalPlugin 适配为 Renderer
-pub struct PluginAdapter {
-    plugin: Box<dyn TerminalPlugin>,
-    terminal_id: String,
-}
+// 如果需要保持现有 API，可以在 swagger_gen 中提供 re-export
 
-impl Renderer for PluginAdapter {
-    fn id(&self) -> &'static str {
-        &self.terminal_id
-    }
+// swagger_gen/src/lib.rs
+#[cfg(feature = "aptx")]
+pub use swagger_gen_aptx::{
+    AptxFunctionsRenderer,
+    AptxReactQueryRenderer,
+    AptxVueQueryRenderer,
+};
 
-    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
-        let ctx = RenderContext::new(input.project.clone());
-        let files = self.plugin.render_all(input, &ctx)?;
-        Ok(RenderOutput {
-            files,
-            warnings: vec![],
-        })
-    }
-}
+#[cfg(feature = "standard")]
+pub use swagger_gen_standard::{
+    AxiosTsRenderer,
+    AxiosJsRenderer,
+    UniAppRenderer,
+};
 ```
 
-### 7.2 CLI 参数兼容
+### 7.3 CLI 参数兼容
 
 ```bash
-# 现有用法继续有效
+# 现有用法继续有效（通过 feature flag）
 aptx-ft terminal:codegen --terminal react-query --output ./output
 
-# 新增插件式用法
-aptx-ft codegen run --terminals react-query,vue-query --output ./output
+# 新增 crate 式用法
+aptx-ft codegen run --renderers aptx-react-query,aptx-vue-query --output ./output
 ```
 
 ---
@@ -870,181 +503,476 @@ aptx-ft codegen run --terminals react-query,vue-query --output ./output
 
 ```mermaid
 graph LR
-    subgraph pipeline["crates/swagger_gen/src/pipeline/"]
-        A["mod.rs"]
-        B["model.rs"]
-        C["renderer.rs<br/>(硬编码 @aptx 引用)"]
-        D["orchestrator.rs"]
-        E["parser.rs"]
-        F["transform.rs"]
-        G["writer.rs"]
+    subgraph swagger_gen["crates/swagger_gen/"]
+        A["src/pipeline/"]
+        A --> B["renderer.rs<br/>(~800行，所有渲染器)"]
+        A --> C["orchestrator.rs"]
+        A --> D["其他模块..."]
     end
 
-    style C fill:#f99,stroke:#f66
+    style B fill:#f99,stroke:#f66
 ```
 
 ### 8.2 迁移后结构
 
 ```mermaid
-graph LR
-    subgraph pipeline["crates/swagger_gen/src/pipeline/"]
-        A["mod.rs"]
-        B["model.rs"]
-        C["plugin.rs<br/>(新增：插件核心接口)"]
-        D["renderer.rs<br/>(重构：使用插件系统)"]
-
-        subgraph plugins["plugins/ (新增)"]
-            P1["mod.rs"]
-            P2["aptx.rs<br/>(@aptx 系列插件)"]
-            P3["standard.rs<br/>(标准插件)"]
-        end
-
-        E["orchestrator.rs"]
-        F["parser.rs"]
-        G["transform.rs"]
-        H["writer.rs"]
+graph TB
+    subgraph swagger_gen["swagger_gen (核心)"]
+        A1["renderer.rs<br/>(~50行，只有 trait)"]
+        A2["utils/<br/>(~100行，共享工具)"]
+        A3["orchestrator.rs"]
+        A4["其他模块..."]
     end
 
-    style C fill:#9f9,stroke:#393
-    style D fill:#ff9,stroke:#963
-    style plugins fill:#bbf,stroke:#369
+    subgraph swagger_gen_aptx["swagger_gen_aptx"]
+        B1["functions.rs"]
+        B2["query_base.rs"]
+        B3["react_query.rs"]
+        B4["vue_query.rs"]
+    end
+
+    subgraph swagger_gen_standard["swagger_gen_standard"]
+        C1["axios_ts.rs"]
+        C2["axios_js.rs"]
+        C3["uniapp.rs"]
+    end
+
+    swagger_gen_aptx --> swagger_gen
+    swagger_gen_standard --> swagger_gen
+
+    style swagger_gen fill:#9f9,stroke:#393
+    style swagger_gen_aptx fill:#bbf,stroke:#369
+    style swagger_gen_standard fill:#bbf,stroke:#369
 ```
 
-### 8.3 新增文件清单
+### 8.3 文件清单
 
-| 文件 | 行数估计 | 说明 |
-|------|----------|------|
-| `plugin.rs` | ~200 | 插件核心接口定义 |
-| `plugins/mod.rs` | ~50 | 插件模块导出 |
-| `plugins/aptx.rs` | ~400 | @aptx 插件实现 |
-| `plugins/standard.rs` | ~300 | 标准插件实现 |
+| Crate | 文件 | 行数估计 | 说明 |
+|-------|------|----------|------|
+| swagger_gen | `renderer.rs` | ~50 | Renderer trait + NoopRenderer |
+| swagger_gen | `utils/mod.rs` | ~20 | 模块导出 |
+| swagger_gen | `utils/type_utils.rs` | ~50 | 类型处理工具 |
+| swagger_gen | `utils/import_utils.rs` | ~40 | 导入生成工具 |
+| swagger_gen_aptx | `lib.rs` | ~20 | Crate 入口 |
+| swagger_gen_aptx | `functions.rs` | ~150 | Functions 渲染器 |
+| swagger_gen_aptx | `query_base.rs` | ~200 | Query 共享逻辑 |
+| swagger_gen_aptx | `react_query.rs` | ~50 | React Query 渲染器 |
+| swagger_gen_aptx | `vue_query.rs` | ~50 | Vue Query 渲染器 |
+| swagger_gen_standard | `lib.rs` | ~20 | Crate 入口 |
+| swagger_gen_standard | `axios_ts.rs` | ~150 | Axios TS 渲染器 |
+| swagger_gen_standard | `axios_js.rs` | ~100 | Axios JS 渲染器 |
+| swagger_gen_standard | `uniapp.rs` | ~120 | UniApp 渲染器 |
 
 ---
 
-## 9. 示例代码
+## 9. 使用示例
 
-### 9.1 使用插件系统
+### 9.1 基本使用
 
 ```rust
-use swagger_gen::pipeline::{
-    PluginRegistry, RenderContext, AptxReactQueryPlugin,
-    AptxVueQueryPlugin, AptxFunctionsPlugin,
-};
+use swagger_gen::pipeline::{CodegenPipeline, OpenApiParser, Parser};
+use swagger_gen_aptx::{AptxReactQueryRenderer, AptxVueQueryRenderer};
+use swagger_gen_standard::AxiosTsRenderer;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 创建注册表
-    let mut registry = PluginRegistry::new();
+    let open_api = parse_openapi("openapi.json")?;
 
-    // 注册 @aptx 插件
-    registry.register(Box::new(AptxReactQueryPlugin::new()));
-    registry.register(Box::new(AptxVueQueryPlugin::new()));
-    registry.register(Box::new(AptxFunctionsPlugin::new()));
+    // 组合使用不同 crate 的渲染器
+    let pipeline = CodegenPipeline::default()
+        .with_renderer(Box::new(AptxReactQueryRenderer))
+        .with_renderer(Box::new(AptxVueQueryRenderer))
+        .with_renderer(Box::new(AxiosTsRenderer));
 
-    // 注册标准插件
-    registry.register(Box::new(StandardAxiosTsPlugin::new()));
-
-    // 使用插件渲染
-    let input = parse_openapi("openapi.json")?;
-    let ctx = RenderContext::new(input.project.clone());
-
-    let plugin = registry.get("react-query")
-        .ok_or("Plugin not found")?;
-
-    let files = plugin.render_all(&input, &ctx)?;
-
-    // 写入文件
-    for file in files {
-        std::fs::write(
-            format!("generated/{}", file.path),
-            file.content
-        )?;
-    }
+    let plan = pipeline.plan(&open_api)?;
+    println!("Generated {} files", plan.planned_files.len());
 
     Ok(())
 }
 ```
 
-### 9.2 创建自定义插件
+### 9.2 只使用核心功能
 
 ```rust
-/// 自定义 Axios 终端插件
-pub struct MyCustomAxiosPlugin;
+use swagger_gen::pipeline::{CodegenPipeline, Parser};
+use swagger_gen::utils::normalize_type_ref;
 
-impl TerminalPlugin for MyCustomAxiosPlugin {
+fn main() {
+    // 只依赖核心 crate，不含任何业务渲染器
+    let pipeline = CodegenPipeline::default();
+
+    // 使用核心工具函数
+    let normalized = normalize_type_ref("MyType");
+    println!("Normalized: {}", normalized);
+}
+```
+
+### 9.3 创建自定义渲染器
+
+```rust
+// 在用户自己的 crate 中
+use swagger_gen::pipeline::{Renderer, GeneratorInput, RenderOutput, PlannedFile};
+use swagger_gen::utils::normalize_type_ref;
+
+pub struct MyCustomRenderer;
+
+impl Renderer for MyCustomRenderer {
     fn id(&self) -> &'static str {
-        "my-axios"
+        "my-custom"
     }
 
-    fn name(&self) -> &'static str {
-        "My Custom Axios"
-    }
+    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
+        let files: Vec<PlannedFile> = input.endpoints
+            .iter()
+            .map(|endpoint| PlannedFile {
+                path: format!("{}.ts", endpoint.operation_name),
+                content: format!(
+                    "export async function {}() {{ /* custom impl */ }}",
+                    endpoint.operation_name
+                ),
+            })
+            .collect();
 
-    fn description(&self) -> &'static str {
-        "自定义 Axios 实现，使用特定的错误处理"
-    }
-
-    fn render_endpoint(
-        &self,
-        endpoint: &EndpointItem,
-        ctx: &RenderContext
-    ) -> Result<Vec<PlannedFile>, String> {
-        let content = format!(
-            "import axios from 'axios';\n\n\
-             export async function {}(input: any) {{\n\
-             // 自定义实现\n\
-             return axios.{}('{}', input);\n\
-             }}",
-            endpoint.operation_name,
-            endpoint.method.to_lowercase(),
-            endpoint.path
-        );
-
-        Ok(vec![PlannedFile {
-            path: format!("{}.ts", endpoint.operation_name),
-            content,
-        }])
+        Ok(RenderOutput {
+            files,
+            warnings: vec![],
+        })
     }
 }
-
-// 注册自定义插件
-registry.register(Box::new(MyCustomAxiosPlugin));
 ```
 
 ---
 
-## 10. 时间线和里程碑
+## 10. CLI 集成设计
 
-### 阶段 1：基础设施（1-2 周）
+### 10.1 命名空间命令方案
 
-- [ ] 定义 `TerminalPlugin` trait
-- [ ] 实现 `PluginRegistry`
-- [ ] 定义 `RenderContext`
-- [ ] 编写单元测试
+采用命名空间命令设计，每个渲染器 crate 注册自己的命令。
 
-### 阶段 2：@aptx 插件迁移（2-3 周）
+**命令格式**：`<namespace>:<renderer>`
 
-- [ ] 实现 `AptxFunctionsPlugin`
-- [ ] 实现 `AptxReactQueryPlugin`
-- [ ] 实现 `AptxVueQueryPlugin`
-- [ ] 迁移测试用例
+| Crate | 命令 | 说明 |
+|-------|------|------|
+| swagger_gen_aptx | `aptx:functions` | 生成 @aptx 函数式 API |
+| swagger_gen_aptx | `aptx:react-query` | 生成 @aptx React Query Hooks |
+| swagger_gen_aptx | `aptx:vue-query` | 生成 @aptx Vue Query Composables |
+| swagger_gen_standard | `std:axios-ts` | 生成 Axios TypeScript 服务 |
+| swagger_gen_standard | `std:axios-js` | 生成 Axios JavaScript 函数 |
+| swagger_gen_standard | `std:uniapp` | 生成 UniApp 服务 |
 
-### 阶段 3：核心重构（2-3 周）
+### 10.2 架构设计
 
-- [ ] 重构 `renderer.rs` 使用插件系统
-- [ ] 更新 `orchestrator.rs` 调用流程
+```mermaid
+graph TB
+    subgraph CLI["node_binding (CLI 框架)"]
+        A["CommandRegistry"]
+        B["命令路由"]
+    end
+
+    subgraph Aptx["swagger_gen_aptx"]
+        C["register_commands()"]
+        C1["aptx:functions"]
+        C2["aptx:react-query"]
+        C3["aptx:vue-query"]
+    end
+
+    subgraph Standard["swagger_gen_standard"]
+        D["register_commands()"]
+        D1["std:axios-ts"]
+        D2["std:axios-js"]
+        D3["std:uniapp"]
+    end
+
+    subgraph Custom["第三方 Crate"]
+        E["register_commands()"]
+        E1["custom:xxx"]
+    end
+
+    subgraph Core["swagger_gen (核心)"]
+        F["Renderer Trait"]
+        G["utils/"]
+    end
+
+    C --> A
+    D --> A
+    E --> A
+
+    Aptx --> Core
+    Standard --> Core
+    Custom --> Core
+
+    style CLI fill:#ff9,stroke:#963
+    style Core fill:#9f9,stroke:#393
+    style Aptx fill:#bbf,stroke:#369
+    style Standard fill:#bbf,stroke:#369
+    style Custom fill:#fcf,stroke:#939
+```
+
+### 10.3 命令注册实现
+
+#### 10.3.1 swagger_gen_aptx 命令注册
+
+```rust
+// swagger_gen_aptx/src/lib.rs
+
+use node_binding_plugin::{CommandRegistry, CommandDescriptor};
+use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter};
+
+mod functions;
+mod react_query;
+mod vue_query;
+
+/// 注册所有 @aptx 命令
+pub fn register_commands(registry: &CommandRegistry) {
+    // aptx:functions
+    registry.register_command_with_descriptor(
+        CommandDescriptor {
+            name: "aptx:functions".to_string(),
+            summary: "Generate @aptx function-style API calls".to_string(),
+            description: "生成使用 @aptx/api-client 的函数式 API 调用代码".to_string(),
+            options: vec![
+                OptionDescriptor {
+                    long: "output".to_string(),
+                    short: Some("o".to_string()),
+                    value_name: "DIR".to_string(),
+                    required: true,
+                    ..Default::default()
+                },
+                OptionDescriptor {
+                    long: "client-mode".to_string(),
+                    short: None,
+                    value_name: "MODE".to_string(),
+                    required: false,
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        },
+        Box::new(|args, open_api| {
+            let output = parse_output_arg(args)?;
+            let pipeline = CodegenPipeline::default()
+                .with_renderer(Box::new(FunctionsRenderer))
+                .with_writer(Box::new(FileSystemWriter::new(output)));
+            pipeline.plan(open_api)?;
+        }),
+    );
+
+    // aptx:react-query
+    registry.register_command_with_descriptor(
+        CommandDescriptor {
+            name: "aptx:react-query".to_string(),
+            summary: "Generate @aptx React Query hooks".to_string(),
+            description: "生成使用 @aptx/react-query 的 React Query Hooks".to_string(),
+            options: vec![/* ... */],
+            ..Default::default()
+        },
+        Box::new(|args, open_api| {
+            // 实现
+        }),
+    );
+
+    // aptx:vue-query
+    // ...
+}
+```
+
+#### 10.3.2 swagger_gen_standard 命令注册
+
+```rust
+// swagger_gen_standard/src/lib.rs
+
+use node_binding_plugin::{CommandRegistry, CommandDescriptor};
+
+mod axios_ts;
+mod axios_js;
+mod uniapp;
+
+/// 注册所有标准命令
+pub fn register_commands(registry: &CommandRegistry) {
+    // std:axios-ts
+    registry.register_command_with_descriptor(
+        CommandDescriptor {
+            name: "std:axios-ts".to_string(),
+            summary: "Generate Axios TypeScript service classes".to_string(),
+            description: "生成使用 tsyringe 和 axios 的 TypeScript 服务类".to_string(),
+            options: vec![/* ... */],
+            ..Default::default()
+        },
+        Box::new(|args, open_api| {
+            // 实现
+        }),
+    );
+
+    // std:axios-js
+    // std:uniapp
+    // ...
+}
+```
+
+### 10.4 CLI 初始化流程
+
+```rust
+// node_binding/src/lib.rs
+
+use swagger_gen_aptx;
+use swagger_gen_standard;
+
+pub fn run_cli() {
+    let registry = CommandRegistry::new();
+
+    // 各 crate 自行注册命令
+    swagger_gen_aptx::register_commands(&registry);
+    swagger_gen_standard::register_commands(&registry);
+
+    // 第三方插件加载
+    load_plugins(&registry);
+
+    // 执行命令
+    let args = std::env::args().collect::<Vec<_>>();
+    registry.execute(&args[1], &args[2..], &open_api);
+}
+```
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant CLI as CLI 入口
+    participant Reg as CommandRegistry
+    participant Aptx as swagger_gen_aptx
+    participant Std as swagger_gen_standard
+
+    CLI->>Reg: 创建 CommandRegistry
+
+    CLI->>Aptx: register_commands(&registry)
+    Aptx->>Reg: register("aptx:functions", ...)
+    Aptx->>Reg: register("aptx:react-query", ...)
+    Aptx->>Reg: register("aptx:vue-query", ...)
+
+    CLI->>Std: register_commands(&registry)
+    Std->>Reg: register("std:axios-ts", ...)
+    Std->>Reg: register("std:axios-js", ...)
+    Std->>Reg: register("std:uniapp", ...)
+
+    User->>CLI: aptx-ft aptx:react-query -o ./output
+    CLI->>Reg: execute("aptx:react-query", args)
+    Reg->>Aptx: 执行命令回调
+```
+
+### 10.5 使用示例
+
+```bash
+# 列出所有可用命令
+aptx-ft --help
+
+# @aptx 命令
+aptx-ft aptx:functions -o ./src/generated
+aptx-ft aptx:react-query -o ./src/generated
+aptx-ft aptx:vue-query -o ./src/generated
+
+# 标准命令
+aptx-ft std:axios-ts -o ./src/services
+aptx-ft std:axios-js -o ./src/api
+aptx-ft std:uniapp -o ./src/services
+
+# 带客户端配置
+aptx-ft aptx:react-query -o ./src/generated --client-mode local --client-path ./api
+```
+
+### 10.6 内置命令变更
+
+| 原命令 | 新方案 | 说明 |
+|--------|--------|------|
+| `terminal:codegen --terminal react-query` | `aptx:react-query` | 移除统一命令 |
+| `terminal:codegen --terminal axios-ts` | `std:axios-ts` | 移除统一命令 |
+| `terminal:list` | `--help` | 通过帮助查看所有命令 |
+| `model:gen` | 保持 | 模型生成不变 |
+
+### 10.7 第三方扩展
+
+第三方可以创建自己的渲染器 crate：
+
+```rust
+// my_custom_renderer/src/lib.rs
+
+use node_binding_plugin::{CommandRegistry, CommandDescriptor};
+use swagger_gen::pipeline::{Renderer, GeneratorInput, RenderOutput};
+
+pub struct MyRenderer;
+
+impl Renderer for MyRenderer {
+    fn id(&self) -> &'static str { "my-custom" }
+    fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
+        // 自定义实现
+    }
+}
+
+pub fn register_commands(registry: &CommandRegistry) {
+    registry.register_command_with_descriptor(
+        CommandDescriptor {
+            name: "my:custom".to_string(),
+            summary: "My custom code generator".to_string(),
+            // ...
+        },
+        Box::new(|args, open_api| {
+            // 使用 MyRenderer
+        }),
+    );
+}
+```
+
+### 10.8 方案优势
+
+| 优势 | 说明 |
+|------|------|
+| **命名清晰** | 命令名直接表明来源和用途 |
+| **完全解耦** | CLI 框架不包含任何业务渲染器 |
+| **易于扩展** | 第三方只需实现 register_commands |
+| **无命名冲突** | 命名空间隔离不同来源的命令 |
+| **核心纯净** | swagger_gen 只提供接口和工具 |
+
+---
+
+## 11. 时间线和里程碑
+
+### 阶段 1：核心重构（1 周）
+
+- [ ] 提取共享工具到 `utils/` 模块
+- [ ] 精简 `renderer.rs` 为只有 trait 定义
+- [ ] 更新 `lib.rs` 导出
+- [ ] 核心单元测试
+
+### 阶段 2：创建 swagger_gen_aptx（1-2 周）
+
+- [ ] 创建 crate 目录结构
+- [ ] 迁移 `FunctionsRenderer`
+- [ ] 迁移 `ReactQueryRenderer`
+- [ ] 迁移 `VueQueryRenderer`
+- [ ] 迁移相关私有函数
+- [ ] @aptx 渲染器测试
+
+### 阶段 3：创建 swagger_gen_standard（1 周）
+
+- [ ] 创建 crate 目录结构
+- [ ] 迁移 `AxiosTsRenderer`
+- [ ] 迁移 `AxiosJsRenderer`
+- [ ] 迁移 `UniAppRenderer`
+- [ ] 标准渲染器测试
+
+### 阶段 4：CLI 命名空间命令集成（1 周）
+
+- [ ] swagger_gen_aptx 实现 `register_commands()`
+- [ ] swagger_gen_standard 实现 `register_commands()`
+- [ ] node_binding 调用各 crate 的命令注册
+- [ ] 命令命名：`aptx:functions`, `aptx:react-query`, `aptx:vue-query`
+- [ ] 命令命名：`std:axios-ts`, `std:axios-js`, `std:uniapp`
+- [ ] 移除旧的 `terminal:codegen` 命令
+
+### 阶段 5：集成测试和文档（1 周）
+
+- [ ] 更新 orchestrator 支持渲染器注入
+- [ ] 更新 Cargo workspace
 - [ ] 集成测试
-
-### 阶段 4：兼容性保证（1-2 周）
-
-- [ ] 实现 `PluginAdapter`
-- [ ] 保留现有 API
+- [ ] 更新 skill 文档（generate-artifacts）
 - [ ] 文档更新
-
-### 阶段 5：标准插件（可选，1-2 周）
-
-- [ ] 实现 `StandardAxiosTsPlugin`
-- [ ] 实现 `StandardAxiosJsPlugin`
-- [ ] 实现 `StandardUniAppPlugin`
 
 ---
 
@@ -1058,19 +986,79 @@ registry.register(Box::new(MyCustomAxiosPlugin));
 
 ### B. 迁移检查清单
 
-- [ ] 所有 @aptx 引用已移出核心代码
-- [ ] 插件接口设计完整且稳定
-- [ ] 现有终端输出与迁移前一致
+**核心纯净性：**
+- [ ] swagger_gen 核心不包含任何 @aptx 引用
+- [ ] Renderer trait 稳定
+- [ ] 共享工具函数正确导出
+
+**渲染器 Crate：**
+- [ ] swagger_gen_aptx 输出与迁移前一致
+- [ ] swagger_gen_standard 输出与迁移前一致
+
+**CLI 命名空间命令：**
+- [ ] swagger_gen_aptx 提供 `register_commands()` 函数
+- [ ] swagger_gen_standard 提供 `register_commands()` 函数
+- [ ] node_binding 调用各 crate 的命令注册
+- [ ] 命令格式正确（`aptx:xxx`, `std:xxx`）
+- [ ] 移除旧的 `terminal:codegen` 命令
+
+**测试与文档：**
 - [ ] 单元测试覆盖率不低于 80%
 - [ ] 集成测试通过
-- [ ] 文档更新完成
-- [ ] 向后兼容性验证通过
+- [ ] skill 文档更新完成
 
 ### C. 风险与缓解
 
 | 风险 | 影响 | 缓解措施 |
 |------|------|----------|
-| API 变更导致用户代码中断 | 高 | 提供适配器层，保留现有 API |
-| 性能回退 | 中 | 基准测试，优化关键路径 |
-| 插件生态系统碎片化 | 低 | 提供清晰的插件开发指南 |
+| 多 crate 管理复杂度 | 中 | 使用 cargo workspace 统一管理版本 |
+| 公共代码重复 | 低 | 提取到核心 utils 模块 |
 | 迁移时间超预期 | 中 | 分阶段实施，每阶段独立可用 |
+| 命令命名冲突 | 低 | 使用命名空间隔离（`aptx:`, `std:`） |
+
+### D. 依赖关系图
+
+```mermaid
+graph BT
+    subgraph Renderers["渲染器 Crate"]
+        A[swagger_gen_aptx]
+        C[swagger_gen_standard]
+        D[用户自定义 crate]
+    end
+
+    subgraph Core["核心"]
+        B[swagger_gen]
+        E[swagger_tk]
+    end
+
+    subgraph CLI["CLI 层"]
+        F[node_binding]
+    end
+
+    A --> B
+    C --> B
+    D --> B
+    B --> E
+
+    F --> A
+    F --> C
+    F --> B
+
+    style B fill:#9f9,stroke:#393
+    style A fill:#bbf,stroke:#369
+    style C fill:#bbf,stroke:#369
+    style D fill:#fcf,stroke:#939
+    style F fill:#ff9,stroke:#963
+```
+
+### E. 命名空间命令映射
+
+| Crate | 命令 | 说明 |
+|-------|------|------|
+| swagger_gen_aptx | `aptx:functions` | 生成 @aptx 函数式 API |
+| swagger_gen_aptx | `aptx:react-query` | 生成 @aptx React Query Hooks |
+| swagger_gen_aptx | `aptx:vue-query` | 生成 @aptx Vue Query Composables |
+| swagger_gen_standard | `std:axios-ts` | 生成 Axios TypeScript 服务 |
+| swagger_gen_standard | `std:axios-js` | 生成 Axios JavaScript 函数 |
+| swagger_gen_standard | `std:uniapp` | 生成 UniApp 服务 |
+| 用户自定义 | `custom:xxx` | 自定义渲染器 |

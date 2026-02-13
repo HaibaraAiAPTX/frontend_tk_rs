@@ -120,6 +120,8 @@ dependencies = [
  "napi-derive",
  "serde_json",
  "swagger_gen",
+ "swagger_gen_aptx",
+ "swagger_gen_standard",
  "swagger_tk",
 ]
 
@@ -1591,6 +1593,22 @@ dependencies = [
  "serde",
  "serde_json",
  "swagger_tk",
+]
+
+[[package]]
+name = "swagger_gen_aptx"
+version = "0.1.0"
+dependencies = [
+ "Inflector",
+ "swagger_gen",
+]
+
+[[package]]
+name = "swagger_gen_standard"
+version = "0.1.0"
+dependencies = [
+ "Inflector",
+ "swagger_gen",
 ]
 
 [[package]]

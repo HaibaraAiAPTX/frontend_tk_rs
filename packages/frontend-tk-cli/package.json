@@ -1,8 +1,8 @@
 {
   "name": "@aptx/frontend-tk-cli",
   "version": "0.1.0",
-  "description": "",
-  "keywords": [],
+  "description": "Frontend toolkit CLI - assembles core with built-in plugins",
+  "keywords": ["frontend", "toolkit", "cli", "openapi", "codegen"],
   "author": "",
   "license": "ISC",
   "bin": {
@@ -17,6 +17,12 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@aptx/frontend-tk-core": "workspace:*",
+    "@aptx/frontend-tk-plugin-aptx": "workspace:*",
+    "@aptx/frontend-tk-plugin-standard": "workspace:*",
+    "@aptx/frontend-tk-plugin-model": "workspace:*",
+    "@aptx/frontend-tk-plugin-material": "workspace:*",
+    "@aptx/frontend-tk-plugin-input": "workspace:*",
     "@aptx/frontend-tk-binding": "workspace:*",
     "chalk": "^5.4.1",
     "commander": "^13.1.0"
