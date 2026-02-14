@@ -38,9 +38,9 @@ importers:
       '@aptx/frontend-tk-plugin-input':
         specifier: workspace:*
         version: link:../frontend-tk-plugin-input
-      '@aptx/frontend-tk-plugin-material':
+      '@aptx/frontend-tk-plugin-materal':
         specifier: workspace:*
-        version: link:../frontend-tk-plugin-material
+        version: link:../frontend-tk-plugin-materal
       '@aptx/frontend-tk-plugin-model':
         specifier: workspace:*
         version: link:../frontend-tk-plugin-model
@@ -106,7 +106,7 @@ importers:
         specifier: ^5.7.3
         version: 5.7.3
 
-  packages/frontend-tk-plugin-material:
+  packages/frontend-tk-plugin-materal:
     dependencies:
       '@aptx/frontend-tk-binding':
         specifier: workspace:*

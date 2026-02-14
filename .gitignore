@@ -32,3 +32,4 @@ crates/**/target
 frontend-openapi-skills
 aptx/
 test-generate/
+*.tsbuildinfo

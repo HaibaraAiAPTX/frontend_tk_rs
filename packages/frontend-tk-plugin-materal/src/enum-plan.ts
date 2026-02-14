@@ -2,7 +2,7 @@ import path from "path";
 import type { PluginContext, CommandHandler } from "@aptx/frontend-tk-core";
 
 /**
- * Run material:enum-plan command
+ * Run materal:enum-plan command
  * Exports enum enrichment plan JSON from model IR
  */
 export const runModelEnumPlan: CommandHandler = async (
@@ -11,7 +11,7 @@ export const runModelEnumPlan: CommandHandler = async (
 ): Promise<void> => {
   const output = args.output as string;
   if (!output) {
-    throw new Error("`--output` is required for material:enum-plan");
+    throw new Error("`--output` is required for materal:enum-plan");
   }
 
   const outputAbsolutePath = path.resolve(process.cwd(), output);
@@ -37,12 +37,12 @@ export const runModelEnumPlan: CommandHandler = async (
 };
 
 /**
- * Command descriptor for material:enum-plan
+ * Command descriptor for materal:enum-plan
  */
 export const enumPlanCommand = {
-  name: "material:enum-plan",
+  name: "materal:enum-plan",
   summary: "Export enum enrichment plan JSON from model IR",
-  description: "Generates an enum enrichment plan JSON file that can be edited and applied via material:enum-apply.",
+  description: "Generates an enum enrichment plan JSON file that can be edited and applied via materal:enum-apply.",
   options: [
     {
       flags: "-o, --output <file>",
@@ -56,9 +56,9 @@ export const enumPlanCommand = {
     },
   ],
   examples: [
-    "aptx-ft material enum-plan -o enum-plan.json",
-    "aptx-ft material enum-plan -o ./plans/enums.json",
-    "aptx-ft material enum-plan -o ./tmp/enum-plan.json --model-output ./src/models",
+    "aptx-ft materal enum-plan -o enum-plan.json",
+    "aptx-ft materal enum-plan -o ./plans/enums.json",
+    "aptx-ft materal enum-plan -o ./tmp/enum-plan.json --model-output ./src/models",
   ],
   handler: runModelEnumPlan,
 };

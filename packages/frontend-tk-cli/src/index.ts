@@ -9,7 +9,7 @@ import { createCli } from "@aptx/frontend-tk-core";
 import aptxPlugin from "@aptx/frontend-tk-plugin-aptx";
 import standardPlugin from "@aptx/frontend-tk-plugin-standard";
 import modelPlugin from "@aptx/frontend-tk-plugin-model";
-import materialPlugin from "@aptx/frontend-tk-plugin-material";
+import materalPlugin from "@aptx/frontend-tk-plugin-materal";
 import inputPlugin from "@aptx/frontend-tk-plugin-input";
 import { createCodegenRunCommand } from "./codegen-run";
 
@@ -20,7 +20,7 @@ const cli = createCli();
 cli.use(aptxPlugin);
 cli.use(standardPlugin);
 cli.use(modelPlugin);
-cli.use(materialPlugin);
+cli.use(materalPlugin);
 cli.use(inputPlugin);
 
 // Register CLI-specific convenience command (codegen:run)
