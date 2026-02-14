@@ -5,8 +5,9 @@
 use inflector::cases::pascalcase::to_pascal_case;
 
 use crate::{
-    get_client_call, get_client_import_lines, get_model_import_base, normalize_type_ref,
-    render_type_import_block, render_type_import_line, should_use_package_import,
+    get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
+    render_type_import_line, resolve_file_import_path, resolve_model_import_base,
+    should_use_package_import,
 };
 
 use swagger_gen::pipeline::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer};
@@ -25,23 +26,31 @@ impl Renderer for AptxFunctionsRenderer {
     }
 
     fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
-        let model_import_base = get_model_import_base(&input.model_import);
         let use_package = should_use_package_import(&input.model_import);
         let mut files = Vec::new();
 
         for endpoint in &input.endpoints {
+            let spec_path = get_spec_file_path(endpoint);
+            let function_path = get_function_file_path(endpoint);
+
+            // Calculate correct relative path for each file
+            let spec_model_import_base = resolve_model_import_base(input, &spec_path);
+            let function_model_import_base = resolve_model_import_base(input, &function_path);
+
             files.push(PlannedFile {
-                path: get_spec_file_path(endpoint),
-                content: render_spec_file(endpoint, &model_import_base, use_package),
+                path: spec_path,
+                content: render_spec_file(endpoint, &spec_model_import_base, use_package),
             });
+            let function_content = render_function_file(
+                endpoint,
+                &function_path,
+                &function_model_import_base,
+                use_package,
+                &input.client_import,
+            );
             files.push(PlannedFile {
-                path: get_function_file_path(endpoint),
-                content: render_function_file(
-                    endpoint,
-                    &model_import_base,
-                    use_package,
-                    &input.client_import,
-                ),
+                path: function_path,
+                content: function_content,
             });
         }
 
@@ -119,6 +128,7 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
 
 fn render_function_file(
     endpoint: &EndpointItem,
+    current_file_path: &str,
     model_import_base: &str,
     use_package: bool,
     client_import: &Option<swagger_gen::pipeline::ClientImportConfig>,
@@ -142,11 +152,12 @@ fn render_function_file(
         model_import_base,
         use_package,
     );
+    let spec_file_path = get_spec_file_path(endpoint);
+    let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
     format!(
-        "{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
-        namespace = endpoint.namespace.join("/"),
+        "{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
         operation_name = endpoint.operation_name,
         output_type = output_type,
         type_imports = type_imports,
@@ -154,6 +165,7 @@ fn render_function_file(
         client_call = client_call,
         input_signature = input_signature,
         builder_call = builder_call,
+        spec_import_path = spec_import_path,
     )
 }
 
@@ -213,5 +225,34 @@ mod tests {
             get_function_file_path(&endpoint),
             "functions/api/users/getUser.ts"
         );
+    }
+
+    #[test]
+    fn test_render_function_file_imports_spec_with_dynamic_relative_path() {
+        let endpoint = EndpointItem {
+            namespace: vec!["assignment".to_string()],
+            operation_name: "add".to_string(),
+            summary: None,
+            method: "POST".to_string(),
+            path: "/assignment/add".to_string(),
+            input_type_name: "AddInput".to_string(),
+            output_type_name: "AddOutput".to_string(),
+            request_body_field: None,
+            query_fields: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            supports_query: false,
+            supports_mutation: false,
+            deprecated: false,
+        };
+        let content = render_function_file(
+            &endpoint,
+            "functions/api/assignment/add.ts",
+            "../../../spec/types",
+            false,
+            &None,
+        );
+
+        assert!(content.contains("from \"../../../spec/endpoints/assignment/add\""));
     }
 }

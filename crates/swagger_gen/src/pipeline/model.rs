@@ -6,6 +6,8 @@ pub struct GeneratorInput {
     pub endpoints: Vec<EndpointItem>,
     pub model_import: Option<ModelImportConfig>,
     pub client_import: Option<ClientImportConfig>,
+    /// Output root directory for generated files (used for calculating relative import paths)
+    pub output_root: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,6 +15,8 @@ pub struct ModelImportConfig {
     pub import_type: String,
     pub package_path: Option<String>,
     pub relative_path: Option<String>,
+    /// Original model path as provided by user (before conversion to correct relative path)
+    pub original_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

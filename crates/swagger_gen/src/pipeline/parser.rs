@@ -48,6 +48,7 @@ impl Parser for OpenApiParser {
             endpoints,
             model_import: None,  // Will be set by configuration later
             client_import: None, // Will be set by configuration later
+            output_root: None,   // Will be set by pipeline later
         })
     }
 }

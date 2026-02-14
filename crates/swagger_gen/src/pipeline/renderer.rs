@@ -12,8 +12,8 @@ use std::collections::BTreeMap;
 
 use super::model::{ClientImportConfig, EndpointItem, GeneratorInput, PlannedFile, RenderOutput};
 use super::utils::{
-    get_client_call, get_client_import_lines, get_model_import_base, normalize_type_ref,
-    render_type_import_block, should_use_package_import,
+    get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
+    resolve_file_import_path, resolve_model_import_base, should_use_package_import,
 };
 
 /// Core trait for code generation renderers.
@@ -58,22 +58,30 @@ impl Renderer for FunctionsRenderer {
     }
 
     fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
-        let model_import_base = get_model_import_base(&input.model_import);
         let use_package = should_use_package_import(&input.model_import);
         let mut files = Vec::new();
         for endpoint in &input.endpoints {
+            let spec_path = get_spec_file_path(endpoint);
+            let function_path = get_function_file_path(endpoint);
+
+            // Calculate correct relative path for each file
+            let spec_model_import_base = resolve_model_import_base(input, &spec_path);
+            let function_model_import_base = resolve_model_import_base(input, &function_path);
+
             files.push(PlannedFile {
-                path: get_spec_file_path(endpoint),
-                content: render_spec_file(endpoint, &model_import_base, use_package),
+                path: spec_path,
+                content: render_spec_file(endpoint, &spec_model_import_base, use_package),
             });
+            let function_content = render_function_file(
+                endpoint,
+                &function_path,
+                &function_model_import_base,
+                use_package,
+                &input.client_import,
+            );
             files.push(PlannedFile {
-                path: get_function_file_path(endpoint),
-                content: render_function_file(
-                    endpoint,
-                    &model_import_base,
-                    use_package,
-                    &input.client_import,
-                ),
+                path: function_path,
+                content: function_content,
             });
         }
         Ok(RenderOutput {
@@ -288,6 +296,7 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
 
 fn render_function_file(
     endpoint: &EndpointItem,
+    current_file_path: &str,
     model_import_base: &str,
     use_package: bool,
     client_import: &Option<ClientImportConfig>,
@@ -311,11 +320,12 @@ fn render_function_file(
         model_import_base,
         use_package,
     );
+    let spec_file_path = get_spec_file_path(endpoint);
+    let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
     format!(
-        "{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
-        namespace = endpoint.namespace.join("/"),
+        "{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
         operation_name = endpoint.operation_name,
         output_type = output_type,
         type_imports = type_imports,
@@ -323,6 +333,7 @@ fn render_function_file(
         client_call = client_call,
         input_signature = input_signature,
         builder_call = builder_call,
+        spec_import_path = spec_import_path,
     )
 }
 
@@ -330,33 +341,40 @@ fn render_query_terminal(
     input: &GeneratorInput,
     terminal: QueryTerminal,
 ) -> Result<RenderOutput, String> {
-    let model_import_base = get_model_import_base(&input.model_import);
     let use_package = should_use_package_import(&input.model_import);
     let client_import = &input.client_import;
     let mut files = Vec::new();
     for endpoint in &input.endpoints {
         if endpoint.supports_query {
+            let query_path = get_query_file_path(endpoint, terminal);
+            let query_model_import_base = resolve_model_import_base(input, &query_path);
+            let query_content = render_query_file(
+                endpoint,
+                terminal,
+                &query_path,
+                &query_model_import_base,
+                use_package,
+                client_import,
+            );
             files.push(PlannedFile {
-                path: get_query_file_path(endpoint, terminal),
-                content: render_query_file(
-                    endpoint,
-                    terminal,
-                    &model_import_base,
-                    use_package,
-                    client_import,
-                ),
+                path: query_path,
+                content: query_content,
             });
         }
         if endpoint.supports_mutation {
+            let mutation_path = get_mutation_file_path(endpoint, terminal);
+            let mutation_model_import_base = resolve_model_import_base(input, &mutation_path);
+            let mutation_content = render_mutation_file(
+                endpoint,
+                terminal,
+                &mutation_path,
+                &mutation_model_import_base,
+                use_package,
+                client_import,
+            );
             files.push(PlannedFile {
-                path: get_mutation_file_path(endpoint, terminal),
-                content: render_mutation_file(
-                    endpoint,
-                    terminal,
-                    &model_import_base,
-                    use_package,
-                    client_import,
-                ),
+                path: mutation_path,
+                content: mutation_content,
             });
         }
     }
@@ -422,6 +440,7 @@ fn get_mutation_file_path(endpoint: &EndpointItem, terminal: QueryTerminal) -> S
 fn render_query_file(
     endpoint: &EndpointItem,
     terminal: QueryTerminal,
+    current_file_path: &str,
     model_import_base: &str,
     use_package: bool,
     client_import: &Option<ClientImportConfig>,
@@ -430,7 +449,6 @@ fn render_query_file(
     let hook_name = format!("use{}Query", to_pascal_case(&endpoint.operation_name));
     let query_def = format!("{}QueryDef", endpoint.operation_name);
     let key_name = format!("{}Key", endpoint.operation_name);
-    let namespace = endpoint.namespace.join("/");
     let key_prefix = endpoint
         .namespace
         .iter()
@@ -472,14 +490,14 @@ fn render_query_file(
 
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
+    let spec_file_path = get_spec_file_path(endpoint);
+    let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\n{normalize_input_line}\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec, options: any, queryContext: any) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\n{normalize_input_line}\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec, options: any, queryContext: any) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
-        namespace = namespace,
-        operation_name = endpoint.operation_name,
         input_type = input_type,
         output_type = output_type,
         type_imports = type_imports,
@@ -489,12 +507,14 @@ fn render_query_file(
         build_spec_line = build_spec_line,
         key_signature = key_signature,
         key_call = key_call,
+        spec_import_path = spec_import_path,
     )
 }
 
 fn render_mutation_file(
     endpoint: &EndpointItem,
     terminal: QueryTerminal,
+    current_file_path: &str,
     model_import_base: &str,
     use_package: bool,
     client_import: &Option<ClientImportConfig>,
@@ -502,7 +522,6 @@ fn render_mutation_file(
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let hook_name = format!("use{}Mutation", to_pascal_case(&endpoint.operation_name));
     let mutation_def = format!("{}MutationDef", endpoint.operation_name);
-    let namespace = endpoint.namespace.join("/");
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
@@ -522,20 +541,21 @@ fn render_mutation_file(
 
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
+    let spec_file_path = get_spec_file_path(endpoint);
+    let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
 
     format!(
-        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec, options) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
+        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec, options) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
         hook_factory = mutation_hook_factory(terminal),
         hook_alias = mutation_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
-        namespace = namespace,
-        operation_name = endpoint.operation_name,
         input_type = input_type,
         output_type = output_type,
         type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
         build_spec_line = build_spec_line,
+        spec_import_path = spec_import_path,
     )
 }
 
@@ -769,5 +789,58 @@ fn render_uniapp_method(endpoint: &EndpointItem) -> String {
         format!("{summary}  {method_name}() {{\n    return {call};\n  }}")
     } else {
         format!("{summary}  {method_name}({signature}) {{\n    return {call};\n }}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_endpoint(namespace: Vec<&str>, operation_name: &str) -> EndpointItem {
+        EndpointItem {
+            namespace: namespace.into_iter().map(str::to_string).collect(),
+            operation_name: operation_name.to_string(),
+            summary: None,
+            method: "POST".to_string(),
+            path: "/demo".to_string(),
+            input_type_name: "DemoInput".to_string(),
+            output_type_name: "DemoOutput".to_string(),
+            request_body_field: None,
+            query_fields: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            supports_query: true,
+            supports_mutation: true,
+            deprecated: false,
+        }
+    }
+
+    #[test]
+    fn function_file_should_import_spec_with_dynamic_relative_path() {
+        let endpoint = make_endpoint(vec!["assignment"], "add");
+        let content = render_function_file(
+            &endpoint,
+            "functions/api/assignment/add.ts",
+            "../../../spec/types",
+            false,
+            &None,
+        );
+
+        assert!(content.contains("from \"../../../spec/endpoints/assignment/add\""));
+    }
+
+    #[test]
+    fn query_file_should_import_spec_with_dynamic_relative_path() {
+        let endpoint = make_endpoint(vec!["group", "item"], "queryOne");
+        let content = render_query_file(
+            &endpoint,
+            QueryTerminal::React,
+            "react-query/group/item/queryOne.query.ts",
+            "../../../spec/types",
+            false,
+            &None,
+        );
+
+        assert!(content.contains("from \"../../../spec/endpoints/group/item/queryOne\""));
     }
 }

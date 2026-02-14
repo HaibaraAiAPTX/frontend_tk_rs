@@ -47,6 +47,7 @@ mod tests {
             endpoints: vec![],
             model_import: None,
             client_import: None,
+            output_root: None,
         };
 
         let result = renderer.render(&input).unwrap();

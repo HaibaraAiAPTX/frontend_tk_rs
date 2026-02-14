@@ -35,6 +35,9 @@ fn build_client_import_config(
 }
 
 /// Convert model mode options to ModelImportConfig
+///
+/// For relative paths, the original path is stored and will be resolved
+/// relative to each generated file's location during rendering.
 fn build_model_import_config(
     model_mode: Option<&str>,
     model_path: Option<&str>,
@@ -45,11 +48,14 @@ fn build_model_import_config(
             import_type: "package".to_string(),
             package_path: Some(model_path.unwrap_or("@my-org/models").to_string()),
             relative_path: None,
+            original_path: model_path.map(|s| s.to_string()),
         }),
         Some("relative") => Some(ModelImportConfig {
             import_type: "relative".to_string(),
             package_path: None,
-            relative_path: Some(model_path.unwrap_or("../../../spec/types").to_string()),
+            // Default relative path (will be recalculated during rendering if model_path is provided)
+            relative_path: None,
+            original_path: model_path.map(|s| s.to_string()),
         }),
         _ => None,
     }
@@ -63,6 +69,8 @@ pub struct CodegenPipeline {
     writer: Box<dyn Writer>,
     client_import: Option<ClientImportConfig>,
     model_import: Option<ModelImportConfig>,
+    /// Output root directory (used for calculating relative import paths)
+    output_root: Option<String>,
 }
 
 impl Default for CodegenPipeline {
@@ -75,6 +83,7 @@ impl Default for CodegenPipeline {
             writer: Box::new(DryRunWriter),
             client_import: None,
             model_import: None,
+            output_root: None,
         }
     }
 }
@@ -108,10 +117,17 @@ impl CodegenPipeline {
         self.writer = writer;
         self
     }
+
+    /// Set output root directory (used for calculating relative import paths)
+    pub fn with_output_root(mut self, output_root: Option<String>) -> Self {
+        self.output_root = output_root;
+        self
+    }
 }
 
 impl CodegenPipeline {
     pub fn functions_contract_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        let output_root_path = output_root.as_ref().to_string_lossy().to_string();
         Self {
             parser: Box::new(OpenApiParser),
             transforms: vec![Box::new(NormalizeEndpointPass)],
@@ -120,10 +136,12 @@ impl CodegenPipeline {
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
             model_import: None,
+            output_root: Some(output_root_path),
         }
     }
 
     pub fn react_query_contract_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        let output_root_path = output_root.as_ref().to_string_lossy().to_string();
         Self {
             parser: Box::new(OpenApiParser),
             transforms: vec![Box::new(NormalizeEndpointPass)],
@@ -132,10 +150,12 @@ impl CodegenPipeline {
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
             model_import: None,
+            output_root: Some(output_root_path),
         }
     }
 
     pub fn vue_query_contract_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        let output_root_path = output_root.as_ref().to_string_lossy().to_string();
         Self {
             parser: Box::new(OpenApiParser),
             transforms: vec![Box::new(NormalizeEndpointPass)],
@@ -144,10 +164,12 @@ impl CodegenPipeline {
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
             model_import: None,
+            output_root: Some(output_root_path),
         }
     }
 
     pub fn axios_ts_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        let output_root_path = output_root.as_ref().to_string_lossy().to_string();
         Self {
             parser: Box::new(OpenApiParser),
             transforms: vec![Box::new(NormalizeEndpointPass)],
@@ -156,10 +178,12 @@ impl CodegenPipeline {
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
             model_import: None,
+            output_root: Some(output_root_path),
         }
     }
 
     pub fn axios_js_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        let output_root_path = output_root.as_ref().to_string_lossy().to_string();
         Self {
             parser: Box::new(OpenApiParser),
             transforms: vec![Box::new(NormalizeEndpointPass)],
@@ -168,10 +192,12 @@ impl CodegenPipeline {
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
             model_import: None,
+            output_root: Some(output_root_path),
         }
     }
 
     pub fn uniapp_v1(output_root: impl AsRef<std::path::Path>) -> Self {
+        let output_root_path = output_root.as_ref().to_string_lossy().to_string();
         Self {
             parser: Box::new(OpenApiParser),
             transforms: vec![Box::new(NormalizeEndpointPass)],
@@ -180,6 +206,7 @@ impl CodegenPipeline {
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
             model_import: None,
+            output_root: Some(output_root_path),
         }
     }
 
@@ -200,6 +227,13 @@ impl CodegenPipeline {
         if let Some(ref model_import) = self.model_import {
             input.model_import = Some(model_import.clone());
         }
+        // Apply output_root for relative path calculation.
+        // Prefer explicit configuration; otherwise infer from writer.
+        input.output_root = self.output_root.clone().or_else(|| {
+            self.writer
+                .output_root()
+                .map(|path| path.to_string_lossy().to_string())
+        });
 
         let transform_start = Instant::now();
         let mut transform_steps = Vec::new();

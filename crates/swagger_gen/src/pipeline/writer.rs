@@ -8,6 +8,9 @@ use super::model::{PlannedFile, WritePlan};
 pub trait Writer {
     fn id(&self) -> &'static str;
     fn write(&self, files: Vec<PlannedFile>) -> Result<WritePlan, String>;
+    fn output_root(&self) -> Option<&Path> {
+        None
+    }
 }
 
 #[derive(Default)]
@@ -71,5 +74,9 @@ impl Writer for FileSystemWriter {
             files_to_write,
             skipped_files,
         })
+    }
+
+    fn output_root(&self) -> Option<&Path> {
+        Some(&self.output_root)
     }
 }

@@ -7,7 +7,8 @@ mod import_utils;
 mod type_utils;
 
 pub use import_utils::{
-    get_client_call, get_client_import_lines, get_model_import_base, should_use_package_import,
+    get_client_call, get_client_import_lines, get_model_import_base, resolve_file_import_path,
+    resolve_model_import_base, should_use_package_import,
 };
 
 pub use type_utils::{
