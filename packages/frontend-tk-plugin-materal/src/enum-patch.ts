@@ -62,6 +62,11 @@ export const enumPatchCommand = {
   description: "Fetches enum key/value pairs from Materal backend endpoints and exports a standard enum patch JSON file.",
   options: [
     {
+      flags: "-i, --input <path>",
+      description: "OpenAPI spec file path or URL",
+      required: false,
+    },
+    {
       flags: "--base-url <url>",
       description: "Materal backend API base URL",
       required: true,

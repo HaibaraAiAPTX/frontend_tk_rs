@@ -45,6 +45,11 @@ export const enumPlanCommand = {
   description: "Generates an enum enrichment plan JSON file that can be edited and applied via materal:enum-apply.",
   options: [
     {
+      flags: "-i, --input <path>",
+      description: "OpenAPI spec file path or URL",
+      required: false,
+    },
+    {
       flags: "-o, --output <file>",
       description: "Output JSON file path for the enum plan",
       required: true,

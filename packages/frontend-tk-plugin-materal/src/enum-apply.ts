@@ -72,6 +72,11 @@ export const enumApplyCommand = {
   description: "Applies an enum patch JSON file (created by materal:enum-plan) and generates TypeScript model files with enum types.",
   options: [
     {
+      flags: "-i, --input <path>",
+      description: "OpenAPI spec file path or URL",
+      required: false,
+    },
+    {
       flags: "-o, --output <dir>",
       description: "Output directory for generated model files",
       required: true,
