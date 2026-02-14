@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs,
     path::PathBuf,
     str::FromStr,
@@ -7,8 +8,8 @@ use std::{
 
 use swagger_gen::model_pipeline::{
     EnumConflictPolicy, EnumPatch, EnumPatchMember, ModelRenderStyle, build_model_enum_plan_json,
-    build_model_ir_snapshot_json, generate_model_files, generate_model_files_with_enum_patch,
-    parse_openapi_to_model_ir,
+    build_model_enum_plan_json_with_existing, build_model_ir_snapshot_json, generate_model_files,
+    generate_model_files_with_enum_patch, parse_openapi_to_model_ir,
 };
 use swagger_tk::model::OpenAPIObject;
 use utils::get_open_api_object;
@@ -132,6 +133,68 @@ fn generate_model_files_with_enum_patch_test() {
     assert!(enum_file.contains("PendingPayment"));
     assert!(enum_file.contains("CanceledBySystem = 99"));
     assert!(enum_file.contains("/** 待支付 */"));
+}
+
+#[test]
+fn build_model_enum_plan_json_with_existing_should_preserve_translated_name() {
+    let open_api_object = OpenAPIObject::from_str(
+        r#"
+{
+  "openapi": "3.1.0",
+  "info": { "title": "enum-test", "version": "1.0.0" },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "OrderStatus": {
+        "type": "string",
+        "enum": ["成功", "失败"]
+      }
+    }
+  }
+}
+"#,
+    )
+    .expect("build openapi object fail");
+
+    let mut members = HashMap::new();
+    members.insert("成功".to_string(), "Success".to_string());
+    members.insert("失败".to_string(), "Value2".to_string());
+    let mut existing = HashMap::new();
+    existing.insert("OrderStatus".to_string(), members);
+
+    let snapshot = build_model_enum_plan_json_with_existing(&open_api_object, Some(&existing))
+        .expect("build enum plan fail");
+    assert!(snapshot.contains("\"name\": \"Success\""));
+}
+
+#[test]
+fn build_model_enum_plan_json_with_existing_should_not_preserve_auto_generated_name() {
+    let open_api_object = OpenAPIObject::from_str(
+        r#"
+{
+  "openapi": "3.1.0",
+  "info": { "title": "enum-test", "version": "1.0.0" },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "OrderStatus": { "type": "string", "enum": ["failed", "success"] }
+    }
+  }
+}
+"#,
+    )
+    .expect("build openapi object fail");
+
+    let mut members = HashMap::new();
+    // Historical auto-generated name from a previous order; should not be reused.
+    members.insert("success".to_string(), "Value1".to_string());
+    let mut existing = HashMap::new();
+    existing.insert("OrderStatus".to_string(), members);
+
+    let snapshot = build_model_enum_plan_json_with_existing(&open_api_object, Some(&existing))
+        .expect("build enum plan fail");
+    assert!(snapshot.contains("\"value\": \"success\""));
+    assert!(snapshot.contains("\"name\": \"Value2\""));
 }
 
 fn get_temp_test_dir(prefix: &str) -> PathBuf {

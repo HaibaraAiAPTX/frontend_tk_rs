@@ -109,15 +109,22 @@ function createModelCommands(): CommandDescriptor[] {
       description: 'Analyzes enums in the OpenAPI spec and creates an enrichment plan.',
       options: [
         ...commonModelOptions,
+        {
+          flags: '--model-output <dir>',
+          description: 'Existing generated model directory for enum name reuse',
+          required: false,
+        },
       ],
       examples: [
         'aptx-ft model enum-plan --input openapi.json --output ./enum-plan.json',
+        'aptx-ft model enum-plan --input openapi.json --output ./tmp/enum-plan.json --model-output ./src/models',
       ],
       handler: async (ctx: PluginContext, args: Record<string, unknown>) => {
         const binding = ctx.binding as any;
         if (typeof binding.runCli === 'function') {
           const options: string[] = [];
           if (args.output) options.push('--output', String(args.output));
+          if (args.modelOutput) options.push('--model-output', String(args.modelOutput));
 
           binding.runCli({
             input: args.input as string | undefined,

@@ -15,13 +15,22 @@ export const runModelEnumPlan: CommandHandler = async (
   }
 
   const outputAbsolutePath = path.resolve(process.cwd(), output);
+  const modelOutput = args.modelOutput as string | undefined;
+  const modelOutputAbsolutePath = modelOutput
+    ? path.resolve(process.cwd(), modelOutput)
+    : undefined;
 
   ctx.log(`Generating enum plan to: ${outputAbsolutePath}`);
+
+  const options = ["--output", outputAbsolutePath];
+  if (modelOutputAbsolutePath) {
+    options.push("--model-output", modelOutputAbsolutePath);
+  }
 
   ctx.binding.runCli({
     input: args.input as string,
     command: "model:enum-plan",
-    options: ["--output", outputAbsolutePath],
+    options,
   });
 
   ctx.log("Enum plan generated successfully");
@@ -40,10 +49,16 @@ export const enumPlanCommand = {
       description: "Output JSON file path for the enum plan",
       required: true,
     },
+    {
+      flags: "--model-output <dir>",
+      description: "Existing generated model directory used to reuse translated enum names",
+      required: false,
+    },
   ],
   examples: [
     "aptx-ft material enum-plan -o enum-plan.json",
     "aptx-ft material enum-plan -o ./plans/enums.json",
+    "aptx-ft material enum-plan -o ./tmp/enum-plan.json --model-output ./src/models",
   ],
   handler: runModelEnumPlan,
 };
