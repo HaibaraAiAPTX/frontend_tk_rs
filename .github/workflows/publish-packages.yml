@@ -1,0 +1,221 @@
+name: Publish Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10'
+
+jobs:
+  # Stage 1: Build all packages
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm -r --filter './packages/*' run build
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-dist
+          path: |
+            packages/*/dist
+            packages/*/bin
+          retention-days: 1
+
+  # Stage 2: Publish core (depends on binding from native workflow)
+  publish-core:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-dist
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Configure npm registry
+        run: |
+          echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
+          echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+          echo "strict-ssl=false" >> ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
+
+      - name: Publish @aptx/frontend-tk-core
+        working-directory: packages/frontend-tk-core
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "SKIP: ${name}@${version} already exists"
+          else
+            npm publish --ignore-scripts
+            echo "PUBLISHED: ${name}@${version}"
+          fi
+
+  # Stage 3: Publish plugins (parallel, depends on core)
+  publish-plugins:
+    needs: publish-core
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - frontend-tk-plugin-aptx
+          - frontend-tk-plugin-input
+          - frontend-tk-plugin-materal
+          - frontend-tk-plugin-model
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-dist
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Configure npm registry
+        run: |
+          echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
+          echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+          echo "strict-ssl=false" >> ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
+
+      - name: Publish @aptx/${{ matrix.package }}
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "SKIP: ${name}@${version} already exists"
+          else
+            npm publish --ignore-scripts
+            echo "PUBLISHED: ${name}@${version}"
+          fi
+
+  # Stage 4: Publish CLI (depends on all plugins)
+  publish-cli:
+    needs: publish-plugins
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-dist
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Configure npm registry
+        run: |
+          echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
+          echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+          echo "strict-ssl=false" >> ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
+
+      - name: Publish @aptx/frontend-tk-cli
+        working-directory: packages/frontend-tk-cli
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "SKIP: ${name}@${version} already exists"
+          else
+            npm publish --ignore-scripts
+            echo "PUBLISHED: ${name}@${version}"
+          fi
+
+  # Summary
+  summary:
+    needs: [publish-core, publish-plugins, publish-cli]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          echo "## Publish Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.publish-core.result }}" == "success" ] && \
+             [ "${{ needs.publish-plugins.result }}" == "success" ] && \
+             [ "${{ needs.publish-cli.result }}" == "success" ]; then
+            echo "All packages published successfully!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+            echo "| core | ${{ needs.publish-core.result }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| plugins | ${{ needs.publish-plugins.result }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| cli | ${{ needs.publish-cli.result }} |" >> $GITHUB_STEP_SUMMARY
+          fi

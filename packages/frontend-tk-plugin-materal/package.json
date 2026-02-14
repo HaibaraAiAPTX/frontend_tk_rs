@@ -1,8 +1,15 @@
 {
   "name": "@aptx/frontend-tk-plugin-materal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Code generation terminal commands for frontend toolkit CLI",
-  "keywords": ["frontend", "toolkit", "cli", "plugin", "materal", "codegen"],
+  "keywords": [
+    "frontend",
+    "toolkit",
+    "cli",
+    "plugin",
+    "materal",
+    "codegen"
+  ],
   "author": "",
   "license": "ISC",
   "main": "dist/index.js",

@@ -1,8 +1,13 @@
 {
   "name": "@aptx/frontend-tk-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Core infrastructure for frontend toolkit CLI plugin system",
-  "keywords": ["frontend", "toolkit", "cli", "plugin"],
+  "keywords": [
+    "frontend",
+    "toolkit",
+    "cli",
+    "plugin"
+  ],
   "author": "",
   "license": "ISC",
   "main": "dist/index.js",

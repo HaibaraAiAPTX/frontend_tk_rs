@@ -1,8 +1,14 @@
 {
   "name": "@aptx/frontend-tk-plugin-aptx",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Aptx namespace commands for frontend toolkit CLI",
-  "keywords": ["frontend", "toolkit", "cli", "plugin", "aptx"],
+  "keywords": [
+    "frontend",
+    "toolkit",
+    "cli",
+    "plugin",
+    "aptx"
+  ],
   "author": "",
   "license": "ISC",
   "main": "dist/index.js",
