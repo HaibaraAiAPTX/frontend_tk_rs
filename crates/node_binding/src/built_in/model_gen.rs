@@ -10,7 +10,7 @@ pub struct ModelGenOps {
   #[arg(long)]
   output: String,
 
-  #[arg(long, default_value = "declaration")]
+  #[arg(long, default_value = "module")]
   style: String,
 
   #[arg(long)]
