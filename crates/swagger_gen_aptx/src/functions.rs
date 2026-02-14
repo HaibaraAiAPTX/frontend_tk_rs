@@ -66,12 +66,26 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let input_import = render_type_import_line(&input_type, model_import_base, use_package);
+    let is_void_input = input_type == "void";
+    let signature = if is_void_input {
+        String::new()
+    } else {
+        format!("input: {input_type}")
+    };
     let payload_field = endpoint
         .request_body_field
         .as_ref()
-        .map(|field| format!("  body: (input as any)?.{},\n", field))
+        .map(|field| {
+            if is_void_input {
+                String::new()
+            } else if endpoint.query_fields.is_empty() && endpoint.path_fields.is_empty() {
+                "  body: input,\n".to_string()
+            } else {
+                format!("  body: (input as any)?.{field},\n")
+            }
+        })
         .unwrap_or_default();
-    let query_lines = if endpoint.query_fields.is_empty() {
+    let query_lines = if endpoint.query_fields.is_empty() || is_void_input {
         String::new()
     } else {
         let keys = endpoint
@@ -90,14 +104,14 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
     };
 
     format!(
-        "{prefix}export function {builder}(input: {input_type}) {{
+        "{prefix}export function {builder}({signature}) {{
   return {{
     method: \"{method}\",
     path: \"{path}\",
 {query_lines}{payload_field}  }};
 }}
 ",
-        input_type = input_type,
+        signature = signature,
         method = endpoint.method,
         path = endpoint.path
     )
@@ -112,6 +126,17 @@ fn render_function_file(
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
+    let is_void_input = input_type == "void";
+    let input_signature = if is_void_input {
+        String::new()
+    } else {
+        format!("  input: {input_type},\n")
+    };
+    let builder_call = if is_void_input {
+        format!("{builder}()")
+    } else {
+        format!("{builder}(input)")
+    };
     let type_imports = render_type_import_block(
         &[input_type.as_str(), output_type.as_str()],
         model_import_base,
@@ -120,14 +145,15 @@ fn render_function_file(
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
     format!(
-        "{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport function {operation_name}(\n  input: {input_type},\n  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder}(input), options);\n}}\n",
+        "{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
         namespace = endpoint.namespace.join("/"),
         operation_name = endpoint.operation_name,
-        input_type = input_type,
         output_type = output_type,
         type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
+        input_signature = input_signature,
+        builder_call = builder_call,
     )
 }
 
@@ -159,7 +185,10 @@ mod tests {
             supports_mutation: false,
             deprecated: false,
         };
-        assert_eq!(get_spec_file_path(&endpoint), "spec/endpoints/users/getUser.ts");
+        assert_eq!(
+            get_spec_file_path(&endpoint),
+            "spec/endpoints/users/getUser.ts"
+        );
     }
 
     #[test]

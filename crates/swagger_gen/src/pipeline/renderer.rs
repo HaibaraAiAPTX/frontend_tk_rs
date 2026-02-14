@@ -68,7 +68,12 @@ impl Renderer for FunctionsRenderer {
             });
             files.push(PlannedFile {
                 path: get_function_file_path(endpoint),
-                content: render_function_file(endpoint, &model_import_base, use_package, &input.client_import),
+                content: render_function_file(
+                    endpoint,
+                    &model_import_base,
+                    use_package,
+                    &input.client_import,
+                ),
             });
         }
         Ok(RenderOutput {
@@ -228,13 +233,28 @@ fn get_function_file_path(endpoint: &EndpointItem) -> String {
 fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let input_type = normalize_type_ref(&endpoint.input_type_name);
-    let input_import = super::utils::render_type_import_line(&input_type, model_import_base, use_package);
+    let input_import =
+        super::utils::render_type_import_line(&input_type, model_import_base, use_package);
+    let is_void_input = input_type == "void";
+    let signature = if is_void_input {
+        String::new()
+    } else {
+        format!("input: {input_type}")
+    };
     let payload_field = endpoint
         .request_body_field
         .as_ref()
-        .map(|field| format!("  body: (input as any)?.{},\n", field))
+        .map(|field| {
+            if is_void_input {
+                String::new()
+            } else if endpoint.query_fields.is_empty() && endpoint.path_fields.is_empty() {
+                "  body: input,\n".to_string()
+            } else {
+                format!("  body: (input as any)?.{field},\n")
+            }
+        })
         .unwrap_or_default();
-    let query_lines = if endpoint.query_fields.is_empty() {
+    let query_lines = if endpoint.query_fields.is_empty() || is_void_input {
         String::new()
     } else {
         let keys = endpoint
@@ -253,23 +273,39 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
     };
 
     format!(
-        "{prefix}export function {builder}(input: {input_type}) {{
+        "{prefix}export function {builder}({signature}) {{
   return {{
     method: \"{method}\",
     path: \"{path}\",
 {query_lines}{payload_field}  }};
 }}
 ",
-        input_type = input_type,
+        signature = signature,
         method = endpoint.method,
         path = endpoint.path
     )
 }
 
-fn render_function_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool, client_import: &Option<ClientImportConfig>) -> String {
+fn render_function_file(
+    endpoint: &EndpointItem,
+    model_import_base: &str,
+    use_package: bool,
+    client_import: &Option<ClientImportConfig>,
+) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
+    let is_void_input = input_type == "void";
+    let input_signature = if is_void_input {
+        String::new()
+    } else {
+        format!("  input: {input_type},\n")
+    };
+    let builder_call = if is_void_input {
+        format!("{builder}()")
+    } else {
+        format!("{builder}(input)")
+    };
     let type_imports = render_type_import_block(
         &[input_type.as_str(), output_type.as_str()],
         model_import_base,
@@ -278,14 +314,15 @@ fn render_function_file(endpoint: &EndpointItem, model_import_base: &str, use_pa
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
     format!(
-        "{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport function {operation_name}(\n  input: {input_type},\n  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder}(input), options);\n}}\n",
+        "{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
         namespace = endpoint.namespace.join("/"),
         operation_name = endpoint.operation_name,
-        input_type = input_type,
         output_type = output_type,
         type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
+        input_signature = input_signature,
+        builder_call = builder_call,
     )
 }
 
@@ -301,13 +338,25 @@ fn render_query_terminal(
         if endpoint.supports_query {
             files.push(PlannedFile {
                 path: get_query_file_path(endpoint, terminal),
-                content: render_query_file(endpoint, terminal, &model_import_base, use_package, client_import),
+                content: render_query_file(
+                    endpoint,
+                    terminal,
+                    &model_import_base,
+                    use_package,
+                    client_import,
+                ),
             });
         }
         if endpoint.supports_mutation {
             files.push(PlannedFile {
                 path: get_mutation_file_path(endpoint, terminal),
-                content: render_mutation_file(endpoint, terminal, &model_import_base, use_package, client_import),
+                content: render_mutation_file(
+                    endpoint,
+                    terminal,
+                    &model_import_base,
+                    use_package,
+                    client_import,
+                ),
             });
         }
     }
@@ -370,7 +419,13 @@ fn get_mutation_file_path(endpoint: &EndpointItem, terminal: QueryTerminal) -> S
     )
 }
 
-fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_import_base: &str, use_package: bool, client_import: &Option<ClientImportConfig>) -> String {
+fn render_query_file(
+    endpoint: &EndpointItem,
+    terminal: QueryTerminal,
+    model_import_base: &str,
+    use_package: bool,
+    client_import: &Option<ClientImportConfig>,
+) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let hook_name = format!("use{}Query", to_pascal_case(&endpoint.operation_name));
     let query_def = format!("{}QueryDef", endpoint.operation_name);
@@ -386,17 +441,40 @@ fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_imp
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
-    let type_imports = render_type_import_block(
-        &[input_type.as_str(), output_type.as_str()],
-        model_import_base,
-        use_package,
-    );
+    let is_void_input = input_type == "void";
+    let input_import_types = if is_void_input {
+        vec![output_type.as_str()]
+    } else {
+        vec![input_type.as_str(), output_type.as_str()]
+    };
+    let type_imports =
+        render_type_import_block(&input_import_types, model_import_base, use_package);
+    let build_spec_line = if is_void_input {
+        format!("  buildSpec: () => {builder}(),\n")
+    } else {
+        format!("  buildSpec: {builder},\n")
+    };
+    let normalize_input_line = if is_void_input {
+        "const normalizeInput = () => \"null\";".to_string()
+    } else {
+        format!("const normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);")
+    };
+    let key_signature = if is_void_input {
+        "()".to_string()
+    } else {
+        format!("(input: {input_type})")
+    };
+    let key_call = if is_void_input {
+        "normalizeInput()".to_string()
+    } else {
+        "normalizeInput(input)".to_string()
+    };
 
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nconst normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n  buildSpec: {builder},\n  execute: (spec, options: any, queryContext: any) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = (input: {input_type}) =>\n  [...{query_def}.keyPrefix, normalizeInput(input)] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\n{normalize_input_line}\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec, options: any, queryContext: any) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -407,10 +485,20 @@ fn render_query_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_imp
         type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
+        normalize_input_line = normalize_input_line,
+        build_spec_line = build_spec_line,
+        key_signature = key_signature,
+        key_call = key_call,
     )
 }
 
-fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_import_base: &str, use_package: bool, client_import: &Option<ClientImportConfig>) -> String {
+fn render_mutation_file(
+    endpoint: &EndpointItem,
+    terminal: QueryTerminal,
+    model_import_base: &str,
+    use_package: bool,
+    client_import: &Option<ClientImportConfig>,
+) -> String {
     let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
     let hook_name = format!("use{}Mutation", to_pascal_case(&endpoint.operation_name));
     let mutation_def = format!("{}MutationDef", endpoint.operation_name);
@@ -418,17 +506,25 @@ fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
-    let type_imports = render_type_import_block(
-        &[input_type.as_str(), output_type.as_str()],
-        model_import_base,
-        use_package,
-    );
+    let is_void_input = input_type == "void";
+    let input_import_types = if is_void_input {
+        vec![output_type.as_str()]
+    } else {
+        vec![input_type.as_str(), output_type.as_str()]
+    };
+    let type_imports =
+        render_type_import_block(&input_import_types, model_import_base, use_package);
+    let build_spec_line = if is_void_input {
+        format!("  buildSpec: () => {builder}(),\n")
+    } else {
+        format!("  buildSpec: {builder},\n")
+    };
 
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
 
     format!(
-        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n  buildSpec: {builder},\n  execute: (spec, options) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
+        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec, options) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
         hook_factory = mutation_hook_factory(terminal),
         hook_alias = mutation_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -439,6 +535,7 @@ fn render_mutation_file(endpoint: &EndpointItem, terminal: QueryTerminal, model_
         type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
+        build_spec_line = build_spec_line,
     )
 }
 
@@ -483,7 +580,8 @@ fn render_axios_ts_method(endpoint: &EndpointItem) -> String {
         format!("`{path}`")
     };
 
-    let query_object = if endpoint.query_fields.is_empty() || endpoint.input_type_name == "void" {
+    let input_type = normalize_type_ref(&endpoint.input_type_name);
+    let query_object = if endpoint.query_fields.is_empty() || input_type == "void" {
         None
     } else {
         Some(format!(
@@ -498,8 +596,10 @@ fn render_axios_ts_method(endpoint: &EndpointItem) -> String {
     };
 
     let body_value = endpoint.request_body_field.as_ref().map(|field| {
-        if endpoint.input_type_name == "void" {
+        if input_type == "void" {
             "undefined".to_string()
+        } else if endpoint.query_fields.is_empty() && endpoint.path_fields.is_empty() {
+            "input".to_string()
         } else {
             format!("input.{field}")
         }
@@ -524,13 +624,9 @@ fn render_axios_ts_method(endpoint: &EndpointItem) -> String {
     };
 
     if signature.is_empty() {
-        format!(
-            "{summary}  {method_name}() {{\n    return {call};\n  }}"
-        )
+        format!("{summary}  {method_name}() {{\n    return {call};\n  }}")
     } else {
-        format!(
-            "{summary}  {method_name}({signature}) {{\n    return {call};\n  }}"
-        )
+        format!("{summary}  {method_name}({signature}) {{\n    return {call};\n  }}")
     }
 }
 
@@ -563,7 +659,11 @@ fn render_axios_js_function(endpoint: &EndpointItem) -> String {
 
     let mut config_lines = vec![format!("url: {url}"), format!("method: \"{method}\"")];
     if let Some(body) = endpoint.request_body_field.as_ref() {
-        config_lines.push(format!("data: input?.{body}"));
+        if endpoint.query_fields.is_empty() && endpoint.path_fields.is_empty() {
+            config_lines.push("data: input".to_string());
+        } else {
+            config_lines.push(format!("data: input?.{body}"));
+        }
     }
     if !endpoint.query_fields.is_empty() {
         let query = endpoint
@@ -629,7 +729,8 @@ fn render_uniapp_method(endpoint: &EndpointItem) -> String {
         format!("`{path}`")
     };
 
-    let query_object = if endpoint.query_fields.is_empty() || endpoint.input_type_name == "void" {
+    let input_type = normalize_type_ref(&endpoint.input_type_name);
+    let query_object = if endpoint.query_fields.is_empty() || input_type == "void" {
         None
     } else {
         Some(format!(
@@ -644,8 +745,10 @@ fn render_uniapp_method(endpoint: &EndpointItem) -> String {
     };
 
     let body_value = endpoint.request_body_field.as_ref().map(|field| {
-        if endpoint.input_type_name == "void" {
+        if input_type == "void" {
             "undefined".to_string()
+        } else if endpoint.query_fields.is_empty() && endpoint.path_fields.is_empty() {
+            "input".to_string()
         } else {
             format!("input.{field}")
         }
@@ -663,12 +766,8 @@ fn render_uniapp_method(endpoint: &EndpointItem) -> String {
     };
 
     if signature.is_empty() {
-        format!(
-            "{summary}  {method_name}() {{\n    return {call};\n  }}"
-        )
+        format!("{summary}  {method_name}() {{\n    return {call};\n  }}")
     } else {
-        format!(
-            "{summary}  {method_name}({signature}) {{\n    return {call};\n }}"
-        )
+        format!("{summary}  {method_name}({signature}) {{\n    return {call};\n }}")
     }
 }

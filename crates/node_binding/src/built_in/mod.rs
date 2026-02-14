@@ -1,6 +1,4 @@
-use aptx_frontend_tk_binding_plugin::command::{
-  CommandDescriptor, CommandRegistry,
-};
+use aptx_frontend_tk_binding_plugin::command::{CommandDescriptor, CommandRegistry};
 pub mod aptx_commands;
 pub mod ir;
 pub mod model_enum_apply;

@@ -26,14 +26,26 @@ function createStandardCommands(): CommandDescriptor[] {
     name,
     summary: `Generate ${name.replace('std:', '')} code from OpenAPI spec`,
     description: `Native command for generating ${name} frontend code.`,
-    options: [],
+    options: [
+      {
+        flags: '-i, --input <path>',
+        description: 'OpenAPI specification file path or URL',
+        required: true,
+      },
+      {
+        flags: '-o, --output <dir>',
+        description: 'Output directory for generated files',
+        required: true,
+      },
+    ],
     // Convert namespace:command to "namespace command" for CLI usage
     examples: [`aptx-ft ${name.replace(':', ' ')} --input openapi.json --output ./src`],
     handler: async (ctx: PluginContext, args: Record<string, unknown>) => {
       // Delegate to the native binding's runCli function
-      const binding = ctx.binding as any;
-      if (typeof binding.runCli === 'function') {
-        const options = Object.entries(args)
+        const binding = ctx.binding as any;
+        if (typeof binding.runCli === 'function') {
+          const options = Object.entries(args)
+          .filter(([key]) => key !== 'input')
           .flatMap(([key, value]) => {
             if (value === undefined || value === null) return [];
             const flag = key.length === 1 ? `-${key}` : `--${key}`;

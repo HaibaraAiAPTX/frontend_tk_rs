@@ -312,7 +312,7 @@ impl FuncParameterObject {
         }
         if let Some(v) = &mut self.request_body {
             if v.name.is_empty() {
-                v.name = format!("data{}", sum);
+                v.name = "body".to_string();
             }
         }
     }

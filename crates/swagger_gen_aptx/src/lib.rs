@@ -12,13 +12,8 @@ pub use swagger_gen::pipeline::{
 // Re-export utility functions from swagger_gen
 // Note: These are re-exported from swagger_gen::pipeline via pub use utils::*;
 pub use swagger_gen::pipeline::{
-    get_client_call,
-    get_client_import_lines,
-    get_model_import_base,
-    normalize_type_ref,
-    render_type_import_block,
-    render_type_import_line,
-    should_use_package_import,
+    get_client_call, get_client_import_lines, get_model_import_base, normalize_type_ref,
+    render_type_import_block, render_type_import_line, should_use_package_import,
 };
 
 mod functions;

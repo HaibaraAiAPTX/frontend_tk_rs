@@ -5,9 +5,7 @@
 use inflector::cases::pascalcase::to_pascal_case;
 use std::collections::BTreeMap;
 
-use crate::{
-    EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer,
-};
+use crate::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer};
 use swagger_gen::pipeline::normalize_type_ref;
 
 /// Axios TypeScript renderer
@@ -132,12 +130,8 @@ fn render_axios_ts_method(endpoint: &EndpointItem) -> String {
     };
 
     if signature.is_empty() {
-        format!(
-            "{summary}  {method_name}() {{\n    return {call};\n  }}"
-        )
+        format!("{summary}  {method_name}() {{\n    return {call};\n  }}")
     } else {
-        format!(
-            "{summary}  {method_name}({signature}) {{\n    return {call};\n  }}"
-        )
+        format!("{summary}  {method_name}({signature}) {{\n    return {call};\n  }}")
     }
 }

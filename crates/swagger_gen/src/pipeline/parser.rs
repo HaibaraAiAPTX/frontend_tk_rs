@@ -1,7 +1,9 @@
-use inflector::cases::{camelcase::to_camel_case, kebabcase::to_kebab_case};
+use inflector::cases::{
+    camelcase::to_camel_case, kebabcase::to_kebab_case, pascalcase::to_pascal_case,
+};
 use swagger_tk::model::{OpenAPIObject, OperationObject, PathItemObject};
 
-use crate::core::ApiContext;
+use crate::core::{ApiContext, FuncParameter};
 
 use super::model::{EndpointItem, GeneratorInput, ProjectContext};
 
@@ -44,7 +46,7 @@ impl Parser for OpenApiParser {
                 retry_ownership: None,
             },
             endpoints,
-            model_import: None, // Will be set by configuration later
+            model_import: None,  // Will be set by configuration later
             client_import: None, // Will be set by configuration later
         })
     }
@@ -91,15 +93,12 @@ fn build_endpoint(
         .filter(|list| !list.is_empty())
         .unwrap_or_else(|| vec!["default".to_string()]);
 
-    let input_type_name = match context.func_parameters.as_ref() {
-        None => "void".to_string(),
-        Some(parameters) if parameters.len() == 1 => parameters[0].r#type.clone(),
-        Some(_) => format!("{}Input", context.func_name),
-    };
+    let input_type_name = build_input_type_name(&context);
+    let operation_name = derive_operation_name(&context.func_name, method, &namespace);
 
     EndpointItem {
         namespace,
-        operation_name: to_camel_case(&context.func_name),
+        operation_name,
         summary: operation.summary.clone(),
         method: method.to_string(),
         path: path.to_string(),
@@ -122,5 +121,64 @@ fn build_endpoint(
         supports_query: method == "GET",
         supports_mutation: method != "GET",
         deprecated: operation.deprecated.unwrap_or(false),
+    }
+}
+
+fn build_input_type_name(context: &ApiContext) -> String {
+    let Some(parameters) = context.func_parameters.as_ref() else {
+        return "void".to_string();
+    };
+
+    if parameters.len() == 1 {
+        let single = &parameters[0];
+        if context.request_body_name.is_some() && single.r#in.is_none() {
+            return single.r#type.clone();
+        }
+        return render_inline_input_type(parameters);
+    }
+
+    render_inline_input_type(parameters)
+}
+
+fn render_inline_input_type(parameters: &[FuncParameter]) -> String {
+    let fields = parameters
+        .iter()
+        .map(|parameter| {
+            let field_type = if parameter.r#type.trim().is_empty() {
+                "unknown".to_string()
+            } else {
+                parameter.r#type.clone()
+            };
+            format!(
+                "{}{} {}",
+                parameter.name,
+                if parameter.required { ":" } else { "?:" },
+                field_type
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    format!("{{ {fields} }}")
+}
+
+fn derive_operation_name(func_name: &str, method: &str, namespace: &[String]) -> String {
+    let method_prefix = to_pascal_case(method);
+    let namespace_prefix = namespace
+        .iter()
+        .map(|segment| to_pascal_case(segment))
+        .collect::<String>();
+    let full_prefix = format!("{method_prefix}MainAPI{namespace_prefix}");
+
+    let short_name = if !namespace_prefix.is_empty() && func_name.starts_with(&full_prefix) {
+        &func_name[full_prefix.len()..]
+    } else {
+        func_name
+    };
+
+    if short_name.trim().is_empty() {
+        to_camel_case(func_name)
+    } else {
+        to_camel_case(short_name)
     }
 }

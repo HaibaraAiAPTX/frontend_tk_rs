@@ -17,6 +17,10 @@ pub fn normalize_type_ref(type_name: &str) -> String {
         return trimmed.to_string();
     }
 
+    if !trimmed.is_empty() {
+        return trimmed.to_string();
+    }
+
     "unknown".to_string()
 }
 
@@ -44,7 +48,11 @@ pub fn is_primitive_type(type_name: &str) -> bool {
 ///
 /// For package-style imports: `import type { TypeName } from "package-name";`
 /// For relative imports: `import type { TypeName } from "path/TypeName";`
-pub fn render_type_import_line(type_name: &str, base_import_path: &str, use_package: bool) -> String {
+pub fn render_type_import_line(
+    type_name: &str,
+    base_import_path: &str,
+    use_package: bool,
+) -> String {
     if is_identifier_type(type_name) && !is_primitive_type(type_name) {
         if use_package {
             // Package-style import: import type { TypeName } from "package-name"
@@ -62,7 +70,11 @@ pub fn render_type_import_line(type_name: &str, base_import_path: &str, use_pack
 ///
 /// Filters out primitive types and invalid identifiers,
 /// then generates import statements for each unique type.
-pub fn render_type_import_block(type_names: &[&str], base_import_path: &str, use_package: bool) -> String {
+pub fn render_type_import_block(
+    type_names: &[&str],
+    base_import_path: &str,
+    use_package: bool,
+) -> String {
     let mut unique = Vec::<String>::new();
     for type_name in type_names {
         if is_identifier_type(type_name)
@@ -100,8 +112,15 @@ mod tests {
 
     #[test]
     fn test_normalize_invalid_types() {
-        assert_eq!(normalize_type_ref("MyType[]"), "unknown");
-        assert_eq!(normalize_type_ref("string | number"), "unknown");
+        assert_eq!(normalize_type_ref(""), "unknown");
+        assert_eq!(normalize_type_ref("   "), "unknown");
+    }
+
+    #[test]
+    fn test_normalize_complex_types() {
+        assert_eq!(normalize_type_ref("MyType[]"), "MyType[]");
+        assert_eq!(normalize_type_ref("string | number"), "string | number");
+        assert_eq!(normalize_type_ref("{ id: string }"), "{ id: string }");
     }
 
     #[test]
@@ -134,7 +153,10 @@ mod tests {
     #[test]
     fn test_render_type_import_line_relative() {
         let result = render_type_import_line("MyType", "../../../spec/types", false);
-        assert_eq!(result, "import type { MyType } from \"../../../spec/types/MyType\";\n");
+        assert_eq!(
+            result,
+            "import type { MyType } from \"../../../spec/types/MyType\";\n"
+        );
     }
 
     #[test]

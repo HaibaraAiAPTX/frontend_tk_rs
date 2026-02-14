@@ -21,9 +21,7 @@ pub fn build_model_ir_snapshot_json(open_api: &OpenAPIObject) -> Result<String, 
     serde_json::to_string_pretty(&ir).map_err(|err| err.to_string())
 }
 
-pub fn build_model_enum_plan(
-    open_api: &OpenAPIObject,
-) -> Result<ModelEnumPlan, String> {
+pub fn build_model_enum_plan(open_api: &OpenAPIObject) -> Result<ModelEnumPlan, String> {
     build_model_enum_plan_with_existing(open_api, None)
 }
 

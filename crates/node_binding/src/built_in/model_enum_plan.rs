@@ -2,7 +2,9 @@ use std::{collections::HashMap, fs, path::Path};
 
 use aptx_frontend_tk_binding_plugin::utils::ensure_path;
 use clap::Parser;
-use swagger_gen::model_pipeline::{build_model_enum_plan_json, build_model_enum_plan_json_with_existing};
+use swagger_gen::model_pipeline::{
+  build_model_enum_plan_json, build_model_enum_plan_json_with_existing,
+};
 use swagger_tk::model::OpenAPIObject;
 
 #[derive(Debug, Clone, Parser)]

@@ -144,17 +144,40 @@ pub fn render_query_file(
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
-    let type_imports = render_type_import_block(
-        &[input_type.as_str(), output_type.as_str()],
-        model_import_base,
-        use_package,
-    );
+    let is_void_input = input_type == "void";
+    let input_import_types = if is_void_input {
+        vec![output_type.as_str()]
+    } else {
+        vec![input_type.as_str(), output_type.as_str()]
+    };
+    let type_imports =
+        render_type_import_block(&input_import_types, model_import_base, use_package);
+    let build_spec_line = if is_void_input {
+        format!("  buildSpec: () => {builder}(),\n")
+    } else {
+        format!("  buildSpec: {builder},\n")
+    };
+    let normalize_input_line = if is_void_input {
+        "const normalizeInput = () => \"null\";".to_string()
+    } else {
+        format!("const normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);")
+    };
+    let key_signature = if is_void_input {
+        "()".to_string()
+    } else {
+        format!("(input: {input_type})")
+    };
+    let key_call = if is_void_input {
+        "normalizeInput()".to_string()
+    } else {
+        "normalizeInput(input)".to_string()
+    };
 
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nconst normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n  buildSpec: {builder},\n  execute: (spec, options: any, queryContext: any) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = (input: {input_type}) =>\n  [...{query_def}.keyPrefix, normalizeInput(input)] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\n{normalize_input_line}\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec, options: any, queryContext: any) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -165,6 +188,10 @@ pub fn render_query_file(
         type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
+        normalize_input_line = normalize_input_line,
+        build_spec_line = build_spec_line,
+        key_signature = key_signature,
+        key_call = key_call,
     )
 }
 
@@ -183,17 +210,25 @@ pub fn render_mutation_file(
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
-    let type_imports = render_type_import_block(
-        &[input_type.as_str(), output_type.as_str()],
-        model_import_base,
-        use_package,
-    );
+    let is_void_input = input_type == "void";
+    let input_import_types = if is_void_input {
+        vec![output_type.as_str()]
+    } else {
+        vec![input_type.as_str(), output_type.as_str()]
+    };
+    let type_imports =
+        render_type_import_block(&input_import_types, model_import_base, use_package);
+    let build_spec_line = if is_void_input {
+        format!("  buildSpec: () => {builder}(),\n")
+    } else {
+        format!("  buildSpec: {builder},\n")
+    };
 
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
 
     format!(
-        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n  buildSpec: {builder},\n  execute: (spec, options) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
+        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"../../spec/endpoints/{namespace}/{operation_name}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec, options) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
         hook_factory = mutation_hook_factory(terminal),
         hook_alias = mutation_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -204,6 +239,7 @@ pub fn render_mutation_file(
         type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
+        build_spec_line = build_spec_line,
     )
 }
 
@@ -219,8 +255,14 @@ mod tests {
 
     #[test]
     fn test_query_hook_factory() {
-        assert_eq!(query_hook_factory(QueryTerminal::React), "createReactQueryHooks");
-        assert_eq!(query_hook_factory(QueryTerminal::Vue), "createVueQueryHooks");
+        assert_eq!(
+            query_hook_factory(QueryTerminal::React),
+            "createReactQueryHooks"
+        );
+        assert_eq!(
+            query_hook_factory(QueryTerminal::Vue),
+            "createVueQueryHooks"
+        );
     }
 
     #[test]

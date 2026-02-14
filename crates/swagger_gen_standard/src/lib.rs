@@ -9,10 +9,10 @@ pub use swagger_gen::pipeline::{
     normalize_type_ref, render_type_import_block, render_type_import_line,
 };
 
-pub use axios_ts::AxiosTsRenderer;
 pub use axios_js::AxiosJsRenderer;
+pub use axios_ts::AxiosTsRenderer;
 pub use uniapp::UniAppRenderer;
 
-mod axios_ts;
 mod axios_js;
+mod axios_ts;
 mod uniapp;

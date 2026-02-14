@@ -20,11 +20,17 @@ pub fn get_model_import_base(model_import: &Option<ModelImportConfig>) -> String
             match config.import_type.as_str() {
                 "package" => {
                     // For package import, use the configured package path
-                    config.package_path.clone().unwrap_or_else(|| "@my-org/models".to_string())
+                    config
+                        .package_path
+                        .clone()
+                        .unwrap_or_else(|| "@my-org/models".to_string())
                 }
                 "relative" => {
                     // For relative import, use the configured relative path
-                    config.relative_path.clone().unwrap_or_else(|| "../../../spec/types".to_string())
+                    config
+                        .relative_path
+                        .clone()
+                        .unwrap_or_else(|| "../../../spec/types".to_string())
                 }
                 _ => "../../../spec/types".to_string(), // Fallback to default
             }
@@ -72,7 +78,10 @@ pub fn get_client_import_lines(client_import: &Option<ClientImportConfig>) -> St
                     )
                 }
                 "package" => {
-                    let package_name = config.client_package.as_deref().unwrap_or("@my-org/api-client");
+                    let package_name = config
+                        .client_package
+                        .as_deref()
+                        .unwrap_or("@my-org/api-client");
                     format!(
                         "import type {{ PerCallOptions }} from \"{}/types\";\nimport {{ {} }} from \"{}/client\";",
                         package_name, import_name, package_name

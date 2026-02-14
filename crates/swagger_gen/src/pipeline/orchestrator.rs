@@ -3,7 +3,10 @@ use swagger_tk::model::OpenAPIObject;
 
 use super::{
     layout::{IdentityLayout, LayoutStrategy},
-    model::{ClientImportConfig, ExecutionMetrics, ExecutionPlan, GeneratorInput, RendererExecution},
+    model::{
+        ClientImportConfig, ExecutionMetrics, ExecutionPlan, GeneratorInput, ModelImportConfig,
+        RendererExecution,
+    },
     parser::{OpenApiParser, Parser},
     renderer::{
         AxiosJsRenderer, AxiosTsRenderer, FunctionsRenderer, NoopRenderer, ReactQueryRenderer,
@@ -31,6 +34,27 @@ fn build_client_import_config(
     }
 }
 
+/// Convert model mode options to ModelImportConfig
+fn build_model_import_config(
+    model_mode: Option<&str>,
+    model_path: Option<&str>,
+) -> Option<ModelImportConfig> {
+    match model_mode {
+        None => None,
+        Some("package") => Some(ModelImportConfig {
+            import_type: "package".to_string(),
+            package_path: Some(model_path.unwrap_or("@my-org/models").to_string()),
+            relative_path: None,
+        }),
+        Some("relative") => Some(ModelImportConfig {
+            import_type: "relative".to_string(),
+            package_path: None,
+            relative_path: Some(model_path.unwrap_or("../../../spec/types").to_string()),
+        }),
+        _ => None,
+    }
+}
+
 pub struct CodegenPipeline {
     parser: Box<dyn Parser>,
     transforms: Vec<Box<dyn TransformPass>>,
@@ -38,6 +62,7 @@ pub struct CodegenPipeline {
     layout: Box<dyn LayoutStrategy>,
     writer: Box<dyn Writer>,
     client_import: Option<ClientImportConfig>,
+    model_import: Option<ModelImportConfig>,
 }
 
 impl Default for CodegenPipeline {
@@ -49,6 +74,7 @@ impl Default for CodegenPipeline {
             layout: Box::new(IdentityLayout),
             writer: Box::new(DryRunWriter),
             client_import: None,
+            model_import: None,
         }
     }
 }
@@ -57,6 +83,12 @@ impl CodegenPipeline {
     /// Set client import configuration
     pub fn with_client_import(mut self, config: Option<ClientImportConfig>) -> Self {
         self.client_import = config;
+        self
+    }
+
+    /// Set model import configuration
+    pub fn with_model_import(mut self, config: Option<ModelImportConfig>) -> Self {
+        self.model_import = config;
         self
     }
 
@@ -87,6 +119,7 @@ impl CodegenPipeline {
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
+            model_import: None,
         }
     }
 
@@ -98,6 +131,7 @@ impl CodegenPipeline {
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
+            model_import: None,
         }
     }
 
@@ -109,6 +143,7 @@ impl CodegenPipeline {
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
+            model_import: None,
         }
     }
 
@@ -120,6 +155,7 @@ impl CodegenPipeline {
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
+            model_import: None,
         }
     }
 
@@ -131,6 +167,7 @@ impl CodegenPipeline {
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
+            model_import: None,
         }
     }
 
@@ -142,6 +179,7 @@ impl CodegenPipeline {
             layout: Box::new(IdentityLayout),
             writer: Box::new(FileSystemWriter::new(output_root)),
             client_import: None,
+            model_import: None,
         }
     }
 
@@ -158,6 +196,9 @@ impl CodegenPipeline {
         // Apply client_import configuration
         if let Some(ref client_import) = self.client_import {
             input.client_import = Some(client_import.clone());
+        }
+        if let Some(ref model_import) = self.model_import {
+            input.model_import = Some(model_import.clone());
         }
 
         let transform_start = Instant::now();
@@ -248,9 +289,29 @@ pub fn generate_functions_contract_v1_with_client(
     client_package: Option<&str>,
     client_import_name: Option<&str>,
 ) -> Result<ExecutionPlan, String> {
-    let client_import = build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    let client_import =
+        build_client_import_config(client_mode, client_path, client_package, client_import_name);
     CodegenPipeline::functions_contract_v1(output_root)
         .with_client_import(client_import)
+        .plan(open_api)
+}
+
+pub fn generate_functions_contract_v1_with_imports(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+    client_mode: Option<&str>,
+    client_path: Option<&str>,
+    client_package: Option<&str>,
+    client_import_name: Option<&str>,
+    model_mode: Option<&str>,
+    model_path: Option<&str>,
+) -> Result<ExecutionPlan, String> {
+    let client_import =
+        build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    let model_import = build_model_import_config(model_mode, model_path);
+    CodegenPipeline::functions_contract_v1(output_root)
+        .with_client_import(client_import)
+        .with_model_import(model_import)
         .plan(open_api)
 }
 
@@ -269,9 +330,29 @@ pub fn generate_react_query_contract_v1_with_client(
     client_package: Option<&str>,
     client_import_name: Option<&str>,
 ) -> Result<ExecutionPlan, String> {
-    let client_import = build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    let client_import =
+        build_client_import_config(client_mode, client_path, client_package, client_import_name);
     CodegenPipeline::react_query_contract_v1(output_root)
         .with_client_import(client_import)
+        .plan(open_api)
+}
+
+pub fn generate_react_query_contract_v1_with_imports(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+    client_mode: Option<&str>,
+    client_path: Option<&str>,
+    client_package: Option<&str>,
+    client_import_name: Option<&str>,
+    model_mode: Option<&str>,
+    model_path: Option<&str>,
+) -> Result<ExecutionPlan, String> {
+    let client_import =
+        build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    let model_import = build_model_import_config(model_mode, model_path);
+    CodegenPipeline::react_query_contract_v1(output_root)
+        .with_client_import(client_import)
+        .with_model_import(model_import)
         .plan(open_api)
 }
 
@@ -290,9 +371,29 @@ pub fn generate_vue_query_contract_v1_with_client(
     client_package: Option<&str>,
     client_import_name: Option<&str>,
 ) -> Result<ExecutionPlan, String> {
-    let client_import = build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    let client_import =
+        build_client_import_config(client_mode, client_path, client_package, client_import_name);
     CodegenPipeline::vue_query_contract_v1(output_root)
         .with_client_import(client_import)
+        .plan(open_api)
+}
+
+pub fn generate_vue_query_contract_v1_with_imports(
+    open_api: &OpenAPIObject,
+    output_root: impl AsRef<std::path::Path>,
+    client_mode: Option<&str>,
+    client_path: Option<&str>,
+    client_package: Option<&str>,
+    client_import_name: Option<&str>,
+    model_mode: Option<&str>,
+    model_path: Option<&str>,
+) -> Result<ExecutionPlan, String> {
+    let client_import =
+        build_client_import_config(client_mode, client_path, client_package, client_import_name);
+    let model_import = build_model_import_config(model_mode, model_path);
+    CodegenPipeline::vue_query_contract_v1(output_root)
+        .with_client_import(client_import)
+        .with_model_import(model_import)
         .plan(open_api)
 }
 

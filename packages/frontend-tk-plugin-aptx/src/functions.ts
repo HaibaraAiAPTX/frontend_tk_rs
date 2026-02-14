@@ -35,6 +35,14 @@ export const functionsCommand: CommandDescriptor = {
       flags: '--client-import-name <name>',
       description: 'Custom import name (default: getApiClient)',
     },
+    {
+      flags: '--model-mode <mode>',
+      description: 'Model import mode: relative (default) | package',
+    },
+    {
+      flags: '--model-path <path>',
+      description: 'Model import base path/package (e.g. ../../domains or @my-org/models)',
+    },
   ],
   examples: [
     'aptx-ft aptx functions -i openapi.json -o ./generated',
@@ -49,6 +57,8 @@ export const functionsCommand: CommandDescriptor = {
     const clientPath = args.clientPath as string | undefined;
     const clientPackage = args.clientPackage as string | undefined;
     const clientImportName = args.clientImportName as string | undefined;
+    const modelMode = args.modelMode as string | undefined;
+    const modelPath = args.modelPath as string | undefined;
 
     if (!input) {
       throw new Error('--input is required');
@@ -71,6 +81,12 @@ export const functionsCommand: CommandDescriptor = {
     }
     if (clientImportName) {
       options.push('--client-import-name', clientImportName);
+    }
+    if (modelMode) {
+      options.push('--model-mode', modelMode);
+    }
+    if (modelPath) {
+      options.push('--model-path', modelPath);
     }
 
     log(`Generating functions module from ${input} to ${output}`);
