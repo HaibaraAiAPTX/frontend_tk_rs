@@ -90,7 +90,7 @@ jobs:
           if npm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts
+            pnpm publish --ignore-scripts --no-git-checks
             echo "PUBLISHED: ${name}@${version}"
           fi
 
@@ -146,7 +146,7 @@ jobs:
           if npm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts
+            pnpm publish --ignore-scripts --no-git-checks
             echo "PUBLISHED: ${name}@${version}"
           fi
 
@@ -194,7 +194,7 @@ jobs:
           if npm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts
+            pnpm publish --ignore-scripts --no-git-checks
             echo "PUBLISHED: ${name}@${version}"
           fi
 
