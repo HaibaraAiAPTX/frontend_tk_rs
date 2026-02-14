@@ -9,23 +9,7 @@
 执行生成主流程：
 
 ```bash
-aptx-ft codegen run --input ./openapi.json --output ./generated
-```
-
-#### codegen list-terminals
-
-查看当前内置 terminal：
-
-```bash
-aptx-ft codegen list-terminals
-```
-
-#### doctor
-
-检查运行环境、binding 与命令注册状态：
-
-```bash
-aptx-ft doctor
+aptx-ft codegen run --input ./openapi.json --terminal functions --output-root ./generated
 ```
 
 #### model gen
@@ -86,14 +70,6 @@ aptx-ft model enum-apply --patch ./tmp/enum-patch.json --output ./generated/mode
 aptx-ft input download --url https://example.com/openapi.json --output ./openapi.json
 ```
 
-#### plugin list
-
-列出已加载的命令提供者（内置 + 插件）：
-
-```bash
-aptx-ft plugin list
-```
-
 ### 所有命令一览
 
 所有命令通过 `aptx-ft <namespace> <command>` 的方式调用：
@@ -103,9 +79,6 @@ aptx-ft plugin list
 | aptx | `functions` | 生成 @aptx 函数式 API 调用 |
 | aptx | `react-query` | 生成 React Query hooks |
 | aptx | `vue-query` | 生成 Vue Query composables |
-| std | `axios-ts` | 生成 Axios TypeScript 服务类 |
-| std | `axios-js` | 生成 Axios JavaScript 函数 |
-| std | `uniapp` | 生成 UniApp 服务 |
 | model | `gen` | 生成 TypeScript 模型声明 |
 | model | `ir` | 导出模型 IR 快照 JSON |
 | model | `enum-plan` | 导出枚举增强计划 JSON |
@@ -117,7 +90,6 @@ aptx-ft plugin list
 
 ```bash
 aptx-ft aptx functions --help
-aptx-ft std axios-ts --help
 aptx-ft model gen --help
 aptx-ft model ir --help
 aptx-ft model enum-plan --help

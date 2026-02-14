@@ -44,9 +44,6 @@ importers:
       '@aptx/frontend-tk-plugin-model':
         specifier: workspace:*
         version: link:../frontend-tk-plugin-model
-      '@aptx/frontend-tk-plugin-standard':
-        specifier: workspace:*
-        version: link:../frontend-tk-plugin-standard
       chalk:
         specifier: ^5.4.1
         version: 5.4.1
@@ -123,22 +120,6 @@ importers:
         version: 5.7.3
 
   packages/frontend-tk-plugin-model:
-    dependencies:
-      '@aptx/frontend-tk-binding':
-        specifier: workspace:*
-        version: link:../../crates/node_binding
-      '@aptx/frontend-tk-core':
-        specifier: workspace:*
-        version: link:../frontend-tk-core
-    devDependencies:
-      '@types/node':
-        specifier: ^22.13.1
-        version: 22.13.1
-      typescript:
-        specifier: ^5.7.3
-        version: 5.7.3
-
-  packages/frontend-tk-plugin-standard:
     dependencies:
       '@aptx/frontend-tk-binding':
         specifier: workspace:*

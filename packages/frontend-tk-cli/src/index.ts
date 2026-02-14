@@ -7,7 +7,6 @@
 
 import { createCli } from "@aptx/frontend-tk-core";
 import aptxPlugin from "@aptx/frontend-tk-plugin-aptx";
-import standardPlugin from "@aptx/frontend-tk-plugin-standard";
 import modelPlugin from "@aptx/frontend-tk-plugin-model";
 import materalPlugin from "@aptx/frontend-tk-plugin-materal";
 import inputPlugin from "@aptx/frontend-tk-plugin-input";
@@ -18,7 +17,6 @@ const cli = createCli();
 
 // Assemble built-in plugins
 cli.use(aptxPlugin);
-cli.use(standardPlugin);
 cli.use(modelPlugin);
 cli.use(materalPlugin);
 cli.use(inputPlugin);

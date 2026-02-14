@@ -5,7 +5,7 @@
 - CPU: AMD Ryzen 7 3700X 8-Core Processor             
 - Node: v22.21.1
 - Endpoint count: 10000
-- Terminals: axios-ts
+- Terminals: functions
 
 ## Result
 

@@ -5,7 +5,6 @@ pub mod model_enum_apply;
 pub mod model_enum_plan;
 pub mod model_gen;
 pub mod model_ir;
-pub mod std_commands;
 pub mod terminal_codegen;
 
 /// 注册内置的命令
@@ -76,31 +75,6 @@ pub fn register_built_in_command(command: &CommandRegistry) {
       ..Default::default()
     },
     Box::new(aptx_commands::run_aptx_vue_query),
-  );
-
-  // Register std namespace commands
-  command.register_command_with_descriptor(
-    CommandDescriptor {
-      name: "std:axios-ts".to_string(),
-      ..Default::default()
-    },
-    Box::new(std_commands::run_std_axios_ts),
-  );
-
-  command.register_command_with_descriptor(
-    CommandDescriptor {
-      name: "std:axios-js".to_string(),
-      ..Default::default()
-    },
-    Box::new(std_commands::run_std_axios_js),
-  );
-
-  command.register_command_with_descriptor(
-    CommandDescriptor {
-      name: "std:uniapp".to_string(),
-      ..Default::default()
-    },
-    Box::new(std_commands::run_std_uniapp),
   );
 
   frontend_plugin_materal::init_plugin(command);

@@ -211,7 +211,7 @@ swagger_gen/src/
 │   ├── mod.rs
 │   ├── axios_ts.rs               # Axios + TypeScript
 │   ├── axios_js.rs               # Axios + JavaScript
-│   └── uni_app.rs               # UniApp 框架
+│   └── uni_app.rs               # 历史终端实现（当前 CLI 不暴露）
 ├── gen_declaration/                # TypeScript 类型生成
 │   ├── declaration.rs            # 类型声明生成
 │   └── index.ts                # 导出生成
@@ -243,8 +243,8 @@ node_binding/src/
 │   └── init_command_factory()    # 加载插件并初始化
 ├── built_in/                      # 内置命令
 │   ├── mod.rs                   # 命令注册入口
-│   ├── ir.rs                   # ir:snapshot 命令
-│   └── terminal_codegen.rs      # terminal:codegen 命令
+│   ├── ir.rs                   # IR 相关内部能力
+│   └── terminal_codegen.rs      # terminal 代码生成内部执行器
 └── package.json                   # N-API 配置
     ├── targets                  # 支持的平台列表
     └── binaryName               # 二进制名称
@@ -288,9 +288,10 @@ types/                            # 类型声明
 | 命令 | 功能 |
 |------|------|
 | `codegen run` | 执行代码生成 |
-| `codegen list-terminals` | 列出内置终端 |
-| `doctor` | 检查环境状态 |
-| `plugin list` | 列出加载的插件 |
+| `aptx <functions|react-query|vue-query>` | 直接生成 @aptx 终端代码 |
+| `model <gen|ir|enum-plan|enum-apply>` | 模型生成与枚举增强 |
+| `materal <enum-patch|enum-plan|enum-apply>` | materal 集成与枚举流程 |
+| `input download` | 下载远程 OpenAPI JSON |
 
 ---
 
@@ -325,11 +326,11 @@ sequenceDiagram
     Gen->>Gen: 执行 pipeline
 
     par 并发生成多个终端
-        Gen->>Render: 生成 axios-ts
+        Gen->>Render: 生成 functions
         Render->>Output: 写入文件
         Gen->>Render: 生成 react-query
         Render->>Output: 写入文件
-        Gen->>Render: 生成 uniapp
+        Gen->>Render: 生成 vue-query
         Render->>Output: 写入文件
     end
 
@@ -734,9 +735,6 @@ module.exports = {
 
 | 终端 ID | 描述 | 生成代码类型 |
 |---------|------|------------|
-| **axios-ts** | Axios TypeScript 客户端 | `return this.get<T>(url, config)` |
-| **axios-js** | Axios JavaScript 客户端 | `return axios.request({...})` |
-| **uniapp** | UniApp 框架支持 | `return uni.request({...})` |
 | **functions** | 纯函数导出 | `export function apiName(...)` |
 | **react-query** | React Query Hooks | `const useApiName = (...)` |
 | **vue-query** | Vue Query Composables | `const useApiName = (...)` |

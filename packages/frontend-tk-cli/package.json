@@ -19,7 +19,6 @@
   "dependencies": {
     "@aptx/frontend-tk-core": "workspace:*",
     "@aptx/frontend-tk-plugin-aptx": "workspace:*",
-    "@aptx/frontend-tk-plugin-standard": "workspace:*",
     "@aptx/frontend-tk-plugin-model": "workspace:*",
     "@aptx/frontend-tk-plugin-materal": "workspace:*",
     "@aptx/frontend-tk-plugin-input": "workspace:*",

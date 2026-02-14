@@ -117,9 +117,6 @@ type FileInventoryItem = {
 
 // Supported terminals - these are built-in terminals from the Rust binding
 const SUPPORTED_TERMINALS = [
-  { id: "axios-ts", status: "available" },
-  { id: "axios-js", status: "available" },
-  { id: "uniapp", status: "available" },
   { id: "functions", status: "available" },
   { id: "react-query", status: "available" },
   { id: "vue-query", status: "available" },
@@ -392,7 +389,7 @@ async function runCodegen(options: CodegenRunOptions): Promise<void> {
   }));
   if (!cliTerminals.length) {
     throw new Error(
-      "`--terminal` parameter is required (e.g., --terminal axios-ts). Use --terminal multiple times for multiple terminals.",
+      "`--terminal` parameter is required (e.g., --terminal functions). Use --terminal multiple times for multiple terminals.",
     );
   }
 
@@ -644,8 +641,8 @@ export function createCodegenRunCommand(): CommandDescriptor {
       "Orchestrates multi-terminal code generation from an OpenAPI specification.",
     options,
     examples: [
-      "aptx-ft codegen run -i openapi.json --terminal axios-ts --output-root ./src",
-      "aptx-ft codegen run -i openapi.json --terminal axios-ts --terminal react-query",
+      "aptx-ft codegen run -i openapi.json --terminal functions --output-root ./src",
+      "aptx-ft codegen run -i openapi.json --terminal functions --terminal react-query",
       "aptx-ft codegen run -i https://api.example.com/openapi.json --terminal functions",
     ],
     handler: async (ctx: PluginContext, args: Record<string, unknown>) => {

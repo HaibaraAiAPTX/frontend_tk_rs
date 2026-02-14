@@ -13,7 +13,7 @@ Frontend TK 是一个基于 OpenAPI 规范的代码生成器，专为前端项�
 ### 1.2 核心特性
 
 - **IR-first 架构**：统一的中间表示，确保不同终端输出的一致性
-- **多终端支持**：内置多种终端（axios-ts、react-query 等），支持自定义终端
+- **多终端支持**：内置 @aptx 终端（functions、react-query、vue-query），支持自定义终端
 - **双插件模型**：支持 Native（Rust）和 Script（JavaScript）两种插件类型
 - **增量缓存**：基于输入哈希的智能缓存，加速重复生成
 - **并发生成**：支持多终端并发生成，提升大型项目生成速度
@@ -30,7 +30,7 @@ pnpm add -D @aptx/frontend-tk-cli
 运行生成命令：
 
 ```bash
-aptx-ft -i ./openapi.json codegen run --terminals axios-ts react-query --output ./generated
+aptx-ft -i ./openapi.json codegen run --terminal functions --terminal react-query --output-root ./generated
 ```
 
 ## 2. CLI 命令完整列表
@@ -49,8 +49,8 @@ aptx-ft codegen run [options]
 
 - `-i, --input <path>` - 输入 OpenAPI 路径/URL
 - `-p, --plugin <paths...>` - 追加插件路径
-- `--terminals <ids...>` - 指定要生成的终端（如 axios-ts、react-query）
-- `--output <dir>` - 输出根目录
+- `--terminal <id>` - 指定要生成的终端（可重复）
+- `--output-root <dir>` - 输出根目录
 
 #### 命令选项
 
@@ -64,10 +64,10 @@ aptx-ft codegen run [options]
 
 ```bash
 # 基本使用
-aptx-ft codegen run -i ./openapi.json --terminals axios-ts react-query --output ./generated
+aptx-ft codegen run -i ./openapi.json --terminal functions --terminal react-query --output-root ./generated
 
 # 使用远程 OpenAPI
-aptx-ft codegen run -i https://api.example.com/openapi.json --terminals axios-ts --output ./generated
+aptx-ft codegen run -i https://api.example.com/openapi.json --terminal functions --output-root ./generated
 
 # 仅预览生成计划
 aptx-ft codegen run --dry-run
@@ -236,68 +236,19 @@ aptx-ft -i ./openapi.json materal enum-patch --base-url http://localhost:5000 --
 aptx-ft -i ./openapi.json model enum-apply --patch ./tmp/enum-patch.json --output ./generated/models --style module
 ```
 
-### 2.6 `ir:snapshot` - 导出 IR 快照 JSON
+### 2.6 `aptx:functions` / `aptx:react-query` / `aptx:vue-query`
 
-导出完整的中间表示快照，供脚本插件使用。
-
-#### 语法
-
-```bash
-aptx-ft ir snapshot [options]
-```
-
-#### 选项
-
-- `--output <file>` - 输出 JSON 文件路径（必需）
+按 @aptx 终端直接执行生成（无需走 `codegen run` 聚合命令）。
 
 #### 示例
 
 ```bash
-aptx-ft ir snapshot --output ./tmp/ir.json
+aptx-ft aptx functions -i ./openapi.json -o ./generated/functions
+aptx-ft aptx react-query -i ./openapi.json -o ./generated/react-query
+aptx-ft aptx vue-query -i ./openapi.json -o ./generated/vue-query
 ```
 
-### 2.7 `terminal codegen` - 按单 terminal 执行内置生成
-
-为单个内置终端执行代码生成。
-
-#### 语法
-
-```bash
-aptx-ft terminal codegen [options]
-```
-
-#### 选项
-
-- `--terminal <id>` - 终端 ID（必需），如 `axios-ts`、`react-query`
-- `--output <dir>` - 输出目录（必需）
-
-#### 示例
-
-```bash
-aptx-ft terminal codegen --terminal axios-ts --output ./generated/services/axios-ts
-```
-
-### 2.8 `materal antd-init` - 生成 Ant Design 脚手架
-
-从 OpenAPI 生成 Ant Design 物料脚手架。
-
-#### 语法
-
-```bash
-aptx-ft materal antd-init [options]
-```
-
-#### 选项
-
-- `--store <boolean>` - 是否生成字典 store
-
-#### 示例
-
-```bash
-aptx-ft materal antd-init -i ./openapi.json --store true
-```
-
-### 2.9 `materal enum-patch` - 获取 Materal 枚举值并输出补丁
+### 2.7 `materal enum-patch` - 获取 Materal 枚举值并输出补丁
 
 从 Materal API 获取枚举值并输出标准枚举补丁 JSON。
 
@@ -324,33 +275,19 @@ aptx-ft -i ./openapi.json materal enum-patch --base-url http://localhost:5000 --
 aptx-ft -i ./openapi.json materal enum-patch --base-url http://localhost:5000 --output ./tmp/enum-patch.json --timeout-ms 30000 --max-retries 5
 ```
 
-### 2.10 其他实用命令
+### 2.8 `materal enum-plan` / `materal enum-apply`
 
-#### `codegen list-terminals` - 列出终端支持状态
-
-```bash
-aptx-ft codegen list-terminals
-```
-
-#### `doctor` - 运行健康检查
+`materal` 命名空间下也提供 `enum-plan` 和 `enum-apply`，用于和 `enum-patch` 串成完整流程：
 
 ```bash
-aptx-ft doctor
+# 导出计划
+aptx-ft -i ./openapi.json materal enum-plan --output ./tmp/enum-plan.json
+
+# 应用补丁并生成模型
+aptx-ft -i ./openapi.json materal enum-apply --patch ./tmp/enum-patch.json --output ./generated/models --style module
 ```
 
-输出包括：
-- Node 版本
-- Binding 可用性
-- 已注册命令列表
-- Script 插件加载数量
-
-#### `plugin list` - 查看插件提供方
-
-```bash
-aptx-ft plugin list
-```
-
-#### `input download` - 下载远程 OpenAPI JSON
+### 2.9 `input download` - 下载远程 OpenAPI JSON
 
 ```bash
 aptx-ft input download --url <url> --output <file>
@@ -363,91 +300,7 @@ aptx-ft input download --url http://localhost:5000/swagger/v1/swagger.json --out
 
 ## 3. 内置 Terminal 说明
 
-### 3.1 `axios-ts`
-
-**输出特征**：
-- 按命名空间（第一个标签）分组生成 TypeScript 类
-- 每个类继承自 `BaseService`
-- 使用 `tsyringe` 的 `@singleton()` 装饰器
-- 类名格式：`{Namespace}Service`（PascalCase）
-- 文件名格式：`{Namespace}Service.ts`
-
-**适用场景**：
-- 使用 TypeScript 的 Axios 项目
-- 需要依赖注入和单例模式的项目
-- 需要按服务模块组织的项目
-
-**输出示例**：
-```typescript
-import { singleton } from "tsyringe";
-import { BaseService } from "./BaseService";
-
-@singleton()
-export class UserService extends BaseService {
-  GetUserList(input: GetUserListInput) {
-    return this.get<UserListOutput>("/api/users", { params: { page: input.page, size: input.size } });
-  }
-
-  CreateUser(input: CreateUserInput) {
-    return this.post<UserOutput>("/api/users", input.body);
-  }
-}
-```
-
-### 3.2 `axios-js`
-
-**输出特征**：
-- 单个 `index.js` 文件
-- 纯 JavaScript，无类型信息
-- 使用 axios 直接发起请求
-- 函数名格式：PascalCase 操作名
-
-**适用场景**：
-- JavaScript 项目
-- 不需要 TypeScript 的项目
-- 简单的 API 调用场景
-
-**输出示例**：
-```javascript
-import axios from "axios";
-
-export function GetUserList(input) {
-  return axios.request({
-    url: "/api/users",
-    method: "get",
-    params: { page: input?.page, size: input?.size }
-  });
-}
-```
-
-### 3.3 `uniapp`
-
-**输出特征**：
-- 按命名空间分组生成 TypeScript 类
-- 类名格式：`{Namespace}Service`（PascalCase）
-- 文件名格式：`{Namespace}Service.ts`
-- 类继承自 `BaseService`
-- 使用 `tsyringe` 的 `@singleton()` 装饰器
-
-**适用场景**：
-- UniApp 项目
-- 需要适配 UniApp 网络请求 API 的项目
-- 跨平台移动应用开发
-
-**输出示例**：
-```typescript
-import { singleton } from "tsyringe";
-import { BaseService } from "./BaseService";
-
-@singleton()
-export class UserService extends BaseService {
-  GetUserList(input: GetUserListInput) {
-    return this.get<UserListOutput>("/api/users", { params: { page: input.page, size: input.size } });
-  }
-}
-```
-
-### 3.4 `functions`
+### 3.1 `functions`
 
 **输出特征**：
 - 为每个端点生成两个文件：
@@ -481,7 +334,7 @@ export function getUserList(
 }
 ```
 
-### 3.5 `react-query`
+### 3.2 `react-query`
 
 **输出特征**：
 - 为支持查询的端点生成 `{operation}.query.ts` 文件
@@ -509,7 +362,7 @@ export const getUserListQueryDef = createQueryDefinition<GetUserListInput, UserL
 export const { useAptxQuery: useGetUserListQuery } = createReactQueryHooks(getUserListQueryDef);
 ```
 
-### 3.6 `vue-query`
+### 3.3 `vue-query`
 
 **输出特征**：
 - 为支持查询的端点生成 `{operation}.query.ts` 文件
@@ -644,7 +497,6 @@ CLI 使用 `命名空间:命令` 格式命名命令。解析规则如下：
 |--------------|--------------|------|
 | `aptx:functions` | `aptx-ft aptx functions` | 冒号前的部分作为一级子命令 |
 | `model:gen` | `aptx-ft model gen` | 冒号后的部分作为二级子命令 |
-| `std:axios-ts` | `aptx-ft std axios-ts` | 支持连字符的终端名 |
 
 ### 4.3 创建自定义插件示例
 
@@ -1115,7 +967,7 @@ cargo build --release
 3. 使用 `-p` 参数引用插件：
 
 ```bash
-aptx-ft -i ./openapi.json -p ./target/release/libmy_native_plugin.dll codegen run --terminals axios-ts --output ./generated
+aptx-ft -i ./openapi.json -p ./target/release/libmy_native_plugin.dll codegen run --terminal functions --output-root ./generated
 ```
 
 ## 6. IR 结构说明
@@ -1169,10 +1021,10 @@ type GeneratorEndpointIR = {
 缺少输入源配置。解决方法：
 - 使用 `-i` 选项指定输入源
 
-#### `terminals is required`
+#### `terminal is required`
 
 未指定要生成的终端。解决方法：
-- 使用 `--terminals` 选项指定至少一个终端
+- 使用 `--terminal` 选项指定至少一个终端
 
 #### `Terminal ... not supported`
 
@@ -1189,8 +1041,7 @@ type GeneratorEndpointIR = {
 
 1. 使用 `--dry-run` 预览生成计划
 2. 使用 `--profile` 查看性能瓶颈
-3. 使用 `aptx-ft doctor` 检查环境状态
-4. 检查缓存文件 `<outputRoot>/.aptx-cache/run-cache.json`
+3. 检查缓存文件 `<outputRoot>/.aptx-cache/run-cache.json`
 
 ## 8. 附录
 
@@ -1198,14 +1049,11 @@ type GeneratorEndpointIR = {
 
 | ID | 状态 | 说明 |
 |-----|------|------|
-| axios-ts | available | TypeScript Axios 服务类 |
-| axios-js | available | JavaScript Axios 函数 |
-| uniapp | available | UniApp 服务类 |
 | functions | available | 函数式规格和实现 |
 | react-query | available | React Query Hooks |
 | vue-query | available | Vue Query Composables |
 
 ### 8.2 相关文档
 
-- 架构文档：`docs/final-codegen-architecture.md`
-- 使用说明：`docs/codegen-usage.md`
+- 项目架构：`docs/ARCHITECTURE.md`
+- CLI 说明：`packages/frontend-tk-cli/README.md`

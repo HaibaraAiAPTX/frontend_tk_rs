@@ -2,9 +2,8 @@ use std::{cell::RefCell, collections::HashMap, path::Path};
 
 use clap::Parser;
 use swagger_gen::pipeline::{
-  generate_axios_js_v1, generate_axios_ts_v1, generate_functions_contract_v1,
-  generate_functions_contract_v1_with_imports, generate_react_query_contract_v1,
-  generate_react_query_contract_v1_with_imports, generate_uniapp_v1,
+  generate_functions_contract_v1, generate_functions_contract_v1_with_imports,
+  generate_react_query_contract_v1, generate_react_query_contract_v1_with_imports,
   generate_vue_query_contract_v1, generate_vue_query_contract_v1_with_imports,
 };
 use swagger_tk::model::OpenAPIObject;
@@ -174,20 +173,6 @@ fn create_builtin_registry_with_options(
         generate_vue_query_contract_v1(open_api, output).map(|_| ())
       }
     }),
-  );
-
-  // Other terminals (axios-ts, axios-js, uniapp) don't use client imports
-  registry.register(
-    "axios-ts",
-    Box::new(|open_api, output| generate_axios_ts_v1(open_api, output).map(|_| ())),
-  );
-  registry.register(
-    "axios-js",
-    Box::new(|open_api, output| generate_axios_js_v1(open_api, output).map(|_| ())),
-  );
-  registry.register(
-    "uniapp",
-    Box::new(|open_api, output| generate_uniapp_v1(open_api, output).map(|_| ())),
   );
 
   registry
