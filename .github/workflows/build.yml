@@ -264,7 +264,7 @@ jobs:
 
             echo "==> Processing ${name}@${version} (${dir})"
 
-            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
               echo "SKIP: already exists in registry: ${name}@${version}"
               echo "| ${name} | ${version} | skipped | already exists |" >> "$summary_file"
               skipped=$((skipped + 1))
@@ -274,7 +274,7 @@ jobs:
 
             local log_file
             log_file=$(mktemp)
-            if npm publish --ignore-scripts 2>&1 | tee "$log_file"; then
+            if pnpm publish --ignore-scripts 2>&1 | tee "$log_file"; then
               echo "PUBLISHED: ${name}@${version}"
               echo "| ${name} | ${version} | published | ok |" >> "$summary_file"
               published=$((published + 1))
