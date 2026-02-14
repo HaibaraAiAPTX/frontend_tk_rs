@@ -1,6 +1,7 @@
 use inflector::cases::{
     camelcase::to_camel_case, kebabcase::to_kebab_case, pascalcase::to_pascal_case,
 };
+use std::collections::HashSet;
 use swagger_tk::model::{OpenAPIObject, OperationObject, PathItemObject};
 
 use crate::core::{ApiContext, FuncParameter};
@@ -33,6 +34,7 @@ impl Parser for OpenApiParser {
                 endpoints.push(endpoint);
             }
         }
+        apply_endpoint_names(&mut endpoints);
 
         Ok(GeneratorInput {
             project: ProjectContext {
@@ -100,6 +102,8 @@ fn build_endpoint(
     EndpointItem {
         namespace,
         operation_name,
+        export_name: String::new(),
+        builder_name: String::new(),
         summary: operation.summary.clone(),
         method: method.to_string(),
         path: path.to_string(),
@@ -181,5 +185,145 @@ fn derive_operation_name(func_name: &str, method: &str, namespace: &[String]) ->
         to_camel_case(func_name)
     } else {
         to_camel_case(short_name)
+    }
+}
+
+fn apply_endpoint_names(endpoints: &mut [EndpointItem]) {
+    let mut used = HashSet::<String>::new();
+
+    for endpoint in endpoints {
+        let action = normalize_identifier(to_camel_case(&endpoint.operation_name));
+        let base = format!(
+            "{}{}",
+            controller_prefix(&endpoint.namespace, 1),
+            to_pascal_case(&action)
+        );
+
+        let mut candidate = sanitize_reserved(&normalize_identifier(base));
+        if used.contains(&candidate) {
+            candidate = sanitize_reserved(&normalize_identifier(format!(
+                "{}{}",
+                controller_prefix(&endpoint.namespace, 2),
+                to_pascal_case(&action)
+            )));
+        }
+        if used.contains(&candidate) {
+            candidate = sanitize_reserved(&normalize_identifier(format!(
+                "{}{}{}",
+                controller_prefix(&endpoint.namespace, 2),
+                to_pascal_case(&action),
+                to_pascal_case(&endpoint.method.to_lowercase())
+            )));
+        }
+        if used.contains(&candidate) && !endpoint.path_fields.is_empty() {
+            let by_suffix = endpoint
+                .path_fields
+                .iter()
+                .map(|field| to_pascal_case(field))
+                .collect::<Vec<_>>()
+                .join("");
+            candidate =
+                sanitize_reserved(&normalize_identifier(format!("{candidate}By{by_suffix}")));
+        }
+
+        if used.contains(&candidate) {
+            let mut serial = 2usize;
+            let mut serial_candidate = format!("{candidate}_{serial}");
+            while used.contains(&serial_candidate) {
+                serial += 1;
+                serial_candidate = format!("{candidate}_{serial}");
+            }
+            candidate = serial_candidate;
+        }
+
+        used.insert(candidate.clone());
+        endpoint.export_name = candidate.clone();
+        endpoint.builder_name = format!("build{}Spec", to_pascal_case(&candidate));
+    }
+}
+
+fn controller_prefix(namespace: &[String], take_last: usize) -> String {
+    let len = namespace.len();
+    let start = len.saturating_sub(take_last);
+    let raw = namespace[start..].join("-");
+    let prefix = normalize_identifier(to_camel_case(&raw));
+    if prefix.is_empty() {
+        "default".to_string()
+    } else {
+        prefix
+    }
+}
+
+fn normalize_identifier(mut value: String) -> String {
+    if value.trim().is_empty() {
+        return "op".to_string();
+    }
+    if value.chars().next().is_some_and(|ch| ch.is_ascii_digit()) {
+        value = format!("op{}", to_pascal_case(&value));
+    }
+    value
+}
+
+fn sanitize_reserved(value: &str) -> String {
+    const RESERVED: [&str; 12] = [
+        "delete", "default", "class", "function", "new", "return", "switch", "case", "var", "let",
+        "const", "import",
+    ];
+
+    if RESERVED.contains(&value) {
+        format!("do{}", to_pascal_case(value))
+    } else {
+        value.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pipeline::EndpointItem;
+
+    fn mock_endpoint(namespace: Vec<&str>, operation_name: &str, method: &str) -> EndpointItem {
+        EndpointItem {
+            namespace: namespace.into_iter().map(str::to_string).collect(),
+            operation_name: operation_name.to_string(),
+            export_name: String::new(),
+            builder_name: String::new(),
+            summary: None,
+            method: method.to_string(),
+            path: "/demo".to_string(),
+            input_type_name: "void".to_string(),
+            output_type_name: "void".to_string(),
+            request_body_field: None,
+            query_fields: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            supports_query: false,
+            supports_mutation: true,
+            deprecated: false,
+        }
+    }
+
+    #[test]
+    fn apply_endpoint_names_adds_controller_prefix_and_builder() {
+        let mut endpoints = vec![mock_endpoint(vec!["assignment"], "add", "POST")];
+        apply_endpoint_names(&mut endpoints);
+        assert_eq!(endpoints[0].export_name, "assignmentAdd");
+        assert_eq!(endpoints[0].builder_name, "buildAssignmentAddSpec");
+    }
+
+    #[test]
+    fn apply_endpoint_names_ensures_uniqueness() {
+        let mut endpoints = vec![
+            mock_endpoint(vec!["assignment"], "add", "POST"),
+            mock_endpoint(vec!["main", "assignment"], "add", "POST"),
+        ];
+        apply_endpoint_names(&mut endpoints);
+        assert_ne!(endpoints[0].export_name, endpoints[1].export_name);
+    }
+
+    #[test]
+    fn sanitize_reserved_only_on_exact_keyword() {
+        assert_eq!(sanitize_reserved("delete"), "doDelete");
+        assert_eq!(sanitize_reserved("assignmentDelete"), "assignmentDelete");
     }
 }

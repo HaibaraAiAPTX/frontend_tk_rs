@@ -2,8 +2,6 @@
 //!
 //! This module contains common functionality used by both ReactQuery and VueQuery renderers.
 
-use inflector::cases::pascalcase::to_pascal_case;
-
 use crate::{
     get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
     resolve_file_import_path, resolve_model_import_base, should_use_package_import,
@@ -137,10 +135,13 @@ pub fn render_query_file(
     use_package: bool,
     client_import: &Option<swagger_gen::pipeline::ClientImportConfig>,
 ) -> String {
-    let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
-    let hook_name = format!("use{}Query", to_pascal_case(&endpoint.operation_name));
-    let query_def = format!("{}QueryDef", endpoint.operation_name);
-    let key_name = format!("{}Key", endpoint.operation_name);
+    let builder = endpoint.builder_name.clone();
+    let hook_name = format!(
+        "use{}Query",
+        inflector::cases::pascalcase::to_pascal_case(&endpoint.export_name)
+    );
+    let query_def = format!("{}QueryDef", endpoint.export_name);
+    let key_name = format!("{}Key", endpoint.export_name);
     let key_prefix = endpoint
         .namespace
         .iter()
@@ -216,9 +217,12 @@ pub fn render_mutation_file(
     use_package: bool,
     client_import: &Option<swagger_gen::pipeline::ClientImportConfig>,
 ) -> String {
-    let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
-    let hook_name = format!("use{}Mutation", to_pascal_case(&endpoint.operation_name));
-    let mutation_def = format!("{}MutationDef", endpoint.operation_name);
+    let builder = endpoint.builder_name.clone();
+    let hook_name = format!(
+        "use{}Mutation",
+        inflector::cases::pascalcase::to_pascal_case(&endpoint.export_name)
+    );
+    let mutation_def = format!("{}MutationDef", endpoint.export_name);
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
@@ -311,6 +315,8 @@ mod tests {
         let endpoint = EndpointItem {
             namespace: vec!["group".to_string(), "item".to_string()],
             operation_name: "fetchOne".to_string(),
+            export_name: "itemFetchOne".to_string(),
+            builder_name: "buildItemFetchOneSpec".to_string(),
             summary: None,
             method: "GET".to_string(),
             path: "/group/item".to_string(),

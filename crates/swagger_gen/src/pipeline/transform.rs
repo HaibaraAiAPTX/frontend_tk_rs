@@ -27,6 +27,12 @@ impl TransformPass for NormalizeEndpointPass {
                     endpoint.method, endpoint.path
                 ));
             }
+            if endpoint.export_name.trim().is_empty() {
+                return Err(format!(
+                    "export_name is empty for endpoint {} {}",
+                    endpoint.method, endpoint.path
+                ));
+            }
 
             if endpoint.method.eq_ignore_ascii_case("GET") {
                 endpoint.supports_query = true;

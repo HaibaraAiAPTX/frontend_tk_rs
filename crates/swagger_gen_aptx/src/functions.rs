@@ -2,8 +2,6 @@
 //!
 //! Generates TypeScript function calls that use @aptx/api-client for API execution.
 
-use inflector::cases::pascalcase::to_pascal_case;
-
 use crate::{
     get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
     render_type_import_line, resolve_file_import_path, resolve_model_import_base,
@@ -72,7 +70,7 @@ fn get_function_file_path(endpoint: &EndpointItem) -> String {
 }
 
 fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
-    let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
+    let builder = endpoint.builder_name.clone();
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let input_import = render_type_import_line(&input_type, model_import_base, use_package);
     let is_void_input = input_type == "void";
@@ -133,7 +131,7 @@ fn render_function_file(
     use_package: bool,
     client_import: &Option<swagger_gen::pipeline::ClientImportConfig>,
 ) -> String {
-    let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
+    let builder = endpoint.builder_name.clone();
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
     let is_void_input = input_type == "void";
@@ -158,7 +156,7 @@ fn render_function_file(
     let client_call = get_client_call(client_import);
     format!(
         "{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
-        operation_name = endpoint.operation_name,
+        operation_name = endpoint.export_name,
         output_type = output_type,
         type_imports = type_imports,
         client_import_lines = client_import_lines,
@@ -184,6 +182,8 @@ mod tests {
         let endpoint = EndpointItem {
             namespace: vec!["users".to_string()],
             operation_name: "getUser".to_string(),
+            export_name: "usersGetUser".to_string(),
+            builder_name: "buildUsersGetUserSpec".to_string(),
             summary: None,
             method: "GET".to_string(),
             path: "/users/{id}".to_string(),
@@ -208,6 +208,8 @@ mod tests {
         let endpoint = EndpointItem {
             namespace: vec!["users".to_string()],
             operation_name: "getUser".to_string(),
+            export_name: "usersGetUser".to_string(),
+            builder_name: "buildUsersGetUserSpec".to_string(),
             summary: None,
             method: "GET".to_string(),
             path: "/users/{id}".to_string(),
@@ -232,6 +234,8 @@ mod tests {
         let endpoint = EndpointItem {
             namespace: vec!["assignment".to_string()],
             operation_name: "add".to_string(),
+            export_name: "assignmentAdd".to_string(),
+            builder_name: "buildAssignmentAddSpec".to_string(),
             summary: None,
             method: "POST".to_string(),
             path: "/assignment/add".to_string(),

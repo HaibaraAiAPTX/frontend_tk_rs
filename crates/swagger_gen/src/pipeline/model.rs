@@ -39,6 +39,8 @@ pub struct ProjectContext {
 pub struct EndpointItem {
     pub namespace: Vec<String>,
     pub operation_name: String,
+    pub export_name: String,
+    pub builder_name: String,
     pub summary: Option<String>,
     pub method: String,
     pub path: String,

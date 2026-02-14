@@ -239,7 +239,7 @@ fn get_function_file_path(endpoint: &EndpointItem) -> String {
 }
 
 fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
-    let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
+    let builder = endpoint.builder_name.clone();
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let input_import =
         super::utils::render_type_import_line(&input_type, model_import_base, use_package);
@@ -301,7 +301,7 @@ fn render_function_file(
     use_package: bool,
     client_import: &Option<ClientImportConfig>,
 ) -> String {
-    let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
+    let builder = endpoint.builder_name.clone();
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
     let is_void_input = input_type == "void";
@@ -326,7 +326,7 @@ fn render_function_file(
     let client_call = get_client_call(client_import);
     format!(
         "{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
-        operation_name = endpoint.operation_name,
+        operation_name = endpoint.export_name,
         output_type = output_type,
         type_imports = type_imports,
         client_import_lines = client_import_lines,
@@ -445,10 +445,10 @@ fn render_query_file(
     use_package: bool,
     client_import: &Option<ClientImportConfig>,
 ) -> String {
-    let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
-    let hook_name = format!("use{}Query", to_pascal_case(&endpoint.operation_name));
-    let query_def = format!("{}QueryDef", endpoint.operation_name);
-    let key_name = format!("{}Key", endpoint.operation_name);
+    let builder = endpoint.builder_name.clone();
+    let hook_name = format!("use{}Query", to_pascal_case(&endpoint.export_name));
+    let query_def = format!("{}QueryDef", endpoint.export_name);
+    let key_name = format!("{}Key", endpoint.export_name);
     let key_prefix = endpoint
         .namespace
         .iter()
@@ -519,9 +519,9 @@ fn render_mutation_file(
     use_package: bool,
     client_import: &Option<ClientImportConfig>,
 ) -> String {
-    let builder = format!("build{}Spec", to_pascal_case(&endpoint.operation_name));
-    let hook_name = format!("use{}Mutation", to_pascal_case(&endpoint.operation_name));
-    let mutation_def = format!("{}MutationDef", endpoint.operation_name);
+    let builder = endpoint.builder_name.clone();
+    let hook_name = format!("use{}Mutation", to_pascal_case(&endpoint.export_name));
+    let mutation_def = format!("{}MutationDef", endpoint.export_name);
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
@@ -573,7 +573,7 @@ fn render_axios_ts_service_file(group: &str, endpoints: &[&EndpointItem]) -> Str
 }
 
 fn render_axios_ts_method(endpoint: &EndpointItem) -> String {
-    let method_name = to_pascal_case(&endpoint.operation_name);
+    let method_name = to_pascal_case(&endpoint.export_name);
     let method = endpoint.method.to_lowercase();
     let output_type = normalize_type_ref(&endpoint.output_type_name);
     let signature = if endpoint.input_type_name == "void" {
@@ -651,7 +651,7 @@ fn render_axios_ts_method(endpoint: &EndpointItem) -> String {
 }
 
 fn render_axios_js_function(endpoint: &EndpointItem) -> String {
-    let func_name = to_pascal_case(&endpoint.operation_name);
+    let func_name = to_pascal_case(&endpoint.export_name);
     let method = endpoint.method.to_lowercase();
     let signature = if endpoint.input_type_name == "void" {
         String::new()
@@ -722,7 +722,7 @@ fn render_uniapp_service_file(group: &str, endpoints: &[&EndpointItem]) -> Strin
 }
 
 fn render_uniapp_method(endpoint: &EndpointItem) -> String {
-    let method_name = to_pascal_case(&endpoint.operation_name);
+    let method_name = to_pascal_case(&endpoint.export_name);
     let method = endpoint.method.to_lowercase();
     let output_type = normalize_type_ref(&endpoint.output_type_name);
     let signature = if endpoint.input_type_name == "void" {
@@ -800,6 +800,8 @@ mod tests {
         EndpointItem {
             namespace: namespace.into_iter().map(str::to_string).collect(),
             operation_name: operation_name.to_string(),
+            export_name: operation_name.to_string(),
+            builder_name: format!("build{}Spec", to_pascal_case(operation_name)),
             summary: None,
             method: "POST".to_string(),
             path: "/demo".to_string(),
