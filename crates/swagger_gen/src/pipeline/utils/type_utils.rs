@@ -44,6 +44,112 @@ pub fn is_primitive_type(type_name: &str) -> bool {
     )
 }
 
+fn is_builtin_type_token(type_name: &str) -> bool {
+    matches!(
+        type_name,
+        "string"
+            | "number"
+            | "boolean"
+            | "void"
+            | "object"
+            | "unknown"
+            | "any"
+            | "never"
+            | "null"
+            | "undefined"
+            | "Array"
+            | "ReadonlyArray"
+            | "Record"
+            | "Partial"
+            | "Required"
+            | "Pick"
+            | "Omit"
+            | "Exclude"
+            | "Extract"
+            | "NonNullable"
+            | "Awaited"
+            | "Promise"
+            | "Date"
+            | "File"
+            | "Blob"
+            | "FormData"
+            | "Map"
+            | "Set"
+    )
+}
+
+fn extract_identifier_tokens(type_expr: &str) -> Vec<String> {
+    let mut tokens = Vec::<String>::new();
+    let mut current = String::new();
+
+    for ch in type_expr.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            current.push(ch);
+        } else if !current.is_empty() {
+            if is_identifier_type(&current) && !tokens.iter().any(|item| item == &current) {
+                tokens.push(current.clone());
+            }
+            current.clear();
+        }
+    }
+
+    if !current.is_empty()
+        && is_identifier_type(&current)
+        && !tokens.iter().any(|item| item == &current)
+    {
+        tokens.push(current);
+    }
+
+    tokens
+}
+
+fn extract_referenced_types(type_name: &str) -> Vec<String> {
+    let trimmed = type_name.trim();
+    if trimmed.is_empty() {
+        return vec![];
+    }
+
+    if is_identifier_type(trimmed) {
+        if is_primitive_type(trimmed) || is_builtin_type_token(trimmed) {
+            return vec![];
+        }
+        return vec![trimmed.to_string()];
+    }
+
+    let mut result = Vec::<String>::new();
+
+    if trimmed.starts_with('{') && trimmed.ends_with('}') {
+        let inner = &trimmed[1..trimmed.len() - 1];
+        for field in inner.split(';') {
+            let field = field.trim();
+            if field.is_empty() {
+                continue;
+            }
+            if let Some((_, rhs)) = field.split_once(':') {
+                for token in extract_identifier_tokens(rhs) {
+                    if !is_builtin_type_token(&token)
+                        && !is_primitive_type(&token)
+                        && !result.iter().any(|item| item == &token)
+                    {
+                        result.push(token);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    for token in extract_identifier_tokens(trimmed) {
+        if !is_builtin_type_token(&token)
+            && !is_primitive_type(&token)
+            && !result.iter().any(|item| item == &token)
+        {
+            result.push(token);
+        }
+    }
+    result
+}
+
 /// Renders a single type import line.
 ///
 /// For package-style imports: `import type { TypeName } from "package-name";`
@@ -53,17 +159,18 @@ pub fn render_type_import_line(
     base_import_path: &str,
     use_package: bool,
 ) -> String {
-    if is_identifier_type(type_name) && !is_primitive_type(type_name) {
-        if use_package {
-            // Package-style import: import type { TypeName } from "package-name"
-            format!("import type {{ {type_name} }} from \"{base_import_path}\";\n")
-        } else {
-            // Relative-style import: import type { TypeName } from "path/TypeName"
-            format!("import type {{ {type_name} }} from \"{base_import_path}/{type_name}\";\n")
-        }
-    } else {
-        String::new()
-    }
+    let referenced_types = extract_referenced_types(type_name);
+    referenced_types
+        .iter()
+        .map(|name| {
+            if use_package {
+                format!("import type {{ {name} }} from \"{base_import_path}\";\n")
+            } else {
+                format!("import type {{ {name} }} from \"{base_import_path}/{name}\";\n")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("")
 }
 
 /// Renders a block of type imports, deduplicating types.
@@ -77,11 +184,10 @@ pub fn render_type_import_block(
 ) -> String {
     let mut unique = Vec::<String>::new();
     for type_name in type_names {
-        if is_identifier_type(type_name)
-            && !is_primitive_type(type_name)
-            && !unique.iter().any(|item| item == type_name)
-        {
-            unique.push(type_name.to_string());
+        for token in extract_referenced_types(type_name) {
+            if !unique.iter().any(|item| item == &token) {
+                unique.push(token);
+            }
         }
     }
     unique
@@ -175,5 +281,34 @@ mod tests {
         assert!(result.contains("import type { MyType }"));
         assert!(result.contains("import type { OtherType }"));
         assert!(!result.contains("string"));
+    }
+
+    #[test]
+    fn test_render_type_import_line_inline_object_should_import_referenced_type() {
+        let result = render_type_import_line(
+            "{ StoreType: StoreType; body?: object }",
+            "../../../spec/types",
+            false,
+        );
+        assert!(
+            result.contains("import type { StoreType } from \"../../../spec/types/StoreType\";")
+        );
+        assert!(!result.contains("body"));
+    }
+
+    #[test]
+    fn test_render_type_import_block_should_extract_types_from_expression() {
+        let result = render_type_import_block(
+            &[
+                "Record<string, any>",
+                "StoreType | null",
+                "{ value: GuidResultModel }",
+            ],
+            "@my-org/models",
+            true,
+        );
+        assert!(result.contains("import type { StoreType }"));
+        assert!(result.contains("import type { GuidResultModel }"));
+        assert!(!result.contains("Record"));
     }
 }

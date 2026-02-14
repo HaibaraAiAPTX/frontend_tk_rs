@@ -256,9 +256,9 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
             if is_void_input {
                 String::new()
             } else if endpoint.query_fields.is_empty() && endpoint.path_fields.is_empty() {
-                "  body: input,\n".to_string()
+                "    body: input,\n".to_string()
             } else {
-                format!("  body: (input as any)?.{field},\n")
+                format!("    body: input.{field},\n")
             }
         })
         .unwrap_or_default();
@@ -268,10 +268,10 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
         let keys = endpoint
             .query_fields
             .iter()
-            .map(|field| format!("{field}: (input as any)?.{field}"))
+            .map(|field| format!("{field}: input.{field}"))
             .collect::<Vec<_>>()
             .join(", ");
-        format!("  query: {{ {keys} }},\n")
+        format!("    query: {{ {keys} }},\n")
     };
 
     let prefix = if input_import.is_empty() {
@@ -494,7 +494,7 @@ fn render_query_file(
     let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\n{normalize_input_line}\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec, options: any, queryContext: any) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\ntype AptxQueryContext = {{ signal?: AbortSignal; meta?: unknown }};\n{normalize_input_line}\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec, options: PerCallOptions | undefined, queryContext: AptxQueryContext | undefined) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -545,7 +545,7 @@ fn render_mutation_file(
     let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
 
     format!(
-        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec, options) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
+        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec, options?: PerCallOptions) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
         hook_factory = mutation_hook_factory(terminal),
         hook_alias = mutation_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -844,5 +844,29 @@ mod tests {
         );
 
         assert!(content.contains("from \"../../../spec/endpoints/group/item/queryOne\""));
+        assert!(!content.contains(": any"));
+    }
+
+    #[test]
+    fn spec_file_should_use_typed_fields_without_any_and_aligned_indent() {
+        let mut endpoint = make_endpoint(vec!["application"], "setClockInReward");
+        endpoint.input_type_name = "{ reward?: number }".to_string();
+        endpoint.method = "PUT".to_string();
+        endpoint.query_fields = vec!["reward".to_string()];
+
+        let content = render_spec_file(&endpoint, "../../../spec/types", false);
+        assert!(content.contains("    query: { reward: input.reward },"));
+        assert!(!content.contains("as any"));
+    }
+
+    #[test]
+    fn spec_file_should_import_nested_model_types_from_inline_input_type() {
+        let mut endpoint = make_endpoint(vec!["stored-file"], "uploadImage");
+        endpoint.builder_name = "buildStoredFileUploadImageSpec".to_string();
+        endpoint.input_type_name = "{ StoreType: StoreType; body?: object }".to_string();
+        endpoint.query_fields = vec!["StoreType".to_string()];
+        let content = render_spec_file(&endpoint, "../../../domains", false);
+
+        assert!(content.contains("import type { StoreType } from \"../../../domains/StoreType\";"));
     }
 }

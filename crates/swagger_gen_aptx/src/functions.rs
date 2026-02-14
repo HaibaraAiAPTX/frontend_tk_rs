@@ -86,9 +86,9 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
             if is_void_input {
                 String::new()
             } else if endpoint.query_fields.is_empty() && endpoint.path_fields.is_empty() {
-                "  body: input,\n".to_string()
+                "    body: input,\n".to_string()
             } else {
-                format!("  body: (input as any)?.{field},\n")
+                format!("    body: input.{field},\n")
             }
         })
         .unwrap_or_default();
@@ -98,10 +98,10 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
         let keys = endpoint
             .query_fields
             .iter()
-            .map(|field| format!("{field}: (input as any)?.{field}"))
+            .map(|field| format!("{field}: input.{field}"))
             .collect::<Vec<_>>()
             .join(", ");
-        format!("  query: {{ {keys} }},\n")
+        format!("    query: {{ {keys} }},\n")
     };
 
     let prefix = if input_import.is_empty() {
@@ -258,5 +258,30 @@ mod tests {
         );
 
         assert!(content.contains("from \"../../../spec/endpoints/assignment/add\""));
+    }
+
+    #[test]
+    fn test_render_spec_file_should_import_nested_model_types() {
+        let endpoint = EndpointItem {
+            namespace: vec!["stored-file".to_string()],
+            operation_name: "uploadImage".to_string(),
+            export_name: "storedFileUploadImage".to_string(),
+            builder_name: "buildStoredFileUploadImageSpec".to_string(),
+            summary: None,
+            method: "POST".to_string(),
+            path: "/stored-file/upload".to_string(),
+            input_type_name: "{ StoreType: StoreType; body?: object }".to_string(),
+            output_type_name: "GuidResultModel".to_string(),
+            request_body_field: Some("body".to_string()),
+            query_fields: vec!["StoreType".to_string()],
+            path_fields: vec![],
+            has_request_options: false,
+            supports_query: false,
+            supports_mutation: true,
+            deprecated: false,
+        };
+
+        let content = render_spec_file(&endpoint, "../../../domains", false);
+        assert!(content.contains("import type { StoreType } from \"../../../domains/StoreType\";"));
     }
 }
