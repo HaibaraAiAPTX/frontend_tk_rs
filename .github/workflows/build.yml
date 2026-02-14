@@ -130,7 +130,7 @@ jobs:
         shell: bash
       - name: Install dependencies
         working-directory: crates/node_binding
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Build
         working-directory: crates/node_binding
         run: ${{ matrix.settings.build }}
@@ -168,7 +168,7 @@ jobs:
             sh rustup.sh -y --profile minimal --default-toolchain stable
             source "$HOME/.cargo/env"
             cd crates/node_binding
-            pnpm install --no-frozen-lockfile
+            pnpm install --frozen-lockfile
             pnpm run build
             rm -rf node_modules
             rm -rf target
@@ -202,7 +202,7 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         working-directory: crates/node_binding
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:

@@ -1,3 +1,4 @@
 packages:
   - 'packages/*'
   - 'crates/node_binding'
+  - 'crates/node_binding/npm'
