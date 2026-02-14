@@ -1,803 +1,157 @@
 # Frontend Toolkit (aptx-ft) 架构文档
 
-## 项目概述
-
-Frontend Toolkit 是一个基于 Rust 后端 + TypeScript CLI 的代码生成工具，用于根据 OpenAPI/Swagger 3.x 规范生成前端 API 客户端、TypeScript 类型定义和各种框架相关的代码。
-
-**技术栈**：
-- Rust (核心代码生成引擎)
-- TypeScript + Node.js (CLI 界面)
-- N-API (Rust ↔ Node.js 跨语言绑定)
-- pnpm (包管理器)
+状态：Active  
+日期：2026-02-14  
+适用仓库：`frontend_tk_rs`
 
 ---
 
-## 整体架构
+## 1. 系统总览
+
+`frontend_tk_rs` 是一个 OpenAPI 代码生成器，采用 Rust 核心 + Node CLI 的分层结构。
 
 ```mermaid
-graph TB
-    subgraph UserLayer["用户层"]
-        CLI["命令行: aptx-ft"]
-    end
+flowchart TB
+    user["用户 / LLM"]
+    cli["CLI: aptx-ft (TypeScript)"]
+    napi["N-API binding (Rust node_binding)"]
+    pipeline["Codegen Pipeline (swagger_gen)"]
+    output["生成文件"]
 
-    subgraph TSCLILayer["TypeScript CLI 层"]
-        CLI_ENTRY["frontend-tk-cli 主入口"]
-        DOWNLOADER["文件下载器 get-input.ts"]
-        PLUGIN_MGR["插件管理器"]
-        CONCURRENCY["并发控制 缓存管理"]
-    end
-
-    subgraph NAPILayer["N-API 绑定层"]
-        BINDING["node_binding Rust to Node.js"]
-        LOADER["插件加载器 libloading"]
-    end
-
-    subgraph RustCoreLayer["Rust 核心层"]
-        PLUGIN["node_binding_plugin 命令注册表"]
-        GEN["swagger_gen 代码生成引擎"]
-        PARSER["解析器 OpenAPI to IR"]
-        RENDERER["渲染器 API 客户端生成"]
-        TYPER["类型生成器 TS 声明生成"]
-        TK["swagger_tk OpenAPI 模型"]
-        MACRO["swagger_macro 派生宏"]
-        MATERAL["frontend_plugin_materal 示例插件"]
-    end
-
-    CLI --> CLI_ENTRY
-    CLI_ENTRY --> DOWNLOADER
-    CLI_ENTRY --> PLUGIN_MGR
-    CLI_ENTRY --> CONCURRENCY
-    CLI_ENTRY -->|"N-API 调用"| BINDING
-    BINDING --> LOADER
-    BINDING --> PLUGIN
-    BINDING --> GEN
-    PLUGIN --> GEN
-    GEN --> PARSER
-    GEN --> RENDERER
-    GEN --> TYPER
-    PARSER --> TK
-    RENDERER --> TK
-    TYPER --> TK
-    TK --> MACRO
-    LOADER --> MATERAL
-
-    style CLI fill:#e1f5ff
-    style BINDING fill:#fff4e1
-    style GEN fill:#e8f5e9
-    style TK fill:#fce4ec
+    user --> cli
+    cli --> napi
+    napi --> pipeline
+    pipeline --> output
 ```
+
+核心目标：
+- OpenAPI -> 统一 IR -> 多终端渲染
+- 参数驱动，不依赖复杂配置
+- 输出稳定且可预测
 
 ---
 
-## Rust Crate 依赖关系
+## 2. 分层职责
 
-```mermaid
-graph LR
-    subgraph Layer1["第 1 层: 基础工具"]
-        MACRO["swagger_macro 派生宏"]
-    end
+## 2.1 TypeScript CLI 层（`packages/frontend-tk-cli`）
 
-    subgraph Layer2["第 2 层: 模型与工具"]
-        TK["swagger_tk OpenAPI 模型"]
-    end
+职责：
+- 命令解析与参数透传
+- URL 输入下载（`input download`）
+- 调用 `@aptx/frontend-tk-binding`
 
-    subgraph Layer3["第 3 层: 代码生成"]
-        GEN["swagger_gen 代码生成引擎"]
-    end
+当前入口：
+- `packages/frontend-tk-cli/bin/aptx.js`
+- `packages/frontend-tk-cli/src/index.ts`
 
-    subgraph Layer4["第 4 层: 插件抽象"]
-        PLUGIN["node_binding_plugin 插件系统"]
-    end
+注意：
+- `codegen run` 已删除，不再注册 `codegen` 命名空间。
 
-    subgraph Layer5["第 5 层: N-API 绑定"]
-        BINDING["node_binding Rust to Node.js"]
-    end
+## 2.2 N-API 绑定层（`crates/node_binding`）
 
-    subgraph Layer6["第 6 层: 示例插件"]
-        MATERAL["frontend_plugin_materal 示例插件"]
-    end
+职责：
+- 将 CLI 命令映射到 Rust 内部生成能力
+- 注册 built-in 命令
+- 负责插件加载和命令分发
 
-    TK --> MACRO
-    GEN --> TK
-    PLUGIN --> GEN
-    PLUGIN --> TK
-    BINDING --> PLUGIN
-    BINDING --> GEN
-    MATERAL --> PLUGIN
-    MATERAL --> GEN
-    MATERAL --> TK
+## 2.3 生成引擎层（`crates/swagger_gen` / `crates/swagger_gen_aptx`）
 
-    style MACRO fill:#90caf9
-    style TK fill:#ce93d8
-    style GEN fill:#a5d6a7
-    style PLUGIN fill:#ffcc80
-    style BINDING fill:#ef9a9a
-    style MATERAL fill:#bcaaa4
-```
+职责：
+- 解析 OpenAPI 到 IR
+- 渲染 `functions` / `react-query` / `vue-query` / model 等产物
+- 路径计算、类型导入、layout、writer
 
-### 详细依赖说明
-
-| Crate | 职责 | 外部依赖 | 被依赖 |
-|--------|------|----------|---------|
-| **swagger_macro** | Rust 过程宏，提供派生能力 | `quote`, `syn` | swagger_tk |
-| **swagger_tk** | OpenAPI 3.x 完整模型定义 | `swagger_macro`, `serde`, `serde_json` | swagger_gen, node_binding_plugin, frontend_plugin_materal |
-| **swagger_gen** | 代码生成核心引擎 | `swagger_tk`, `Inflector`, `dprint-*`, `regex` | node_binding_plugin, node_binding, frontend_plugin_materal |
-| **node_binding_plugin** | 插件系统接口定义 | `swagger_gen`, `swagger_tk` | node_binding, frontend_plugin_materal |
-| **node_binding** | N-API 绑定层 | `napi`, `napi-derive`, `libloading`, `node_binding_plugin`, `swagger_gen`, `swagger_tk`, `frontend_plugin_materal` | frontend-tk-cli |
-| **frontend_plugin_materal** | 示例插件 | `node_binding_plugin`, `swagger_gen`, `swagger_tk` | - |
+关键规则：
+- 生成 import 路径必须动态计算，禁止硬编码层级
+- model 导入支持 `relative` 和 `package`
+- 统一使用 `/` 路径分隔
 
 ---
 
-## TypeScript Package 依赖关系
+## 3. 当前命令面
 
-```mermaid
-graph LR
-    subgraph Layer1["第 1 层: CLI 应用"]
-        CLI["frontend-tk-cli 命令行工具"]
-    end
+以 `aptx-ft --help` 为准，当前可用命令：
 
-    subgraph BindingLayer["Native 绑定"]
-        BINDING["@aptx/frontend-tk-binding N-API 模块"]
-        RUST(("Rust node_binding"))
-    end
-
-    CLI --> BINDING
-    BINDING -->|"编译为"| RUST
-
-    style CLI fill:#80cbc4
-    style BINDING fill:#81d4fa
-```
-
-### Package 详细说明
-
-| Package | 职责 | 外部依赖 |
-|---------|------|----------|
-| **frontend-tk-cli** | 用户 CLI 界面<br/>命令解析、文件下载<br/>插件管理、并发控制 | `@aptx/frontend-tk-binding`, `chalk`, `commander` |
-| **@aptx/frontend-tk-binding** | N-API 绑定模块<br/>编译为跨平台 .node 二进制 | `napi`, `napi-derive`, `libloading` |
+- `aptx functions`
+- `aptx react-query`
+- `aptx vue-query`
+- `model gen`
+- `model ir`
+- `model enum-plan`
+- `model enum-apply`
+- `materal enum-patch`
+- `materal enum-plan`
+- `materal enum-apply`
+- `input download`
 
 ---
 
-## 模块结构详解
+## 4. 生成目录规范（当前）
 
-### swagger_tk - OpenAPI 模型层
+以 `-o <output-root>` 为基准：
 
-```
-swagger_tk/src/
-├── model/                          # OpenAPI 3.x 完整类型定义
-│   ├── open_api_object.rs          # 顶层 OpenAPI 对象
-│   ├── operation_object.rs         # 操作对象
-│   ├── path_item_object.rs         # 路径项对象
-│   ├── response_object.rs          # 响应对象
-│   ├── request_body_object.rs      # 请求体对象
-│   ├── parameter_object.rs        # 参数对象
-│   ├── media_type_object.rs        # 媒体类型
-│   ├── schema/                    # Schema 类型系统
-│   │   ├── mod.rs
-│   │   ├── schema_enum.rs       # Schema 枚举类型
-│   │   ├── schema_object.rs     # 对象类型
-│   │   ├── schema_array.rs      # 数组类型
-│   │   ├── schema_string.rs     # 字符串类型
-│   │   ├── schema_integer.rs    # 整数类型
-│   │   ├── schema_number.rs     # 数字类型
-│   │   └── schema_bool.rs      # 布尔类型
-│   └── ... (300+ 个文件)
-├── extension/                      # 模型扩展方法
-│   ├── schema_enum.rs            # Schema → TS 类型转换
-│   ├── media_type_object.rs      # 媒体类型扩展
-│   └── response_value.rs       # 响应值扩展
-└── getter/                        # 查询工具
-    ├── get_schema_by_name.rs    # 通过名称获取 Schema
-    ├── get_schema_name_from_ref.rs  # 从 $ref 解析名称
-    ├── get_tags.rs              # 获取 tags
-    └── get_controller_description.rs  # 获取控制器描述
-```
+- `spec/{namespace}/{operation}.ts`
+- `functions/{namespace}/{operation}.ts`
+- `react-query/{namespace}/{operation}.query.ts|mutation.ts`
+- `vue-query/{namespace}/{operation}.query.ts|mutation.ts`
+- 自动生成 `index.ts` re-export（多目录）
 
-**核心功能**：
-- 解析 OpenAPI 3.x JSON/YAML
-- 提供类型安全的 Rust 模型
-- Schema 到 TypeScript 类型转换 (`get_ts_type()`)
-- 查询辅助方法
+说明：
+- 已完成扁平化，不再使用历史结构 `spec/endpoints/*` 与 `functions/api/*`。
 
 ---
 
-### swagger_gen - 代码生成引擎
+## 5. 导入策略
 
-```
-swagger_gen/src/
-├── core/                          # API 上下文构建
-│   ├── js_helper.rs              # API 上下文主结构
-│   └── js_api_context_helper.rs  # 上下文辅助方法
-├── gen_api/                       # API 客户端生成器
-│   ├── mod.rs
-│   ├── axios_ts.rs               # Axios + TypeScript
-│   ├── axios_js.rs               # Axios + JavaScript
-│   └── uni_app.rs               # 历史终端实现（当前 CLI 不暴露）
-├── gen_declaration/                # TypeScript 类型生成
-│   ├── declaration.rs            # 类型声明生成
-│   └── index.ts                # 导出生成
-├── pipeline/                       # 代码生成流水线
-│   ├── parser.rs                 # OpenAPI → IR 转换
-│   └── model.rs                 # 中间表示定义
-├── utils/                         # 工具函数
-│   ├── format_ts_code.rs         # 代码格式化 (dprint)
-│   ├── schema_extension.rs       # Schema → TS 类型扩展
-│   └── reference_object_extension.rs  # 引用对象扩展
-└── lib.rs                        # 库入口
-```
+## 5.1 model 导入
 
-**核心功能**：
-- 解析 OpenAPI 到中间表示 (IR)
-- 生成多种框架的 API 客户端
-- 生成 TypeScript 类型声明
-- 代码格式化与美化
+- `--model-mode relative`：
+  - 将 `--model-path` 解析为绝对路径
+  - 按“当前生成文件目录 -> 模型目录”计算相对导入
+- `--model-mode package`：
+  - 按包名导入（如 `@org/models`）
+
+## 5.2 endpoint/spec 互引
+
+- 由统一路径工具计算
+- 不允许模板内写死 `../../spec/...` 深度
 
 ---
 
-### node_binding - N-API 绑定层
-
-```
-node_binding/src/
-├── lib.rs                         # N-API 入口，暴露函数
-│   └── run_cli()                 # 执行 CLI 命令
-├── bootstrap.rs                   # 命令工厂初始化
-│   └── init_command_factory()    # 加载插件并初始化
-├── built_in/                      # 内置命令
-│   ├── mod.rs                   # 命令注册入口
-│   ├── ir.rs                   # IR 相关内部能力
-│   └── terminal_codegen.rs      # terminal 代码生成内部执行器
-└── package.json                   # N-API 配置
-    ├── targets                  # 支持的平台列表
-    └── binaryName               # 二进制名称
-```
-
-**暴露的 N-API 函数**：
-
-```typescript
-// packages/frontend-tk-cli/src/index.ts
-import { runCli } from "@aptx/frontend-tk-binding";
-
-// 执行命令
-runCli({
-  input: string,           // OpenAPI 文件路径
-  command: string,        // 命令名称
-  plugin?: string[],      // 插件路径列表
-  options: string[]       // 命令选项
-})
-```
-
----
-
-### frontend-tk-cli - CLI 应用层
-
-```
-frontend-tk-cli/src/
-├── index.ts                       # 主入口，命令路由
-├── command/
-│   ├── input/
-│   │   └── get-input.ts        # OpenAPI 文件下载/读取
-│   └── gen/                    # 代码生成流程
-└── utils.ts                       # 工具函数
-
-bin/aptx.js                       # 可执行入口
-dist/                             # 编译输出
-types/                            # 类型声明
-```
-
-**支持的命令**：
-
-| 命令 | 功能 |
-|------|------|
-| `codegen run` | 执行代码生成 |
-| `aptx <functions|react-query|vue-query>` | 直接生成 @aptx 终端代码 |
-| `model <gen|ir|enum-plan|enum-apply>` | 模型生成与枚举增强 |
-| `materal <enum-patch|enum-plan|enum-apply>` | materal 集成与枚举流程 |
-| `input download` | 下载远程 OpenAPI JSON |
-
----
-
-## 完整调用链流程
-
-### 主流程：代码生成
+## 6. 关键工作流
 
 ```mermaid
 sequenceDiagram
-    participant User as 用户
-    participant CLI as frontend-tk-cli
-    participant Downloader as 文件下载器
-    participant NAPI as N-API 绑定
-    participant Parser as OpenAPI 解析器
-    participant IR as 中间表示(IR)
-    participant Gen as 代码生成器
-    participant Render as 渲染器
-    participant Output as 文件系统
+    participant U as User
+    participant C as aptx-ft CLI
+    participant N as node_binding
+    participant P as swagger_gen pipeline
+    participant F as Filesystem
 
-    User->>CLI: aptx-ft codegen run [options]
-    CLI->>Downloader: 下载 OpenAPI 文件 (如果 input 是 URL)
-    Downloader->>Downloader: HTTP GET / 下载到临时目录
-    Downloader-->>CLI: 本地文件路径
-    CLI->>CLI: 解析插件配置
-    CLI->>NAPI: runCli({input, command, options, plugin})
-    NAPI->>Parser: 读取 OpenAPI JSON
-    Parser->>Parser: 解析为 OpenAPIObject
-    Parser->>IR: 构建 GeneratorInput
-    IR->>IR: 遍历 paths/operations
-    IR->>IR: 构建 EndpointItem 列表
-    IR-->>Gen: GeneratorInput (IR)
-    Gen->>Gen: 执行 pipeline
-
-    par 并发生成多个终端
-        Gen->>Render: 生成 functions
-        Render->>Output: 写入文件
-        Gen->>Render: 生成 react-query
-        Render->>Output: 写入文件
-        Gen->>Render: 生成 vue-query
-        Render->>Output: 写入文件
-    end
-
-    Gen-->>NAPI: 生成完成
-    NAPI-->>CLI: 返回结果
-    CLI->>User: 输出报告
+    U->>C: aptx-ft aptx react-query -i ... -o ...
+    C->>N: runCli(input, command, options)
+    N->>P: parse -> transform -> render -> layout -> write
+    P->>F: 写入 spec/react-query/functions
+    F-->>U: 生成完成
 ```
 
 ---
 
-### 子流程：OpenAPI 解析
+## 7. 构建与验证基线
 
-```mermaid
-flowchart TD
-    A["OpenAPI JSON/YAML 文件"] --> B["serde_json::from_str"]
-    B --> C{"解析成功?"}
-    C -->|"否"| D["抛出错误"]
-    C -->|"是"| E["OpenAPIObject"]
+对 `frontend_tk_rs` 的代码改动，验证顺序：
 
-    E --> F["提取 info 字段"]
-    E --> G["提取 paths 字段"]
-    E --> H["提取 components/schemas"]
+1. 在仓库根执行 `pnpm build`
+2. 用 `packages/frontend-tk-cli/bin/aptx.js` 跑真实命令
+3. 检查关键生成文件与 import 路径
 
-    G --> I["遍历每个 PathItem"]
-    I --> J["遍历每个 Operation: get post put delete..."]
-    J --> K["构建 ApiContext"]
-
-    K --> L["提取 operation_id 或生成函数名"]
-    K --> M["提取参数"]
-    K --> N["提取请求体"]
-    K --> O["提取响应"]
-
-    L --> P["生成 GeneratorInput"]
-    M --> P
-    N --> P
-    O --> P
-
-    style A fill:#e3f2fd
-    style E fill:#f3e5f5
-    style P fill:#e8f5e9
-```
+排障提示：
+- `aptx.js` 启用 compile cache；若行为疑似未更新，先用 `NODE_DISABLE_COMPILE_CACHE=1` 复测。
 
 ---
 
-### 子流程：代码生成流水线
-
-```mermaid
-flowchart LR
-    IR["GeneratorInput IR"]
-    PARSER["Parser"]
-    TRANSFORM["Transformer"]
-    RENDERER["Renderer"]
-    LAYOUT["Layout"]
-    WRITER["Writer"]
-    FILES["生成文件"]
-
-    IR --> PARSER
-    PARSER --> TRANSFORM
-    TRANSFORM --> RENDERER
-    RENDERER --> LAYOUT
-    LAYOUT --> WRITER
-    WRITER --> FILES
-
-    style IR fill:#fff9c4
-    style PARSER fill:#ffcc80
-    style TRANSFORM fill:#ffe0b2
-    style RENDERER fill:#c8e6c9
-    style LAYOUT fill:#a5d6a7
-    style FILES fill:#81c784
-```
-
----
-
-### 子流程：插件系统
-
-```mermaid
-sequenceDiagram
-    participant CLI as CLI
-    participant Factory as CommandFactory
-    participant Loader as PluginLoader
-    participant Registry as CommandRegistry
-    participant Plugin as Native Plugin
-    participant Script as Script Plugin
-
-    CLI->>Factory: init_command_factory(pluginPaths)
-    Factory->>Loader: 遍历插件路径
-
-    alt 原生插件 (.dll/.so)
-        Loader->>Plugin: libloading::Library::new(path)
-        Loader->>Plugin: 获取 init_plugin 符号
-        Plugin->>Registry: 注册命令
-        Loader->>Factory: 保存 Library 句柄
-    else 脚本插件 (.js)
-        Loader->>Script: require(path)
-        Script-->>Loader: ScriptPluginModule
-        Loader->>Registry: 注册命令/渲染器
-    end
-
-    Factory-->>CLI: CommandFactory
-    CLI->>Registry: execute_command(name, args, openAPI)
-    Registry->>Registry: 查找命令
-    Registry->>Registry: 执行回调函数
-    Registry-->>CLI: 执行结果
-```
-
----
-
-### 子流程：Schema 到 TypeScript 类型转换
-
-```mermaid
-flowchart TD
-    A["OpenAPI Schema"] --> B{"Schema 类型"}
-
-    B -->|"String"| S["string"]
-    B -->|"Integer"| I["number"]
-    B -->|"Number"| N["number"]
-    B -->|"Boolean"| BOL["boolean"]
-    B -->|"Object"| OBJ["object"]
-    B -->|"Array"| ARR["Array<T>"]
-    B -->|"Reference"| REF["自定义类型"]
-
-    I --> C["检查 nullable"]
-    N --> C
-    S --> C
-    BOL --> C
-    OBJ --> C
-    ARR --> C
-
-    C -->|"nullable=true"| D["类型 | null"]
-    C -->|"nullable=false"| E["类型"]
-
-    ARR --> F["递归处理 items"]
-    F --> E
-
-    REF --> G["查找 components/schemas"]
-    G --> E
-
-    style A fill:#f3e5f5
-    style B fill:#e1bee7
-    style E fill:#c8e6c9
-```
-
-**实现代码** (`swagger_gen/src/utils/schema_extension.rs`):
-
-```rust
-fn get_ts_type(&self) -> String {
-    match self {
-        SchemaEnum::Ref(schema) => schema.get_type_name(),
-        SchemaEnum::Object(_) => "object".to_string(),
-        SchemaEnum::String(_) => "string".to_string(),
-        SchemaEnum::Integer(_) => "number".to_string(),
-        SchemaEnum::Number(_) => "number".to_string(),
-        SchemaEnum::Boolean(_) => "boolean".to_string(),
-        SchemaEnum::Array(schema) => {
-            let child_type = schema.items.as_ref().get_ts_type();
-            format!("Array<{}>", child_type)
-        }
-    }
-}
-```
-
----
-
-## 数据结构
-
-### GeneratorInput (中间表示)
-
-```mermaid
-classDiagram
-    class GeneratorInput {
-        +ProjectContext project
-        +GeneratorEndpointIR[] endpoints
-    }
-
-    class ProjectContext {
-        +string package_name
-        +string? api_base_path
-        +string[] terminals
-        +string? retry_ownership
-    }
-
-    class GeneratorEndpointIR {
-        +string[] namespace
-        +string operation_name
-        +string method
-        +string path
-        +string input_type_name
-        +string output_type_name
-        +string? request_body_field
-        +string[] query_fields
-        +string[] path_fields
-        +boolean has_request_options
-        +boolean supports_query
-        +boolean supports_mutation
-        +boolean deprecated
-    }
-
-    GeneratorInput "1" --> "1" ProjectContext
-    GeneratorInput "1" --> "*" GeneratorEndpointIR
-```
-
----
-
-### CommandRegistry (命令注册表)
-
-```mermaid
-classDiagram
-    class CommandRegistry {
-        -HashMap~string,RegisteredCommand~ command_map
-        +register_command_with_descriptor(descriptor, callback)
-        +list_descriptors() CommandDescriptor[]
-        +execute_command(name, args, openAPI) Result
-    }
-
-    class RegisteredCommand {
-        +CommandDescriptor descriptor
-        +CommandFn callback
-    }
-
-    class CommandDescriptor {
-        +string name
-        +string summary
-        +string? description
-        +string[] aliases
-        +OptionDescriptor[] options
-        +string[] examples
-        +string? plugin_name
-        +string? plugin_version
-    }
-
-    class CommandContext {
-        +string[] args
-        +OpenAPIObject open_api
-    }
-
-    CommandRegistry "1" --> "*" RegisteredCommand
-    RegisteredCommand "1" --> "1" CommandDescriptor
-    CommandFn --> CommandContext
-```
-
----
-
-## 并发与缓存机制
-
-### 并发执行
-
-```mermaid
-flowchart LR
-    A["终端列表"] --> B["解析终端配置"]
-    B --> C{"终端类型"}
-
-    C -->|"内置终端"| D["Native 任务队列"]
-    C -->|"脚本终端"| E["Script 任务队列"]
-
-    D --> F["并发执行器"]
-    E --> F
-
-    F --> G["并发数限制 auto = CPU 核心数"]
-    G --> H["任务执行池"]
-
-    H --> I["收集执行结果"]
-    I --> J["合并报告"]
-
-    style A fill:#e3f2fd
-    style F fill:#fff9c4
-    style H fill:#c8e6c9
-    style J fill:#81c784
-```
-
-### 缓存机制
-
-```mermaid
-flowchart TD
-    A["代码生成请求"] --> B["计算缓存 Key"]
-    B --> C["Cache Key = SHA256 inputHash + configHash"]
-
-    C --> D{"缓存目录存在?"}
-    D -->|"否"| E["执行完整生成"]
-    D -->|"是"| F{"缓存命中?"}
-
-    F -->|"是"| G["跳过生成 使用缓存"]
-    F -->|"否"| E
-
-    E --> H["生成文件"]
-    H --> I["写入 .aptx-cache/run-cache.json"]
-    I --> J["保存 Key 和报告"]
-
-    G --> K["从缓存读取报告"]
-    K --> L["返回缓存结果"]
-
-    J --> L
-
-    style A fill:#e3f2fd
-    style C fill:#fff9c4
-    style G fill:#c8e6c9
-    style I fill:#a5d6a7
-```
-
----
-
-## 插件开发指南
-
-### 原生插件开发
-
-```mermaid
-flowchart TD
-    A["创建 Rust 项目"] --> B["添加依赖 node_binding_plugin"]
-    B --> C["实现 init_plugin 函数"]
-    C --> D["注册自定义命令"]
-    D --> E["编译为 cdylib"]
-    E --> F["生成 .dll / .so"]
-    F --> G["在 CLI 中指定插件路径 -p path/to/plugin.dll"]
-
-    style A fill:#e3f2fd
-    style C fill:#fff9c4
-    style F fill:#c8e6c9
-    style G fill:#81c784
-```
-
-**示例代码**：
-
-```rust
-use aptx_frontend_tk_binding_plugin::command::{CommandDescriptor, CommandRegistry, OptionDescriptor};
-
-#[no_mangle]
-pub extern "C" fn init_plugin(registry: &CommandRegistry) {
-    registry.register_command_with_descriptor(
-        CommandDescriptor {
-            name: "my-command".to_string(),
-            summary: "我的自定义命令".to_string(),
-            description: Some("这是一个示例命令".to_string()),
-            aliases: vec![],
-            options: vec![],
-            examples: vec![],
-            plugin_name: Some("my-plugin".to_string()),
-            plugin_version: Some("1.0.0".to_string()),
-        },
-        Box::new(|args, open_api| {
-            // 命令执行逻辑
-            println!("执行我的命令: {:?}", args);
-        }),
-    );
-}
-```
-
-### 脚本插件开发
-
-```mermaid
-flowchart TD
-    A["创建 JS 文件"] --> B["导出插件模块"]
-    B --> C["定义 apiVersion, pluginName"]
-    C --> D["注册 commands 或 renderers"]
-    D --> E["实现命令或渲染器函数"]
-    E --> F["在 CLI 中指定插件路径 -p path/to/plugin.js"]
-
-    style A fill:#e3f2fd
-    style D fill:#fff9c4
-    style E fill:#c8e6c9
-```
-
-**示例代码**：
-
-```typescript
-module.exports = {
-  apiVersion: "1",
-  pluginName: "my-script-plugin",
-  pluginVersion: "1.0.0",
-
-  commands: [{
-    name: "hello",
-    summary: "打招呼",
-    description: "向用户打招呼",
-    options: [{
-      long: "name",
-      short: "n",
-      value_name: "name",
-      required: false,
-      description: "用户名"
-    }],
-    examples: ["aptx-ft hello --name World"],
-    run: ({ args, input, getIrSnapshot }) => {
-      const name = args.includes("--name")
-        ? args[args.indexOf("--name") + 1]
-        : "User";
-      console.log(`Hello, ${name}!`);
-    }
-  }],
-
-  renderers: [{
-    id: "custom-terminal",
-    render: ({ input, ir, terminal, outputRoot, writeFile, writeFiles }) => {
-      // 自定义渲染逻辑
-      writeFile("custom.js", "// Custom code");
-    }
-  }]
-};
-```
-
----
-
-## 支持的终端
-
-| 终端 ID | 描述 | 生成代码类型 |
-|---------|------|------------|
-| **functions** | 纯函数导出 | `export function apiName(...)` |
-| **react-query** | React Query Hooks | `const useApiName = (...)` |
-| **vue-query** | Vue Query Composables | `const useApiName = (...)` |
-
----
-
-## 构建与开发
-
-### Rust 部分
-
-```bash
-# 构建 Rust workspace
-cargo build --release
-
-# 运行测试
-cargo test
-
-# 运行基准测试
-cargo bench
-
-# 构建 N-API 绑定
-cd crates/node_binding
-cargo build --release
-napi build --platform --release
-```
-
-### TypeScript 部分
-
-```bash
-# 安装依赖
-pnpm install
-
-# 构建 TypeScript
-cd packages/frontend-tk-cli
-pnpm run build
-
-# 构建 packages
-pnpm -r run build
-```
-
----
-
-## 故障排查
-
-### 常见问题
-
-1. **N-API 模块加载失败**
-   - 检查 Node.js 版本 (>= 10)
-   - 重新编译 `@aptx/frontend-tk-binding`
-   - 确认平台匹配
-
-2. **OpenAPI 解析失败**
-   - 验证 OpenAPI 格式
-   - 检查 JSON 语法
-   - 使用在线工具验证
-
-3. **插件加载失败**
-   - 检查插件路径是否正确
-   - 原生插件：确认编译为 cdylib
-   - 脚本插件：检查 CommonJS 导出格式
-
----
-
-## 许可证
-
-ISC
+## 8. 演进原则
+
+- 早期阶段允许激进演进，不强行保留历史兼容分支
+- 新增 terminal 时复用统一路径/导入工具
+- 优先减少调用方参数负担，避免“每个命令都要手传易漏参数”
