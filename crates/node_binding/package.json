@@ -1,14 +1,13 @@
 {
   "name": "@aptx/frontend-tk-binding",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
+    "ghRelease": false,
     "binaryName": "frontend-tk-binding",
     "targets": [
       "aarch64-apple-darwin",
-      "aarch64-linux-android",
-      "aarch64-unknown-linux-gnu",
       "aarch64-unknown-linux-musl",
       "aarch64-pc-windows-msvc",
       "armv7-unknown-linux-gnueabihf",
@@ -17,11 +16,7 @@
       "x86_64-pc-windows-msvc",
       "x86_64-unknown-linux-gnu",
       "x86_64-unknown-linux-musl",
-      "x86_64-unknown-freebsd",
-      "i686-pc-windows-msvc",
-      "armv7-linux-androideabi",
-      "universal-apple-darwin",
-      "riscv64gc-unknown-linux-gnu"
+      "universal-apple-darwin"
     ]
   },
   "license": "MIT",
@@ -41,24 +36,19 @@
     "build:debug": "napi build --platform",
     "test": "ava",
     "universal": "napi universal",
-    "version": "napi version"
+    "version": "napi version",
+    "prepublishOnly": "napi prepublish"
   },
   "optionalDependencies": {
     "@aptx/frontend-tk-binding-darwin-arm64": "0.1.0",
-    "@aptx/frontend-tk-binding-darwin-x64": "0.1.0",
-    "@aptx/frontend-tk-binding-android-arm64": "0.1.0",
-    "@aptx/frontend-tk-binding-linux-arm64-gnu": "0.1.0",
     "@aptx/frontend-tk-binding-linux-arm64-musl": "0.1.0",
     "@aptx/frontend-tk-binding-win32-arm64-msvc": "0.1.0",
     "@aptx/frontend-tk-binding-linux-arm-gnueabihf": "0.1.0",
     "@aptx/frontend-tk-binding-linux-arm-musleabihf": "0.1.0",
+    "@aptx/frontend-tk-binding-darwin-x64": "0.1.0",
+    "@aptx/frontend-tk-binding-win32-x64-msvc": "0.1.0",
     "@aptx/frontend-tk-binding-linux-x64-gnu": "0.1.0",
     "@aptx/frontend-tk-binding-linux-x64-musl": "0.1.0",
-    "@aptx/frontend-tk-binding-freebsd-x64": "0.1.0",
-    "@aptx/frontend-tk-binding-win32-ia32-msvc": "0.1.0",
-    "@aptx/frontend-tk-binding-win32-x64-msvc": "0.1.0",
-    "@aptx/frontend-tk-binding-android-arm-eabi": "0.1.0",
-    "@aptx/frontend-tk-binding-darwin-universal": "0.1.0",
-    "@aptx/frontend-tk-binding-linux-riscv64-gnu": "0.1.0"
+    "@aptx/frontend-tk-binding-darwin-universal": "0.1.0"
   }
 }

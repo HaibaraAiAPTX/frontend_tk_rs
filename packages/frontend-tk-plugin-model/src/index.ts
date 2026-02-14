@@ -42,7 +42,7 @@ function createModelCommands(): CommandDescriptor[] {
         {
           flags: '--style <declaration|module>',
           description: 'Model output style',
-          defaultValue: 'declaration',
+          defaultValue: 'module',
         },
         {
           flags: '--name <schema>',

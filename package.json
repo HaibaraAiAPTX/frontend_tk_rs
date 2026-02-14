@@ -1,14 +1,10 @@
 {
   "name": "frontend_tk_rs",
   "version": "0.0.0",
+  "private": true,
   "description": "generate frontend APIs, TypeScript types, and UI from Swagger use Rust",
   "author": "",
   "license": "ISC",
-  "pnpm": {
-    "overrides": {
-      "@aptx/frontend-tk-cli": "link:packages/frontend-tk-cli"
-    }
-  },
   "scripts": {
     "build": "pnpm -r --filter=./packages/* --filter=./crates/* build",
     "benchmark:codegen": "node scripts/benchmark/run-codegen-10k-benchmark.mjs",
@@ -19,7 +15,8 @@
     "release:cli": "node scripts/release/publish-cli-deps.mjs",
     "release:cli:dry-run": "node scripts/release/publish-cli-deps.mjs --dry-run --allow-dirty"
   },
-  "dependencies": {
-    "@aptx/frontend-tk-cli": "link:packages/frontend-tk-cli"
+  "devDependencies": {
+    "@changesets/cli": "^2.29.8",
+    "typescript": "^5.9.3"
   }
 }
