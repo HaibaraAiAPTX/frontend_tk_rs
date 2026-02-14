@@ -166,7 +166,7 @@ pub fn render_query_file(
         format!("  buildSpec: {builder},\n")
     };
     let normalize_input_line = if is_void_input {
-        "const normalizeInput = () => \"null\";".to_string()
+        String::new()
     } else {
         format!("const normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);")
     };
@@ -176,7 +176,7 @@ pub fn render_query_file(
         format!("(input: {input_type})")
     };
     let key_call = if is_void_input {
-        "normalizeInput()".to_string()
+        "null".to_string()
     } else {
         "normalizeInput(input)".to_string()
     };
@@ -189,18 +189,28 @@ pub fn render_query_file(
         endpoint.operation_name
     );
     let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
+    let type_import_block = if type_imports.is_empty() {
+        String::new()
+    } else {
+        format!("{type_imports}\n")
+    };
+    let normalize_input_block = if normalize_input_line.is_empty() {
+        String::new()
+    } else {
+        format!("{normalize_input_line}\n\n")
+    };
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\ntype AptxQueryContext = {{ signal?: AbortSignal; meta?: unknown }};\n{normalize_input_line}\n\nexport const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec, options: PerCallOptions | undefined, queryContext: AptxQueryContext | undefined) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport type {{ QueryAdapterContext }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}{normalize_input_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options: PerCallOptions | undefined, queryContext: QueryAdapterContext | undefined) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
         input_type = input_type,
         output_type = output_type,
-        type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
-        normalize_input_line = normalize_input_line,
+        type_import_block = type_import_block,
+        normalize_input_block = normalize_input_block,
         build_spec_line = build_spec_line,
         key_signature = key_signature,
         key_call = key_call,
@@ -248,19 +258,24 @@ pub fn render_mutation_file(
         endpoint.operation_name
     );
     let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
+    let type_import_block = if type_imports.is_empty() {
+        String::new()
+    } else {
+        format!("{type_imports}\n")
+    };
 
     format!(
-        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec, options?: PerCallOptions) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
+        "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}export const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options?: PerCallOptions) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
         hook_factory = mutation_hook_factory(terminal),
         hook_alias = mutation_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
         input_type = input_type,
         output_type = output_type,
-        type_imports = type_imports,
         client_import_lines = client_import_lines,
         client_call = client_call,
         build_spec_line = build_spec_line,
         spec_import_path = spec_import_path,
+        type_import_block = type_import_block,
     )
 }
 
@@ -342,5 +357,40 @@ mod tests {
 
         assert!(content.contains("from \"../../../spec/endpoints/group/item/fetchOne\""));
         assert!(!content.contains(": any"));
+        assert!(content.contains("QueryAdapterContext"));
+        assert!(content.contains("spec: ReturnType<typeof buildItemFetchOneSpec>"));
+    }
+
+    #[test]
+    fn test_render_mutation_file_should_not_have_extra_blank_lines() {
+        let endpoint = EndpointItem {
+            namespace: vec!["assignment".to_string()],
+            operation_name: "add".to_string(),
+            export_name: "assignmentAdd".to_string(),
+            builder_name: "buildAssignmentAddSpec".to_string(),
+            summary: None,
+            method: "POST".to_string(),
+            path: "/assignment/add".to_string(),
+            input_type_name: "AddAssignmentRequestModel".to_string(),
+            output_type_name: "GuidResultModel".to_string(),
+            request_body_field: None,
+            query_fields: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            supports_query: false,
+            supports_mutation: true,
+            deprecated: false,
+        };
+
+        let content = render_mutation_file(
+            &endpoint,
+            QueryTerminal::React,
+            "react-query/assignment/add.mutation.ts",
+            "../../domains",
+            false,
+            &None,
+        );
+
+        assert!(!content.contains("\n\n\n"));
     }
 }
