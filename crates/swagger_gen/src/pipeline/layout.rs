@@ -31,13 +31,7 @@ pub fn inject_barrel_indexes(files: Vec<PlannedFile>) -> Vec<PlannedFile> {
         .filter(|path| !path.ends_with("/index.ts") && path.ends_with(".ts"))
         .cloned()
         .collect::<Vec<_>>();
-    let roots = [
-        "models",
-        "spec/endpoints",
-        "functions/api",
-        "react-query",
-        "vue-query",
-    ];
+    let roots = ["models", "spec", "functions", "react-query", "vue-query"];
 
     let mut target_dirs = BTreeSet::<String>::new();
     for path in &source_paths {
@@ -118,11 +112,11 @@ mod tests {
     fn inject_barrel_indexes_generates_nested_indexes() {
         let files = vec![
             PlannedFile {
-                path: "functions/api/assignment/add.ts".to_string(),
+                path: "functions/assignment/add.ts".to_string(),
                 content: "export const a = 1;\n".to_string(),
             },
             PlannedFile {
-                path: "functions/api/assignment/delete.ts".to_string(),
+                path: "functions/assignment/delete.ts".to_string(),
                 content: "export const d = 1;\n".to_string(),
             },
         ];
@@ -133,10 +127,10 @@ mod tests {
             .map(|f| (f.path, f.content))
             .collect::<BTreeMap<_, _>>();
 
-        assert!(map.contains_key("functions/api/index.ts"));
-        assert!(map.contains_key("functions/api/assignment/index.ts"));
-        assert!(map["functions/api/index.ts"].contains("export * from \"./assignment\";"));
-        assert!(map["functions/api/assignment/index.ts"].contains("export * from \"./add\";"));
-        assert!(map["functions/api/assignment/index.ts"].contains("export * from \"./delete\";"));
+        assert!(map.contains_key("functions/index.ts"));
+        assert!(map.contains_key("functions/assignment/index.ts"));
+        assert!(map["functions/index.ts"].contains("export * from \"./assignment\";"));
+        assert!(map["functions/assignment/index.ts"].contains("export * from \"./add\";"));
+        assert!(map["functions/assignment/index.ts"].contains("export * from \"./delete\";"));
     }
 }

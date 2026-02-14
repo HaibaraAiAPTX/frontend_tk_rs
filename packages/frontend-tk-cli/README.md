@@ -4,14 +4,6 @@
 
 ### CLI 命令
 
-#### codegen run
-
-执行生成主流程：
-
-```bash
-aptx-ft codegen run --input ./openapi.json --terminal functions --output-root ./generated
-```
-
 #### model gen
 
 生成 TypeScript 模型文件（基于 OpenAPI `components/schemas`）：
@@ -84,7 +76,6 @@ aptx-ft input download --url https://example.com/openapi.json --output ./openapi
 | model | `enum-plan` | 导出枚举增强计划 JSON |
 | model | `enum-apply` | 应用枚举补丁并生成模型 |
 | input | `download` | 从 URL 下载 OpenAPI JSON |
-| codegen | `run` | 执行多终端代码生成 |
 
 查看命令详细帮助：
 
@@ -95,5 +86,4 @@ aptx-ft model ir --help
 aptx-ft model enum-plan --help
 aptx-ft model enum-apply --help
 aptx-ft input download --help
-aptx-ft codegen run --help
 ```

@@ -300,7 +300,7 @@ mod tests {
 
         let result = get_model_import_base(
             &Some(config),
-            Some("functions/api/user/getUser.ts"),
+            Some("functions/user/getUser.ts"),
             &Some(output_root_string),
         );
 
@@ -325,7 +325,7 @@ mod tests {
 
         let result = get_model_import_base(
             &Some(config),
-            Some("functions/api/user/getUser.ts"),
+            Some("functions/user/getUser.ts"),
             &Some(output_root_string),
         );
 
@@ -342,11 +342,9 @@ mod tests {
 
     #[test]
     fn test_resolve_file_import_path_assignment_function_to_spec() {
-        let result = resolve_file_import_path(
-            "functions/api/assignment/add.ts",
-            "spec/endpoints/assignment/add.ts",
-        );
-        assert_eq!(result, "../../../spec/endpoints/assignment/add");
+        let result =
+            resolve_file_import_path("functions/assignment/add.ts", "spec/assignment/add.ts");
+        assert_eq!(result, "../../spec/assignment/add");
     }
 
     #[test]

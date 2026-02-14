@@ -175,16 +175,16 @@ pub fn render_query_file(
     } else {
         format!("(input: {input_type})")
     };
-    let key_call = if is_void_input {
-        "null".to_string()
+    let key_expression = if is_void_input {
+        format!("{query_def}.keyPrefix")
     } else {
-        "normalizeInput(input)".to_string()
+        format!("[...{query_def}.keyPrefix, normalizeInput(input)] as const")
     };
 
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
     let spec_file_path = format!(
-        "spec/endpoints/{}/{}.ts",
+        "spec/{}/{}.ts",
         endpoint.namespace.join("/"),
         endpoint.operation_name
     );
@@ -201,7 +201,7 @@ pub fn render_query_file(
     };
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport type {{ QueryAdapterContext }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}{normalize_input_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options: PerCallOptions | undefined, queryContext: QueryAdapterContext | undefined) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport type {{ QueryAdapterContext }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}{normalize_input_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options: PerCallOptions | undefined, queryContext: QueryAdapterContext | undefined) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  {key_expression};\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -213,7 +213,7 @@ pub fn render_query_file(
         normalize_input_block = normalize_input_block,
         build_spec_line = build_spec_line,
         key_signature = key_signature,
-        key_call = key_call,
+        key_expression = key_expression,
         spec_import_path = spec_import_path,
     )
 }
@@ -253,7 +253,7 @@ pub fn render_mutation_file(
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
     let spec_file_path = format!(
-        "spec/endpoints/{}/{}.ts",
+        "spec/{}/{}.ts",
         endpoint.namespace.join("/"),
         endpoint.operation_name
     );
@@ -355,7 +355,7 @@ mod tests {
             &None,
         );
 
-        assert!(content.contains("from \"../../../spec/endpoints/group/item/fetchOne\""));
+        assert!(content.contains("from \"../../../spec/group/item/fetchOne\""));
         assert!(!content.contains(": any"));
         assert!(content.contains("QueryAdapterContext"));
         assert!(content.contains("spec: ReturnType<typeof buildItemFetchOneSpec>"));

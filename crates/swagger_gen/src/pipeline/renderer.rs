@@ -230,12 +230,12 @@ enum QueryTerminal {
 
 fn get_spec_file_path(endpoint: &EndpointItem) -> String {
     let namespace = endpoint.namespace.join("/");
-    format!("spec/endpoints/{namespace}/{}.ts", endpoint.operation_name)
+    format!("spec/{namespace}/{}.ts", endpoint.operation_name)
 }
 
 fn get_function_file_path(endpoint: &EndpointItem) -> String {
     let namespace = endpoint.namespace.join("/");
-    format!("functions/api/{namespace}/{}.ts", endpoint.operation_name)
+    format!("functions/{namespace}/{}.ts", endpoint.operation_name)
 }
 
 fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
@@ -277,7 +277,7 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
     let prefix = if input_import.is_empty() {
         String::new()
     } else {
-        input_import
+        format!("{input_import}\n")
     };
 
     format!(
@@ -324,11 +324,16 @@ fn render_function_file(
     let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
+    let type_import_block = if type_imports.is_empty() {
+        "\n".to_string()
+    } else {
+        format!("{type_imports}\n")
+    };
     format!(
-        "{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
+        "{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}export function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
         operation_name = endpoint.export_name,
         output_type = output_type,
-        type_imports = type_imports,
+        type_import_block = type_import_block,
         client_import_lines = client_import_lines,
         client_call = client_call,
         input_signature = input_signature,
@@ -482,10 +487,10 @@ fn render_query_file(
     } else {
         format!("(input: {input_type})")
     };
-    let key_call = if is_void_input {
-        "null".to_string()
+    let key_expression = if is_void_input {
+        format!("{query_def}.keyPrefix")
     } else {
-        "normalizeInput(input)".to_string()
+        format!("[...{query_def}.keyPrefix, normalizeInput(input)] as const")
     };
 
     let client_import_lines = get_client_import_lines(client_import);
@@ -504,7 +509,7 @@ fn render_query_file(
     };
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport type {{ QueryAdapterContext }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}{normalize_input_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options: PerCallOptions | undefined, queryContext: QueryAdapterContext | undefined) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  [...{query_def}.keyPrefix, {key_call}] as const;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport type {{ QueryAdapterContext }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}{normalize_input_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options: PerCallOptions | undefined, queryContext: QueryAdapterContext | undefined) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  {key_expression};\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -516,7 +521,7 @@ fn render_query_file(
         normalize_input_block = normalize_input_block,
         build_spec_line = build_spec_line,
         key_signature = key_signature,
-        key_call = key_call,
+        key_expression = key_expression,
         spec_import_path = spec_import_path,
     )
 }
@@ -837,13 +842,13 @@ mod tests {
         let endpoint = make_endpoint(vec!["assignment"], "add");
         let content = render_function_file(
             &endpoint,
-            "functions/api/assignment/add.ts",
+            "functions/assignment/add.ts",
             "../../../spec/types",
             false,
             &None,
         );
 
-        assert!(content.contains("from \"../../../spec/endpoints/assignment/add\""));
+        assert!(content.contains("from \"../../spec/assignment/add\""));
     }
 
     #[test]
@@ -858,7 +863,7 @@ mod tests {
             &None,
         );
 
-        assert!(content.contains("from \"../../../spec/endpoints/group/item/queryOne\""));
+        assert!(content.contains("from \"../../../spec/group/item/queryOne\""));
         assert!(!content.contains(": any"));
         assert!(content.contains("QueryAdapterContext"));
         assert!(content.contains("spec: ReturnType<typeof buildQueryOneSpec>"));
@@ -879,7 +884,7 @@ mod tests {
         );
 
         assert!(!content.contains("const normalizeInput = () => \"null\";"));
-        assert!(content.contains("[...pingQueryDef.keyPrefix, null]"));
+        assert!(content.contains("export const pingKey = () =>\n  pingQueryDef.keyPrefix;"));
         assert!(!content.contains("\n\n\n\n"));
     }
 
@@ -919,5 +924,28 @@ mod tests {
         let content = render_spec_file(&endpoint, "../../../domains", false);
 
         assert!(content.contains("import type { StoreType } from \"../../../domains/StoreType\";"));
+    }
+
+    #[test]
+    fn function_file_should_have_exactly_one_blank_line_before_export() {
+        let endpoint = make_endpoint(vec!["application"], "getCustomerServiceQRCode");
+        let content = render_function_file(
+            &endpoint,
+            "functions/application/getCustomerServiceQRCode.ts",
+            "../../domains",
+            false,
+            &None,
+        );
+
+        assert!(!content.contains("\n\n\nexport function"));
+        assert!(content.contains("DemoOutput\";\n\nexport function"));
+    }
+
+    #[test]
+    fn spec_file_should_have_blank_line_between_import_and_export() {
+        let endpoint = make_endpoint(vec!["assignment"], "add");
+        let content = render_spec_file(&endpoint, "../../domains", false);
+
+        assert!(content.contains("DemoInput\";\n\nexport function"));
     }
 }

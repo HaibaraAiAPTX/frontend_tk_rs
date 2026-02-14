@@ -13,8 +13,8 @@ use swagger_gen::pipeline::{EndpointItem, GeneratorInput, PlannedFile, RenderOut
 /// Functions renderer for @aptx/api-client
 ///
 /// Generates:
-/// - Spec files in `spec/endpoints/{namespace}/{operation}.ts`
-/// - Function files in `functions/api/{namespace}/{operation}.ts`
+/// - Spec files in `spec/{namespace}/{operation}.ts`
+/// - Function files in `functions/{namespace}/{operation}.ts`
 #[derive(Default)]
 pub struct AptxFunctionsRenderer;
 
@@ -61,12 +61,12 @@ impl Renderer for AptxFunctionsRenderer {
 
 fn get_spec_file_path(endpoint: &EndpointItem) -> String {
     let namespace = endpoint.namespace.join("/");
-    format!("spec/endpoints/{namespace}/{}.ts", endpoint.operation_name)
+    format!("spec/{namespace}/{}.ts", endpoint.operation_name)
 }
 
 fn get_function_file_path(endpoint: &EndpointItem) -> String {
     let namespace = endpoint.namespace.join("/");
-    format!("functions/api/{namespace}/{}.ts", endpoint.operation_name)
+    format!("functions/{namespace}/{}.ts", endpoint.operation_name)
 }
 
 fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_package: bool) -> String {
@@ -107,7 +107,7 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
     let prefix = if input_import.is_empty() {
         String::new()
     } else {
-        input_import
+        format!("{input_import}\n")
     };
 
     format!(
@@ -154,11 +154,16 @@ fn render_function_file(
     let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
+    let type_import_block = if type_imports.is_empty() {
+        "\n".to_string()
+    } else {
+        format!("{type_imports}\n")
+    };
     format!(
-        "{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_imports}\n\nexport function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
+        "{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}export function {operation_name}(\n{input_signature}  options?: PerCallOptions\n): Promise<{output_type}> {{\n  return {client_call}.execute<{output_type}>({builder_call}, options);\n}}\n",
         operation_name = endpoint.export_name,
         output_type = output_type,
-        type_imports = type_imports,
+        type_import_block = type_import_block,
         client_import_lines = client_import_lines,
         client_call = client_call,
         input_signature = input_signature,
@@ -197,10 +202,7 @@ mod tests {
             supports_mutation: false,
             deprecated: false,
         };
-        assert_eq!(
-            get_spec_file_path(&endpoint),
-            "spec/endpoints/users/getUser.ts"
-        );
+        assert_eq!(get_spec_file_path(&endpoint), "spec/users/getUser.ts");
     }
 
     #[test]
@@ -225,7 +227,7 @@ mod tests {
         };
         assert_eq!(
             get_function_file_path(&endpoint),
-            "functions/api/users/getUser.ts"
+            "functions/users/getUser.ts"
         );
     }
 
@@ -251,13 +253,13 @@ mod tests {
         };
         let content = render_function_file(
             &endpoint,
-            "functions/api/assignment/add.ts",
+            "functions/assignment/add.ts",
             "../../../spec/types",
             false,
             &None,
         );
 
-        assert!(content.contains("from \"../../../spec/endpoints/assignment/add\""));
+        assert!(content.contains("from \"../../spec/assignment/add\""));
     }
 
     #[test]
