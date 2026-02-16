@@ -44,6 +44,7 @@ jobs:
           path: |
             packages/*/dist
             packages/*/bin
+          merge-multiple: true
           retention-days: 1
 
   # Stage 2: Publish core (depends on binding from native workflow)
