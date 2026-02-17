@@ -119,13 +119,15 @@ jobs:
 
       - name: Publish @aptx/frontend-tk-core
         working-directory: packages/frontend-tk-core
+        env:
+          PNPM_STRICT_SSL: 'false'
         run: |
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
           if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts --no-git-checks --no-strict-ssl
+            pnpm publish --ignore-scripts --no-git-checks
             echo "PUBLISHED: ${name}@${version}"
           fi
 
@@ -192,13 +194,15 @@ jobs:
 
       - name: Publish @aptx/${{ matrix.package }}
         working-directory: packages/${{ matrix.package }}
+        env:
+          PNPM_STRICT_SSL: 'false'
         run: |
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
           if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts --no-git-checks --no-strict-ssl
+            pnpm publish --ignore-scripts --no-git-checks
             echo "PUBLISHED: ${name}@${version}"
           fi
 
@@ -262,13 +266,15 @@ jobs:
 
       - name: Publish @aptx/frontend-tk-cli
         working-directory: packages/frontend-tk-cli
+        env:
+          PNPM_STRICT_SSL: 'false'
         run: |
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
           if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts --no-git-checks --no-strict-ssl
+            pnpm publish --ignore-scripts --no-git-checks
             echo "PUBLISHED: ${name}@${version}"
           fi
 
