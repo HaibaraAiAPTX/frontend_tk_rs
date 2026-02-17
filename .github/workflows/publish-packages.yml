@@ -125,7 +125,7 @@ jobs:
           if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts --no-git-checks
+            pnpm publish --ignore-scripts --no-git-checks --no-strict-ssl
             echo "PUBLISHED: ${name}@${version}"
           fi
 
@@ -198,7 +198,7 @@ jobs:
           if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts --no-git-checks
+            pnpm publish --ignore-scripts --no-git-checks --no-strict-ssl
             echo "PUBLISHED: ${name}@${version}"
           fi
 
@@ -268,7 +268,7 @@ jobs:
           if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
-            pnpm publish --ignore-scripts --no-git-checks
+            pnpm publish --ignore-scripts --no-git-checks --no-strict-ssl
             echo "PUBLISHED: ${name}@${version}"
           fi
 
