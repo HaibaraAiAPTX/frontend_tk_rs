@@ -15,6 +15,7 @@ permissions:
 env:
   NODE_VERSION: '20'
   PNPM_VERSION: '10.29.1'
+  PNPM_STRICT_SSL: 'false'
   NPM_REGISTRY_URL: 'https://winserver.devserver.ink:14873/'
   NPM_REGISTRY_AUTH_KEY: '//winserver.devserver.ink:14873/:_authToken'
 
