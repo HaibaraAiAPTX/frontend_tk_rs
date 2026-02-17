@@ -5,6 +5,10 @@ env:
   APP_NAME: frontend-tk-binding
   MACOSX_DEPLOYMENT_TARGET: '10.13'
   CARGO_INCREMENTAL: '1'
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10.29.1'
+  NPM_REGISTRY_URL: 'https://winserver.devserver.ink:14873/'
+  NPM_REGISTRY_AUTH_KEY: '//winserver.devserver.ink:14873/:_authToken'
 
 on:
   push:
@@ -15,8 +19,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -71,11 +79,11 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: ${{ env.PNPM_VERSION }}
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - name: Install
         uses: dtolnay/rust-toolchain@stable
@@ -92,7 +100,9 @@ jobs:
             ~/.napi-rs
             .cargo-cache
             target/
-          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}-${{ hashFiles('Cargo.lock', 'crates/node_binding/Cargo.lock', 'pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}-
       - name: Install GNU cross compilers
         if: ${{ matrix.settings.host == 'ubuntu-latest' && (matrix.settings.target == 'aarch64-unknown-linux-gnu' || matrix.settings.target == 'riscv64gc-unknown-linux-gnu') }}
         run: |
@@ -144,6 +154,7 @@ jobs:
           if-no-files-found: error
 
   build-freebsd:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     name: Build FreeBSD
     steps:
@@ -182,10 +193,10 @@ jobs:
 
   publish:
     name: Publish
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
     needs:
       - build
       - build-freebsd
@@ -194,11 +205,11 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: ${{ env.PNPM_VERSION }}
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - name: Install dependencies
         working-directory: crates/node_binding
@@ -222,20 +233,37 @@ jobs:
             done
           done
           pnpm run artifacts
+      - name: Validate generated npm artifacts
+        working-directory: crates/node_binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f package.json
+          if [ ! -f index.js ]; then
+            echo "Missing root package entry file: index.js"
+            exit 1
+          fi
+          shopt -s nullglob
+          packages=(npm/*)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No platform npm packages found under crates/node_binding/npm"
+            exit 1
+          fi
+          for dir in "${packages[@]}"; do
+            [ -d "$dir" ] || continue
+            node_files=("$dir"/*.node)
+            if [ ${#node_files[@]} -eq 0 ]; then
+              echo "No .node artifact found in $dir"
+              exit 1
+            fi
+          done
       - name: Configure npm registry
         run: |
-          echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
-          echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
-          echo "strict-ssl=false" >> ~/.npmrc
+          pnpm config set registry "${NPM_REGISTRY_URL}"
+          pnpm config set strict-ssl false
+          pnpm config set "${NPM_REGISTRY_AUTH_KEY}" "${NPM_TOKEN}"
         env:
           NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
       - name: Publish
         working-directory: crates/node_binding
         shell: bash
@@ -263,6 +291,8 @@ jobs:
             version=$(node -p "require('./package.json').version")
 
             echo "==> Processing ${name}@${version} (${dir})"
+
+            pnpm pack --dry-run >/dev/null
 
             if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
               echo "SKIP: already exists in registry: ${name}@${version}"
@@ -308,5 +338,12 @@ jobs:
           if [ "$failed" -gt 0 ]; then
             exit 1
           fi
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ github.token }}

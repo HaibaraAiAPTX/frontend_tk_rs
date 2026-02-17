@@ -9,13 +9,19 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   NODE_VERSION: '20'
-  PNPM_VERSION: '10'
+  PNPM_VERSION: '10.29.1'
+  NPM_REGISTRY_URL: 'https://winserver.devserver.ink:14873/'
+  NPM_REGISTRY_AUTH_KEY: '//winserver.devserver.ink:14873/:_authToken'
 
 jobs:
   # Stage 1: Build all packages
   build:
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,22 +43,31 @@ jobs:
       - name: Build packages
         run: pnpm -r --filter './packages/*' run build
 
-      - name: Upload dist
+      - name: Pack build artifacts
+        shell: bash
+        run: |
+          shopt -s nullglob
+          artifacts=(packages/*/dist packages/*/bin)
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            echo "No dist/bin directories were produced by build."
+            exit 1
+          fi
+          tar -czf packages-build-artifacts.tgz "${artifacts[@]}"
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages-dist
-          path: |
-            packages/*/dist
-            packages/*/bin
-          merge-multiple: true
+          name: packages-build-artifacts
+          path: packages-build-artifacts.tgz
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 1
 
   # Stage 2: Publish core (depends on binding from native workflow)
   publish-core:
     needs: build
+    timeout-minutes: 20
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -67,19 +82,37 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Download dist
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: packages-dist
+          name: packages-build-artifacts
+          path: .
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Extract build artifacts
+        shell: bash
+        run: tar -xzf packages-build-artifacts.tgz
+
+      - name: Validate dist artifacts
+        shell: bash
+        run: |
+          dist_dir="packages/frontend-tk-core/dist"
+          if [ ! -d "$dist_dir" ] || [ -z "$(ls -A "$dist_dir")" ]; then
+            echo "Missing or empty dist directory: $dist_dir"
+            exit 1
+          fi
+
+      - name: Validate package contents
+        working-directory: packages/frontend-tk-core
+        run: pnpm pack --dry-run >/dev/null
+
       - name: Configure npm registry
         run: |
-          echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
-          echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
-          echo "strict-ssl=false" >> ~/.npmrc
+          pnpm config set registry "${NPM_REGISTRY_URL}"
+          pnpm config set strict-ssl false
+          pnpm config set "${NPM_REGISTRY_AUTH_KEY}" "${NPM_TOKEN}"
         env:
           NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
 
@@ -88,7 +121,7 @@ jobs:
         run: |
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
-          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+          if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
             pnpm publish --ignore-scripts --no-git-checks
@@ -98,9 +131,8 @@ jobs:
   # Stage 3: Publish plugins (parallel, depends on core)
   publish-plugins:
     needs: publish-core
+    timeout-minutes: 20
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -123,19 +155,37 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Download dist
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: packages-dist
+          name: packages-build-artifacts
+          path: .
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Extract build artifacts
+        shell: bash
+        run: tar -xzf packages-build-artifacts.tgz
+
+      - name: Validate dist artifacts
+        shell: bash
+        run: |
+          dist_dir="packages/${{ matrix.package }}/dist"
+          if [ ! -d "$dist_dir" ] || [ -z "$(ls -A "$dist_dir")" ]; then
+            echo "Missing or empty dist directory: $dist_dir"
+            exit 1
+          fi
+
+      - name: Validate package contents
+        working-directory: packages/${{ matrix.package }}
+        run: pnpm pack --dry-run >/dev/null
+
       - name: Configure npm registry
         run: |
-          echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
-          echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
-          echo "strict-ssl=false" >> ~/.npmrc
+          pnpm config set registry "${NPM_REGISTRY_URL}"
+          pnpm config set strict-ssl false
+          pnpm config set "${NPM_REGISTRY_AUTH_KEY}" "${NPM_TOKEN}"
         env:
           NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
 
@@ -144,7 +194,7 @@ jobs:
         run: |
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
-          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+          if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
             pnpm publish --ignore-scripts --no-git-checks
@@ -154,9 +204,8 @@ jobs:
   # Stage 4: Publish CLI (depends on all plugins)
   publish-cli:
     needs: publish-plugins
+    timeout-minutes: 20
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -171,19 +220,42 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Download dist
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: packages-dist
+          name: packages-build-artifacts
+          path: .
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Extract build artifacts
+        shell: bash
+        run: tar -xzf packages-build-artifacts.tgz
+
+      - name: Validate dist and bin artifacts
+        shell: bash
+        run: |
+          dist_dir="packages/frontend-tk-cli/dist"
+          bin_dir="packages/frontend-tk-cli/bin"
+          if [ ! -d "$dist_dir" ] || [ -z "$(ls -A "$dist_dir")" ]; then
+            echo "Missing or empty dist directory: $dist_dir"
+            exit 1
+          fi
+          if [ ! -d "$bin_dir" ] || [ -z "$(ls -A "$bin_dir")" ]; then
+            echo "Missing or empty bin directory: $bin_dir"
+            exit 1
+          fi
+
+      - name: Validate package contents
+        working-directory: packages/frontend-tk-cli
+        run: pnpm pack --dry-run >/dev/null
+
       - name: Configure npm registry
         run: |
-          echo "registry=https://winserver.devserver.ink:14873/" > ~/.npmrc
-          echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
-          echo "strict-ssl=false" >> ~/.npmrc
+          pnpm config set registry "${NPM_REGISTRY_URL}"
+          pnpm config set strict-ssl false
+          pnpm config set "${NPM_REGISTRY_AUTH_KEY}" "${NPM_TOKEN}"
         env:
           NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
 
@@ -192,7 +264,7 @@ jobs:
         run: |
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
-          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+          if pnpm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "SKIP: ${name}@${version} already exists"
           else
             pnpm publish --ignore-scripts --no-git-checks
@@ -203,6 +275,7 @@ jobs:
   summary:
     needs: [publish-core, publish-plugins, publish-cli]
     if: always()
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - name: Check results
