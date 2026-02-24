@@ -10,10 +10,7 @@
     "benchmark:codegen": "node scripts/benchmark/run-codegen-10k-benchmark.mjs",
     "benchmark:rust": "cargo bench -p swagger_gen --bench codegen_pipeline",
     "benchmark": "pnpm benchmark:codegen && pnpm benchmark:rust",
-    "binding:version": "node scripts/release/set-binding-version.mjs",
-    "binding:version:check": "node scripts/release/set-binding-version.mjs --check",
-    "release:cli": "node scripts/release/publish-cli-deps.mjs",
-    "release:cli:dry-run": "node scripts/release/publish-cli-deps.mjs --dry-run --allow-dirty"
+    "publish:bindings": "node scripts/publish-binding.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
