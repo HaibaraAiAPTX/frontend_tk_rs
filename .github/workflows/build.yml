@@ -1,11 +1,5 @@
 name: CI
 
-env:
-  DEBUG: napi:*
-  APP_NAME: frontend-tk-binding
-  MACOSX_DEPLOYMENT_TARGET: '10.13'
-  CARGO_INCREMENTAL: '1'
-
 on:
   push:
     tags:
@@ -16,155 +10,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        settings:
-          - host: macos-latest
-            target: x86_64-apple-darwin
-            build: pnpm run build --target x86_64-apple-darwin
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
-            build: pnpm run build --target x86_64-pc-windows-msvc
-          - host: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            build: pnpm run build --target x86_64-unknown-linux-gnu --use-napi-cross
-          - host: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            build: pnpm run build --target x86_64-unknown-linux-musl -x
-          - host: macos-latest
-            target: aarch64-apple-darwin
-            build: pnpm run build --target aarch64-apple-darwin
-          - host: ubuntu-latest
-            target: armv7-unknown-linux-gnueabihf
-            build: pnpm run build --target armv7-unknown-linux-gnueabihf --use-napi-cross
-          - host: ubuntu-latest
-            target: aarch64-unknown-linux-musl
-            build: pnpm run build --target aarch64-unknown-linux-musl -x
-          - host: windows-latest
-            target: aarch64-pc-windows-msvc
-            build: pnpm run build --target aarch64-pc-windows-msvc
-          - host: ubuntu-latest
-            target: armv7-unknown-linux-musleabihf
-            build: pnpm run build --target armv7-unknown-linux-musleabihf -x
-
-    name: stable - ${{ matrix.settings.target }} - node@20
-    runs-on: ${{ matrix.settings.host }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      - name: Install
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: ${{ matrix.settings.target }}
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            ~/.napi-rs
-            .cargo-cache
-            target/
-          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
-      - uses: mlugg/setup-zig@v1
-        if: ${{ contains(matrix.settings.target, 'musl') }}
-        with:
-          version: 0.13.0
-      - name: Install cargo-zigbuild
-        uses: taiki-e/install-action@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          tool: cargo-zigbuild
-      - name: Setup toolchain
-        run: ${{ matrix.settings.setup }}
-        if: ${{ matrix.settings.setup }}
-        shell: bash
-      - name: Install dependencies
-        working-directory: crates/node_binding
-        run: pnpm install --no-frozen-lockfile
-      - name: Build
-        working-directory: crates/node_binding
-        run: ${{ matrix.settings.build }}
-        shell: bash
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: bindings-${{ matrix.settings.target }}
-          path: |
-            crates/node_binding/frontend-tk-binding.*.node
-          if-no-files-found: error
-
   publish:
-    name: Publish
+    name: Publish TypeScript Packages
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
-    needs:
-      - build
+      contents: read
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
+
       - name: Setup node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
-      - name: Install dependencies
-        working-directory: crates/node_binding
-        run: pnpm install --no-frozen-lockfile
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: crates/node_binding/artifacts
-      - name: Move artifacts
-        working-directory: crates/node_binding
-        shell: bash
-        run: |
-          mkdir -p npm
-          shopt -s nullglob
-          for dir in artifacts/bindings-*; do
-            [ -d "$dir" ] || continue
-            mkdir -p "$dir/dist"
-            for file in "$dir"/*.node; do
-              [ -f "$file" ] || continue
-              mv "$file" "$dir/dist/"
-            done
-          done
-          pnpm run artifacts
+
       - name: Configure npm registry
         run: |
           echo "strict-ssl=false" >> ~/.npmrc
           echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
-      - name: Pre-publish
-        working-directory: crates/node_binding
-        env:
-          NPM_CONFIG_REGISTRY: https://winserver.devserver.ink:14873/
-        run: npx napi pre-publish --no-gh-release
 
       # Build and publish TypeScript packages
       - name: Install root dependencies
         run: pnpm install --no-frozen-lockfile
+
       - name: Build TypeScript packages
         run: pnpm -r --filter './packages/*' run build
+
       - name: Publish @aptx/frontend-tk-core
         working-directory: packages/frontend-tk-core
         shell: bash
@@ -179,6 +57,7 @@ jobs:
             pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
             echo "PUBLISHED: ${name}@${version}"
           fi
+
       - name: Publish @aptx/frontend-tk-plugin-aptx
         working-directory: packages/frontend-tk-plugin-aptx
         shell: bash
@@ -193,6 +72,7 @@ jobs:
             pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
             echo "PUBLISHED: ${name}@${version}"
           fi
+
       - name: Publish @aptx/frontend-tk-plugin-input
         working-directory: packages/frontend-tk-plugin-input
         shell: bash
@@ -207,6 +87,7 @@ jobs:
             pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
             echo "PUBLISHED: ${name}@${version}"
           fi
+
       - name: Publish @aptx/frontend-tk-plugin-materal
         working-directory: packages/frontend-tk-plugin-materal
         shell: bash
@@ -221,6 +102,7 @@ jobs:
             pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
             echo "PUBLISHED: ${name}@${version}"
           fi
+
       - name: Publish @aptx/frontend-tk-plugin-model
         working-directory: packages/frontend-tk-plugin-model
         shell: bash
@@ -235,6 +117,7 @@ jobs:
             pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
             echo "PUBLISHED: ${name}@${version}"
           fi
+
       - name: Publish @aptx/frontend-tk-cli
         working-directory: packages/frontend-tk-cli
         shell: bash
