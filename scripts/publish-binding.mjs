@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const bindingDir = path.join(repoRoot, "crates/node_binding");
+const artifactsDir = path.join(bindingDir, "artifacts");
 
 const args = process.argv.slice(2);
 
@@ -47,11 +48,12 @@ function runCommand(cmd, cmdArgs, opts = {}) {
   const printable = [cmd, ...cmdArgs].join(" ");
   console.log(`\n$ ${printable}`);
 
+  const env = { ...process.env, ...opts.env };
   const result = spawnSync(cmd, cmdArgs, {
     cwd,
     stdio: "inherit",
     shell: process.platform === "win32",
-    env: process.env,
+    env,
   });
 
   if (result.status !== 0) {
@@ -59,16 +61,24 @@ function runCommand(cmd, cmdArgs, opts = {}) {
   }
 }
 
-function getCurrentRegistry() {
-  const result = spawnSync("npm", ["config", "get", "registry"], {
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  });
-  return result.stdout.trim();
+function ensureArtifactsDir() {
+  if (!fs.existsSync(artifactsDir)) {
+    fs.mkdirSync(artifactsDir, { recursive: true });
+  }
 }
 
-function setRegistry(registry) {
-  runCommand("npm", ["config", "set", "registry", registry]);
+function createNpmrc(registry) {
+  const npmrcPath = path.join(bindingDir, ".npmrc");
+  fs.writeFileSync(npmrcPath, `registry=${registry}\n`);
+  console.log(`Created .npmrc with registry: ${registry}`);
+}
+
+function removeNpmrc() {
+  const npmrcPath = path.join(bindingDir, ".npmrc");
+  if (fs.existsSync(npmrcPath)) {
+    fs.unlinkSync(npmrcPath);
+    console.log("Removed .npmrc");
+  }
 }
 
 function main() {
@@ -78,27 +88,37 @@ function main() {
     return;
   }
 
+  ensureArtifactsDir();
+
   console.log("=== Download Release from GitHub ===");
   
   const tagArg = options.tag ? [options.tag] : [];
-  runCommand("gh", ["release", "download", ...tagArg, "--dir", bindingDir, "--pattern", "*.node"]);
+  runCommand("gh", ["release", "download", ...tagArg, "--dir", artifactsDir, "--pattern", "*.node"]);
 
   console.log("\n=== Generate npm packages ===");
   runCommand("pnpm", ["run", "artifacts"]);
 
+  console.log("\n=== Sync version with git tag ===");
+  runCommand("pnpm", ["run", "version"]);
+
   console.log("\n=== Publish to private registry ===");
   
-  const originalRegistry = getCurrentRegistry();
-  console.log(`Current registry: ${originalRegistry}`);
-  
-  setRegistry(PRIVATE_REGISTRY);
-  console.log(`Switched to: ${PRIVATE_REGISTRY}`);
+  createNpmrc(PRIVATE_REGISTRY);
+
+  // Use environment variable to force registry for npm/pnpm
+  const publishEnv = {
+    NPM_CONFIG_REGISTRY: PRIVATE_REGISTRY,
+    PNPM_CONFIG_REGISTRY: PRIVATE_REGISTRY,
+  };
 
   try {
-    runCommand("npx", ["napi", "pre-publish", "--no-gh-release"]);
+    // 发布平台二进制包
+    runCommand("npx", ["napi", "prepublish", "--no-gh-release"], { env: publishEnv });
+
+    // 发布主包
+    runCommand("pnpm", ["publish", "--no-git-checks"], { env: publishEnv });
   } finally {
-    setRegistry(originalRegistry);
-    console.log(`Restored registry: ${originalRegistry}`);
+    removeNpmrc();
   }
 
   console.log("\n=== Done ===");

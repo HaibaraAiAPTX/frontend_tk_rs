@@ -35,8 +35,7 @@
     "build:debug": "napi build --platform",
     "test": "ava",
     "universal": "napi universal",
-    "version": "napi version",
-    "prepublishOnly": "napi prepublish"
+    "version": "napi version"
   },
   "optionalDependencies": {
     "@aptx/frontend-tk-binding-darwin-arm64": "0.1.0",
