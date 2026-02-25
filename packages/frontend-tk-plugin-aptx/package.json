@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-plugin-aptx",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Aptx namespace commands for frontend toolkit CLI",
   "keywords": [
     "frontend",

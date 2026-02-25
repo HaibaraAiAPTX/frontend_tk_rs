@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-plugin-materal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Code generation terminal commands for frontend toolkit CLI",
   "keywords": [
     "frontend",
