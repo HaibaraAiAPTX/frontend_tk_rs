@@ -199,8 +199,15 @@ class CliImpl implements Cli {
     // Set up action handler
     cmd.action(async (options: Record<string, unknown>) => {
       try {
-        // Merge global options with command options
+        // Validate input requirement
+        const requiresInput = command.requiresOpenApi !== false;
         const globalOpts = this.state.program.opts();
+
+        if (requiresInput && !globalOpts.input) {
+          throw new Error(`--input is required for '${command.name}' command`);
+        }
+
+        // Merge global options with command options
         const mergedOptions = { ...globalOpts, ...options };
         await command.handler(this.state.context, mergedOptions);
       } catch (error) {

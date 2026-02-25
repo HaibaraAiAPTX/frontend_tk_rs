@@ -16,7 +16,7 @@ extern crate napi_derive;
 #[napi(object)]
 #[derive(Debug)]
 pub struct RunCliOptions {
-  pub input: String,
+  pub input: Option<String>,
   pub command: String,
   pub plugin: Option<Vec<String>>,
   pub options: Vec<String>,
@@ -24,17 +24,32 @@ pub struct RunCliOptions {
 
 #[napi]
 pub fn run_cli(options: RunCliOptions) -> napi::Result<()> {
-  let input = {
-    let path = Path::new(&options.input);
-    if path.is_absolute() {
+  // Parse OpenAPI only when input is provided
+  let open_api = if let Some(input_path) = &options.input {
+    let path = Path::new(input_path);
+    let abs_path = if path.is_absolute() {
       path.to_path_buf()
     } else {
-      current_dir().unwrap().join(&options.input)
+      current_dir().unwrap().join(input_path)
+    };
+    let text = std::fs::read_to_string(&abs_path)
+      .map_err(|err| Error::from_reason(err.to_string()))?;
+    OpenAPIObject::from_str(&text)
+      .map_err(|err| Error::from_reason(err.to_string()))?
+  } else {
+    // Create a minimal valid OpenAPIObject for commands that don't need it
+    OpenAPIObject {
+      openapi: "3.0.0".to_string(),
+      info: None,
+      servers: None,
+      paths: None,
+      webhooks: None,
+      components: None,
+      security: None,
+      tags: None,
+      external_docs: None,
     }
   };
-  let text = std::fs::read_to_string(input).map_err(|err| Error::from_reason(err.to_string()))?;
-  let open_api =
-    OpenAPIObject::from_str(&text).map_err(|err| Error::from_reason(err.to_string()))?;
 
   let command_factory =
     init_command_factory(&options.plugin).map_err(|err| Error::from_reason(err.to_string()))?;

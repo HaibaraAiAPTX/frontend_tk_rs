@@ -58,6 +58,8 @@ export interface CommandDescriptor {
   examples?: string[];
   /** Handler function */
   handler: CommandHandler;
+  /** Whether this command requires OpenAPI input (default: true) */
+  requiresOpenApi?: boolean;
 }
 
 /**

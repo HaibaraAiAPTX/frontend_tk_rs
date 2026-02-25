@@ -60,6 +60,7 @@ const inputDownloadCommand: CommandDescriptor = {
   name: "input:download",
   summary: "Download OpenAPI JSON from URL to local file",
   description: "Downloads an OpenAPI JSON specification from a URL and saves it to a local file.",
+  requiresOpenApi: false,
   options: inputDownloadOptions,
   examples: [
     "aptx-ft input download --url https://api.example.com/openapi.json --output ./swagger.json",

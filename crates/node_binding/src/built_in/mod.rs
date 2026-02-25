@@ -1,5 +1,6 @@
 use aptx_frontend_tk_binding_plugin::command::{CommandDescriptor, CommandRegistry};
 pub mod aptx_commands;
+pub mod barrel_commands;
 pub mod ir;
 pub mod model_enum_apply;
 pub mod model_enum_plan;
@@ -50,6 +51,15 @@ pub fn register_built_in_command(command: &CommandRegistry) {
       ..Default::default()
     },
     Box::new(ir::export_ir_snapshot),
+  );
+
+  // Register barrel:gen command
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "barrel:gen".to_string(),
+      ..Default::default()
+    },
+    Box::new(barrel_commands::run_barrel_gen),
   );
 
   // Register @aptx namespace commands
