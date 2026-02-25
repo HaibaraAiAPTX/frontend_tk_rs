@@ -2,7 +2,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde_json::json;
 use std::str::FromStr;
 use swagger_gen::pipeline::{
-    AxiosTsRenderer, NormalizeEndpointPass, Renderer, TransformPass, build_dry_run_plan,
+    build_dry_run_plan,
     parse_openapi_to_ir,
 };
 use swagger_tk::model::OpenAPIObject;
@@ -91,18 +91,6 @@ fn benchmark_codegen_pipeline(c: &mut Criterion) {
     group.bench_function("dry_plan", |b| {
         b.iter(|| {
             build_dry_run_plan(black_box(&openapi)).expect("dry_plan");
-        })
-    });
-
-    let mut ir = parse_openapi_to_ir(&openapi).expect("build ir once");
-    NormalizeEndpointPass
-        .apply(&mut ir)
-        .expect("normalize endpoint names");
-    let renderer = AxiosTsRenderer;
-
-    group.bench_function("axios_ts_render", |b| {
-        b.iter(|| {
-            renderer.render(black_box(&ir)).expect("axios_ts_render");
         })
     });
 
