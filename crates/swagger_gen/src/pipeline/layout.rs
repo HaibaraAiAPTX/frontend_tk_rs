@@ -21,7 +21,7 @@ impl LayoutStrategy for IdentityLayout {
 }
 
 pub fn inject_barrel_indexes(files: Vec<PlannedFile>) -> Vec<PlannedFile> {
-    let roots = ["models", "spec", "functions", "api-query-react", "api-query-vue"];
+    let roots = ["models", "spec", "functions", "react-query", "vue-query"];
     generate_barrel_for_directory_with_roots(files, &roots)
 }
 
@@ -162,8 +162,8 @@ fn collect_ts_files(input_dir: &str) -> Vec<String> {
 fn collect_target_dirs(ts_files: &[String], input_dir: &str) -> BTreeSet<String> {
     let mut target_dirs = BTreeSet::<String>::new();
 
-    // Always include the root input directory
-    target_dirs.insert(input_dir.to_string());
+    // Always include the root input directory (represented as empty string for relative paths)
+    target_dirs.insert(String::new());
 
     for file_path in ts_files {
         // Get the parent directory relative to input_dir
@@ -231,9 +231,13 @@ fn collect_exports_for_dir(source_paths: &[String], dir: &str) -> BTreeSet<Strin
                     exports.insert(format!("export * from \"./{}\";", subdir));
                 }
             }
-        } else if dir.is_empty() && !parent.is_empty() && !parent.contains('/') {
-            // Root-level subdirectories
-            exports.insert(format!("export * from \"./{}\";", parent));
+        } else if dir.is_empty() && !parent.is_empty() {
+            // Root-level subdirectories: extract the first path component
+            if let Some(subdir) = parent.split('/').next() {
+                if !subdir.is_empty() {
+                    exports.insert(format!("export * from \"./{}\";", subdir));
+                }
+            }
         }
     }
 
@@ -268,5 +272,88 @@ mod tests {
         assert!(map["functions/index.ts"].contains("export * from \"./assignment\";"));
         assert!(map["functions/assignment/index.ts"].contains("export * from \"./add\";"));
         assert!(map["functions/assignment/index.ts"].contains("export * from \"./delete\";"));
+    }
+
+    #[test]
+    fn inject_barrel_indexes_generates_nested_indexes_for_react_query() {
+        let files = vec![
+            PlannedFile {
+                path: "react-query/group/item/fetchOne.query.ts".to_string(),
+                content: "export const a = 1;\n".to_string(),
+            },
+            PlannedFile {
+                path: "react-query/group/item/fetchAll.query.ts".to_string(),
+                content: "export const b = 1;\n".to_string(),
+            },
+            PlannedFile {
+                path: "react-query/assignment/add.mutation.ts".to_string(),
+                content: "export const c = 1;\n".to_string(),
+            },
+        ];
+
+        let result = inject_barrel_indexes(files);
+        let map = result
+            .into_iter()
+            .map(|f| (f.path, f.content))
+            .collect::<BTreeMap<_, _>>();
+
+        // Should have root react-query index
+        assert!(map.contains_key("react-query/index.ts"));
+        // Should have intermediate group index
+        assert!(map.contains_key("react-query/group/index.ts"));
+        // Should have leaf group/item index
+        assert!(map.contains_key("react-query/group/item/index.ts"));
+        // Should have assignment index
+        assert!(map.contains_key("react-query/assignment/index.ts"));
+
+        // Check exports in root
+        assert!(map["react-query/index.ts"].contains("export * from \"./group\";"));
+        assert!(map["react-query/index.ts"].contains("export * from \"./assignment\";"));
+
+        // Check exports in intermediate level
+        assert!(map["react-query/group/index.ts"].contains("export * from \"./item\";"));
+
+        // Check exports in leaf level
+        assert!(map["react-query/group/item/index.ts"].contains("export * from \"./fetchOne.query\";"));
+        assert!(map["react-query/group/item/index.ts"].contains("export * from \"./fetchAll.query\";"));
+
+        // Check exports in assignment
+        assert!(map["react-query/assignment/index.ts"].contains("export * from \"./add.mutation\";"));
+    }
+
+    #[test]
+    fn generate_barrel_for_directory_generates_root_index() {
+        // Create a temporary directory structure for testing
+        let temp_dir = std::env::temp_dir().join("barrel_test_root_index");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(temp_dir.join("functions/assignment")).unwrap();
+        std::fs::create_dir_all(temp_dir.join("react-query/user")).unwrap();
+
+        // Create some .ts files
+        std::fs::write(temp_dir.join("functions/assignment/add.ts"), "export const a = 1;").unwrap();
+        std::fs::write(temp_dir.join("react-query/user/get.query.ts"), "export const b = 1;").unwrap();
+
+        let input_dir = temp_dir.to_string_lossy().to_string();
+        let result = generate_barrel_for_directory(&input_dir);
+
+        let map = result
+            .into_iter()
+            .map(|f| (f.path, f.content))
+            .collect::<BTreeMap<_, _>>();
+
+        // Should have root index.ts
+        assert!(map.contains_key("index.ts"), "Root index.ts should be generated");
+        // Should have subdirectory indexes
+        assert!(map.contains_key("functions/index.ts"));
+        assert!(map.contains_key("functions/assignment/index.ts"));
+        assert!(map.contains_key("react-query/index.ts"));
+        assert!(map.contains_key("react-query/user/index.ts"));
+
+        // Root index should export the top-level directories
+        assert!(map["index.ts"].contains("export * from \"./functions\";"));
+        assert!(map["index.ts"].contains("export * from \"./react-query\";"));
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

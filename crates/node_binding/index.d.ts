@@ -3,7 +3,7 @@
 export declare function runCli(options: RunCliOptions): void
 
 export interface RunCliOptions {
-  input: string
+  input?: string
   command: string
   plugin?: Array<string>
   options: Array<string>
