@@ -69,8 +69,8 @@ pub fn render_query_terminal(
 /// Returns the directory name for the terminal
 pub fn terminal_dir(terminal: QueryTerminal) -> &'static str {
     match terminal {
-        QueryTerminal::React => "react-query",
-        QueryTerminal::Vue => "vue-query",
+        QueryTerminal::React => "api-query-react",
+        QueryTerminal::Vue => "api-query-vue",
     }
 }
 
@@ -201,7 +201,7 @@ pub fn render_query_file(
     };
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport type {{ QueryAdapterContext }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}{normalize_input_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options: PerCallOptions | undefined, queryContext: QueryAdapterContext | undefined) =>\n    {client_call}.execute(spec, {{\n      ...(options ?? {{}}),\n      signal: queryContext?.signal,\n      meta: {{\n        ...(options?.meta ?? {{}}),\n        __query: queryContext?.meta,\n      }},\n    }}),\n}});\n\nexport const {key_name} = {key_signature} =>\n  {key_expression};\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}{normalize_input_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options?: PerCallOptions) =>\n    {client_call}.execute(spec, options),\n}});\n\nexport const {key_name} = {key_signature} =>\n  {key_expression};\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
         terminal_package = terminal_dir(terminal),
@@ -285,8 +285,8 @@ mod tests {
 
     #[test]
     fn test_terminal_dir() {
-        assert_eq!(terminal_dir(QueryTerminal::React), "react-query");
-        assert_eq!(terminal_dir(QueryTerminal::Vue), "vue-query");
+        assert_eq!(terminal_dir(QueryTerminal::React), "api-query-react");
+        assert_eq!(terminal_dir(QueryTerminal::Vue), "api-query-vue");
     }
 
     #[test]
@@ -357,7 +357,6 @@ mod tests {
 
         assert!(content.contains("from \"../../../spec/group/item/fetchOne\""));
         assert!(!content.contains(": any"));
-        assert!(content.contains("QueryAdapterContext"));
         assert!(content.contains("spec: ReturnType<typeof buildItemFetchOneSpec>"));
     }
 

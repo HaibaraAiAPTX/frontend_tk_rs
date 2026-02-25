@@ -105,19 +105,13 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
     };
 
     let prefix = if input_import.is_empty() {
-        String::new()
+        "import type { RequestSpec } from \"@aptx/api-client\";\n\n".to_string()
     } else {
-        format!("{input_import}\n")
+        format!("{input_import}\nimport type {{ RequestSpec }} from \"@aptx/api-client\";\n\n")
     };
 
     format!(
-        "{prefix}export function {builder}({signature}) {{
-  return {{
-    method: \"{method}\",
-    path: \"{path}\",
-{query_lines}{payload_field}  }};
-}}
-",
+        "{prefix}export function {builder}({signature}): RequestSpec {{\n  return {{\n    method: \"{method}\",\n    path: \"{path}\",\n{query_lines}{payload_field}  }};\n}}\n",
         signature = signature,
         method = endpoint.method,
         path = endpoint.path
