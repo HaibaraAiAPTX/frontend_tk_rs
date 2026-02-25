@@ -31,7 +31,7 @@ pub fn inject_barrel_indexes(files: Vec<PlannedFile>) -> Vec<PlannedFile> {
         .filter(|path| !path.ends_with("/index.ts") && path.ends_with(".ts"))
         .cloned()
         .collect::<Vec<_>>();
-    let roots = ["models", "spec", "functions", "react-query", "vue-query"];
+    let roots = ["models", "spec", "functions", "api-query-react", "api-query-vue"];
 
     let mut target_dirs = BTreeSet::<String>::new();
     for path in &source_paths {

@@ -1,11 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, path::Path};
 
 use clap::Parser;
-use swagger_gen::pipeline::{
-  generate_functions_contract_v1, generate_functions_contract_v1_with_imports,
-  generate_react_query_contract_v1, generate_react_query_contract_v1_with_imports,
-  generate_vue_query_contract_v1, generate_vue_query_contract_v1_with_imports,
-};
+use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter};
+use swagger_gen_aptx::{AptxFunctionsRenderer, AptxReactQueryRenderer, AptxVueQueryRenderer};
 use swagger_tk::model::OpenAPIObject;
 
 #[derive(Debug, Clone, Parser)]
@@ -70,6 +67,47 @@ impl Default for TerminalRegistry {
   }
 }
 
+/// Build client import configuration from command-line options
+fn build_client_import_config(
+  client_mode: Option<&str>,
+  client_path: Option<&str>,
+  client_package: Option<&str>,
+  client_import_name: Option<&str>,
+) -> Option<swagger_gen::pipeline::ClientImportConfig> {
+  match client_mode {
+    None => None,
+    Some(mode) => Some(swagger_gen::pipeline::ClientImportConfig {
+      mode: mode.to_string(),
+      client_path: client_path.map(|s| s.to_string()),
+      client_package: client_package.map(|s| s.to_string()),
+      import_name: client_import_name.map(|s| s.to_string()),
+    }),
+  }
+}
+
+/// Build model import configuration from command-line options
+fn build_model_import_config(
+  model_mode: Option<&str>,
+  model_path: Option<&str>,
+) -> Option<swagger_gen::pipeline::ModelImportConfig> {
+  match model_mode {
+    None => None,
+    Some("package") => Some(swagger_gen::pipeline::ModelImportConfig {
+      import_type: "package".to_string(),
+      package_path: Some(model_path.unwrap_or("@my-org/models").to_string()),
+      relative_path: None,
+      original_path: model_path.map(|s| s.to_string()),
+    }),
+    Some("relative") => Some(swagger_gen::pipeline::ModelImportConfig {
+      import_type: "relative".to_string(),
+      package_path: None,
+      relative_path: None,
+      original_path: model_path.map(|s| s.to_string()),
+    }),
+    _ => None,
+  }
+}
+
 fn create_builtin_registry_with_options(
   client_mode: Option<String>,
   client_path: Option<String>,
@@ -88,32 +126,27 @@ fn create_builtin_registry_with_options(
   let model_mode_clone = model_mode.clone();
   let model_path_clone = model_path.clone();
 
-  // Check if any import config is provided
-  let has_import_config = client_mode.is_some()
-    || client_path.is_some()
-    || client_package.is_some()
-    || client_import_name.is_some()
-    || model_mode.is_some()
-    || model_path.is_some();
-
   registry.register(
     "functions",
     Box::new(move |open_api, output| {
-      if has_import_config {
-        generate_functions_contract_v1_with_imports(
-          open_api,
-          output,
-          client_mode_clone.as_deref(),
-          client_path_clone.as_deref(),
-          client_package_clone.as_deref(),
-          client_import_name_clone.as_deref(),
-          model_mode_clone.as_deref(),
-          model_path_clone.as_deref(),
-        )
-        .map(|_| ())
-      } else {
-        generate_functions_contract_v1(open_api, output).map(|_| ())
-      }
+      let client_import = build_client_import_config(
+        client_mode_clone.as_deref(),
+        client_path_clone.as_deref(),
+        client_package_clone.as_deref(),
+        client_import_name_clone.as_deref(),
+      );
+      let model_import = build_model_import_config(
+        model_mode_clone.as_deref(),
+        model_path_clone.as_deref(),
+      );
+
+      let pipeline = CodegenPipeline::default()
+        .with_client_import(client_import)
+        .with_model_import(model_import)
+        .with_renderer(Box::new(AptxFunctionsRenderer))
+        .with_writer(Box::new(FileSystemWriter::new(output)));
+
+      pipeline.plan(open_api).map(|_| ())
     }),
   );
 
@@ -128,21 +161,24 @@ fn create_builtin_registry_with_options(
   registry.register(
     "react-query",
     Box::new(move |open_api, output| {
-      if has_import_config {
-        generate_react_query_contract_v1_with_imports(
-          open_api,
-          output,
-          client_mode_clone.as_deref(),
-          client_path_clone.as_deref(),
-          client_package_clone.as_deref(),
-          client_import_name_clone.as_deref(),
-          model_mode_clone.as_deref(),
-          model_path_clone.as_deref(),
-        )
-        .map(|_| ())
-      } else {
-        generate_react_query_contract_v1(open_api, output).map(|_| ())
-      }
+      let client_import = build_client_import_config(
+        client_mode_clone.as_deref(),
+        client_path_clone.as_deref(),
+        client_package_clone.as_deref(),
+        client_import_name_clone.as_deref(),
+      );
+      let model_import = build_model_import_config(
+        model_mode_clone.as_deref(),
+        model_path_clone.as_deref(),
+      );
+
+      let pipeline = CodegenPipeline::default()
+        .with_client_import(client_import)
+        .with_model_import(model_import)
+        .with_renderer(Box::new(AptxReactQueryRenderer))
+        .with_writer(Box::new(FileSystemWriter::new(output)));
+
+      pipeline.plan(open_api).map(|_| ())
     }),
   );
 
@@ -157,21 +193,24 @@ fn create_builtin_registry_with_options(
   registry.register(
     "vue-query",
     Box::new(move |open_api, output| {
-      if has_import_config {
-        generate_vue_query_contract_v1_with_imports(
-          open_api,
-          output,
-          client_mode_clone.as_deref(),
-          client_path_clone.as_deref(),
-          client_package_clone.as_deref(),
-          client_import_name_clone.as_deref(),
-          model_mode_clone.as_deref(),
-          model_path_clone.as_deref(),
-        )
-        .map(|_| ())
-      } else {
-        generate_vue_query_contract_v1(open_api, output).map(|_| ())
-      }
+      let client_import = build_client_import_config(
+        client_mode_clone.as_deref(),
+        client_path_clone.as_deref(),
+        client_package_clone.as_deref(),
+        client_import_name_clone.as_deref(),
+      );
+      let model_import = build_model_import_config(
+        model_mode_clone.as_deref(),
+        model_path_clone.as_deref(),
+      );
+
+      let pipeline = CodegenPipeline::default()
+        .with_client_import(client_import)
+        .with_model_import(model_import)
+        .with_renderer(Box::new(AptxVueQueryRenderer))
+        .with_writer(Box::new(FileSystemWriter::new(output)));
+
+      pipeline.plan(open_api).map(|_| ())
     }),
   );
 

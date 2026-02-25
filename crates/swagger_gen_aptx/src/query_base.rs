@@ -66,8 +66,16 @@ pub fn render_query_terminal(
     })
 }
 
-/// Returns the directory name for the terminal
+/// Returns the directory name for the terminal (used for file paths)
 pub fn terminal_dir(terminal: QueryTerminal) -> &'static str {
+    match terminal {
+        QueryTerminal::React => "react-query",
+        QueryTerminal::Vue => "vue-query",
+    }
+}
+
+/// Returns the package name for the terminal (used for imports)
+pub fn terminal_package_name(terminal: QueryTerminal) -> &'static str {
     match terminal {
         QueryTerminal::React => "api-query-react",
         QueryTerminal::Vue => "api-query-vue",
@@ -149,6 +157,7 @@ pub fn render_query_file(
         .chain(std::iter::once(format!("\"{}\"", endpoint.operation_name)))
         .collect::<Vec<_>>()
         .join(", ");
+    let key_prefix_array = format!("[{key_prefix}] as const");
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
@@ -165,21 +174,6 @@ pub fn render_query_file(
     } else {
         format!("  buildSpec: {builder},\n")
     };
-    let normalize_input_line = if is_void_input {
-        String::new()
-    } else {
-        format!("const normalizeInput = (input: {input_type}) => JSON.stringify(input ?? null);")
-    };
-    let key_signature = if is_void_input {
-        "()".to_string()
-    } else {
-        format!("(input: {input_type})")
-    };
-    let key_expression = if is_void_input {
-        format!("{query_def}.keyPrefix")
-    } else {
-        format!("[...{query_def}.keyPrefix, normalizeInput(input)] as const")
-    };
 
     let client_import_lines = get_client_import_lines(client_import);
     let client_call = get_client_call(client_import);
@@ -194,26 +188,19 @@ pub fn render_query_file(
     } else {
         format!("{type_imports}\n")
     };
-    let normalize_input_block = if normalize_input_line.is_empty() {
-        String::new()
-    } else {
-        format!("{normalize_input_line}\n\n")
-    };
 
     format!(
-        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}{normalize_input_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: [{key_prefix}] as const,\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options?: PerCallOptions) =>\n    {client_call}.execute(spec, options),\n}});\n\nexport const {key_name} = {key_signature} =>\n  {key_expression};\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
+        "import {{ createQueryDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}export const {query_def} = createQueryDefinition<{input_type}, {output_type}>({{\n  keyPrefix: {key_prefix_array},\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options?: PerCallOptions) =>\n    {client_call}.execute(spec, options),\n}});\n\nexport const {key_name} = {query_def}.key;\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({query_def});\n",
         hook_factory = query_hook_factory(terminal),
         hook_alias = query_hook_alias(terminal),
-        terminal_package = terminal_dir(terminal),
+        terminal_package = terminal_package_name(terminal),
         input_type = input_type,
         output_type = output_type,
         client_import_lines = client_import_lines,
         client_call = client_call,
         type_import_block = type_import_block,
-        normalize_input_block = normalize_input_block,
         build_spec_line = build_spec_line,
-        key_signature = key_signature,
-        key_expression = key_expression,
+        key_prefix_array = key_prefix_array,
         spec_import_path = spec_import_path,
     )
 }
@@ -268,7 +255,7 @@ pub fn render_mutation_file(
         "import {{ createMutationDefinition }} from \"@aptx/api-query-adapter\";\nimport {{ {hook_factory} }} from \"@aptx/{terminal_package}\";\n{client_import_lines}\nimport {{ {builder} }} from \"{spec_import_path}\";\n{type_import_block}export const {mutation_def} = createMutationDefinition<{input_type}, {output_type}>({{\n{build_spec_line}  execute: (spec: ReturnType<typeof {builder}>, options?: PerCallOptions) => {client_call}.execute(spec, options),\n}});\n\nexport const {{ {hook_alias}: {hook_name} }} = {hook_factory}({mutation_def});\n",
         hook_factory = mutation_hook_factory(terminal),
         hook_alias = mutation_hook_alias(terminal),
-        terminal_package = terminal_dir(terminal),
+        terminal_package = terminal_package_name(terminal),
         input_type = input_type,
         output_type = output_type,
         client_import_lines = client_import_lines,
@@ -285,8 +272,14 @@ mod tests {
 
     #[test]
     fn test_terminal_dir() {
-        assert_eq!(terminal_dir(QueryTerminal::React), "api-query-react");
-        assert_eq!(terminal_dir(QueryTerminal::Vue), "api-query-vue");
+        assert_eq!(terminal_dir(QueryTerminal::React), "react-query");
+        assert_eq!(terminal_dir(QueryTerminal::Vue), "vue-query");
+    }
+
+    #[test]
+    fn test_terminal_package_name() {
+        assert_eq!(terminal_package_name(QueryTerminal::React), "api-query-react");
+        assert_eq!(terminal_package_name(QueryTerminal::Vue), "api-query-vue");
     }
 
     #[test]
