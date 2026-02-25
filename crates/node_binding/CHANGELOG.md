@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.2
+
+### Patch Changes
+
+- 新增生成桶文件命令，修改 react 和 vue 的 hook 生成文件的导出
+
 ## 0.1.1
 
 ### Patch Changes
