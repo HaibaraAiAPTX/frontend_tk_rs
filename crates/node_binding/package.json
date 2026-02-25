@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-binding",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
@@ -38,14 +38,14 @@
     "version": "napi version"
   },
   "optionalDependencies": {
-    "@aptx/frontend-tk-binding-darwin-arm64": "0.1.0",
-    "@aptx/frontend-tk-binding-linux-arm64-musl": "0.1.0",
-    "@aptx/frontend-tk-binding-win32-arm64-msvc": "0.1.0",
-    "@aptx/frontend-tk-binding-linux-arm-gnueabihf": "0.1.0",
-    "@aptx/frontend-tk-binding-linux-arm-musleabihf": "0.1.0",
-    "@aptx/frontend-tk-binding-darwin-x64": "0.1.0",
-    "@aptx/frontend-tk-binding-win32-x64-msvc": "0.1.0",
-    "@aptx/frontend-tk-binding-linux-x64-gnu": "0.1.0",
-    "@aptx/frontend-tk-binding-linux-x64-musl": "0.1.0"
+    "@aptx/frontend-tk-binding-darwin-arm64": "0.1.1",
+    "@aptx/frontend-tk-binding-linux-arm64-musl": "0.1.1",
+    "@aptx/frontend-tk-binding-win32-arm64-msvc": "0.1.1",
+    "@aptx/frontend-tk-binding-linux-arm-gnueabihf": "0.1.1",
+    "@aptx/frontend-tk-binding-linux-arm-musleabihf": "0.1.1",
+    "@aptx/frontend-tk-binding-darwin-x64": "0.1.1",
+    "@aptx/frontend-tk-binding-win32-x64-msvc": "0.1.1",
+    "@aptx/frontend-tk-binding-linux-x64-gnu": "0.1.1",
+    "@aptx/frontend-tk-binding-linux-x64-musl": "0.1.1"
   }
 }
