@@ -9,7 +9,7 @@ use super::{
     },
     parser::{OpenApiParser, Parser},
     renderer::{NoopRenderer, Renderer},
-    transform::{NormalizeEndpointPass, TransformPass},
+    transform::{DefaultQueryMutationPass, NormalizeEndpointPass, TransformPass},
     writer::{DryRunWriter, Writer},
 };
 
@@ -29,7 +29,10 @@ impl Default for CodegenPipeline {
     fn default() -> Self {
         Self {
             parser: Box::new(OpenApiParser),
-            transforms: vec![Box::new(NormalizeEndpointPass)],
+            transforms: vec![
+                Box::new(NormalizeEndpointPass),
+                Box::new(DefaultQueryMutationPass),
+            ],
             renderers: vec![Box::new(NoopRenderer)],
             layout: Box::new(IdentityLayout),
             writer: Box::new(DryRunWriter),
@@ -73,6 +76,14 @@ impl CodegenPipeline {
     /// Set output root directory (used for calculating relative import paths)
     pub fn with_output_root(mut self, output_root: Option<String>) -> Self {
         self.output_root = output_root;
+        self
+    }
+
+    /// Add a custom transform pass to the pipeline.
+    /// Transform passes are applied in order, so later passes can override
+    /// the results of earlier passes.
+    pub fn with_transform(mut self, pass: Box<dyn TransformPass>) -> Self {
+        self.transforms.push(pass);
         self
     }
 }

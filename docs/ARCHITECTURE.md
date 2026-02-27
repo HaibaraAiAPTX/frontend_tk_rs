@@ -66,6 +66,10 @@ flowchart TB
 - model 导入支持 `relative` 和 `package`
 - 统一使用 `/` 路径分隔
 
+扩展机制：
+- **TransformPass**：管道中的扩展点，用于自定义 IR 变换
+- 详见 [transform-pass-extension.md](./transform-pass-extension.md)
+
 ---
 
 ## 3. 当前命令面

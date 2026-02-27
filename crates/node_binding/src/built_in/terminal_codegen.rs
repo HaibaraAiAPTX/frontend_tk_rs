@@ -2,7 +2,9 @@ use std::{cell::RefCell, collections::HashMap, path::Path};
 
 use clap::Parser;
 use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter};
-use swagger_gen_aptx::{AptxFunctionsRenderer, AptxReactQueryRenderer, AptxVueQueryRenderer};
+use swagger_gen_aptx::{
+  AptxFunctionsRenderer, AptxQueryMutationPass, AptxReactQueryRenderer, AptxVueQueryRenderer,
+};
 use swagger_tk::model::OpenAPIObject;
 
 #[derive(Debug, Clone, Parser)]
@@ -141,6 +143,7 @@ fn create_builtin_registry_with_options(
       );
 
       let pipeline = CodegenPipeline::default()
+        .with_transform(Box::new(AptxQueryMutationPass))
         .with_client_import(client_import)
         .with_model_import(model_import)
         .with_renderer(Box::new(AptxFunctionsRenderer))
@@ -173,6 +176,7 @@ fn create_builtin_registry_with_options(
       );
 
       let pipeline = CodegenPipeline::default()
+        .with_transform(Box::new(AptxQueryMutationPass))
         .with_client_import(client_import)
         .with_model_import(model_import)
         .with_renderer(Box::new(AptxReactQueryRenderer))
@@ -205,6 +209,7 @@ fn create_builtin_registry_with_options(
       );
 
       let pipeline = CodegenPipeline::default()
+        .with_transform(Box::new(AptxQueryMutationPass))
         .with_client_import(client_import)
         .with_model_import(model_import)
         .with_renderer(Box::new(AptxVueQueryRenderer))

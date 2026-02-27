@@ -9,7 +9,9 @@ use std::path::Path;
 
 use clap::Parser;
 use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter};
-use swagger_gen_aptx::{AptxFunctionsRenderer, AptxReactQueryRenderer, AptxVueQueryRenderer};
+use swagger_gen_aptx::{
+  AptxFunctionsRenderer, AptxQueryMutationPass, AptxReactQueryRenderer, AptxVueQueryRenderer,
+};
 use swagger_tk::model::OpenAPIObject;
 
 /// Common options for @aptx codegen commands
@@ -50,6 +52,7 @@ pub fn run_aptx_functions(args: &[String], open_api: &OpenAPIObject) {
     );
 
     let pipeline = CodegenPipeline::default()
+      .with_transform(Box::new(AptxQueryMutationPass))
       .with_client_import(client_import)
       .with_renderer(Box::new(AptxFunctionsRenderer))
       .with_writer(Box::new(FileSystemWriter::new(output)));
@@ -82,6 +85,7 @@ pub fn run_aptx_react_query(args: &[String], open_api: &OpenAPIObject) {
     );
 
     let pipeline = CodegenPipeline::default()
+      .with_transform(Box::new(AptxQueryMutationPass))
       .with_client_import(client_import)
       .with_renderer(Box::new(AptxReactQueryRenderer))
       .with_writer(Box::new(FileSystemWriter::new(output)));
@@ -114,6 +118,7 @@ pub fn run_aptx_vue_query(args: &[String], open_api: &OpenAPIObject) {
     );
 
     let pipeline = CodegenPipeline::default()
+      .with_transform(Box::new(AptxQueryMutationPass))
       .with_client_import(client_import)
       .with_renderer(Box::new(AptxVueQueryRenderer))
       .with_writer(Box::new(FileSystemWriter::new(output)));

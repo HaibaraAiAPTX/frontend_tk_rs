@@ -49,6 +49,11 @@ function createModelCommands(): CommandDescriptor[] {
           description: 'Generate specific schema names only; repeatable',
           required: false,
         },
+        {
+          flags: '--preserve',
+          description: 'Preserve existing translated enum names when regenerating models',
+          defaultValue: false,
+        },
       ],
       examples: [
         'aptx-ft model gen --input openapi.json --output ./src/models',
@@ -64,6 +69,7 @@ function createModelCommands(): CommandDescriptor[] {
             const names = Array.isArray(args.name) ? args.name : [args.name];
             names.forEach((n: string) => options.push('--name', n));
           }
+          if (args.preserve) options.push('--preserve');
 
           binding.runCli({
             input: args.input as string | undefined,

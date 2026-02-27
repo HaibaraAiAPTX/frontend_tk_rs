@@ -5,6 +5,8 @@ pub trait TransformPass {
     fn apply(&self, input: &mut GeneratorInput) -> Result<(), String>;
 }
 
+/// Normalizes endpoint data: sorting, namespace defaults, and validation.
+/// This pass does NOT set query/mutation classification - use DefaultQueryMutationPass or a custom pass for that.
 pub struct NormalizeEndpointPass;
 
 impl TransformPass for NormalizeEndpointPass {
@@ -33,11 +35,32 @@ impl TransformPass for NormalizeEndpointPass {
                     endpoint.method, endpoint.path
                 ));
             }
+        }
 
+        Ok(())
+    }
+}
+
+/// Default query/mutation classification based on HTTP method.
+/// - GET requests -> supports_query = true
+/// - Other methods -> supports_mutation = true
+///
+/// This pass can be replaced or extended with custom classification logic
+/// by implementing a custom TransformPass.
+pub struct DefaultQueryMutationPass;
+
+impl TransformPass for DefaultQueryMutationPass {
+    fn name(&self) -> &'static str {
+        "default-query-mutation"
+    }
+
+    fn apply(&self, input: &mut GeneratorInput) -> Result<(), String> {
+        for endpoint in &mut input.endpoints {
             if endpoint.method.eq_ignore_ascii_case("GET") {
                 endpoint.supports_query = true;
                 endpoint.supports_mutation = false;
             } else {
+                endpoint.supports_query = false;
                 endpoint.supports_mutation = true;
             }
         }

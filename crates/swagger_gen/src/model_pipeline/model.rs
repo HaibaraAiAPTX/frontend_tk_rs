@@ -78,6 +78,14 @@ pub struct ModelEnumMember {
     pub comment: Option<String>,
 }
 
+/// Represents an existing enum member parsed from generated TypeScript files.
+/// Used for preserving both names and comments during regeneration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExistingEnumMember {
+    pub name: String,
+    pub comment: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ModelType {

@@ -4,6 +4,7 @@
 //! - `AptxFunctionsRenderer`: Generates function-style API calls using @aptx/api-client
 //! - `AptxReactQueryRenderer`: Generates React Query hooks using @aptx/react-query
 //! - `AptxVueQueryRenderer`: Generates Vue Query composables using @aptx/vue-query
+//! - `AptxQueryMutationPass`: Custom query/mutation classification for @aptx APIs
 
 pub use swagger_gen::pipeline::{
     ClientImportConfig, EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer,
@@ -17,11 +18,13 @@ pub use swagger_gen::pipeline::{
     resolve_model_import_base, should_use_package_import,
 };
 
+mod classifier;
 mod functions;
 mod query_base;
 mod react_query;
 mod vue_query;
 
+pub use classifier::AptxQueryMutationPass;
 pub use functions::AptxFunctionsRenderer;
 pub use react_query::AptxReactQueryRenderer;
 pub use vue_query::AptxVueQueryRenderer;

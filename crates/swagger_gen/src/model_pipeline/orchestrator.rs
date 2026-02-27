@@ -5,8 +5,8 @@ use swagger_tk::model::OpenAPIObject;
 
 use super::{
     model::{
-        EnumConflictPolicy, EnumPatch, ModelEnumMember, ModelEnumPlan, ModelEnumPlanItem,
-        ModelEnumPlanMember, ModelIr, ModelKind, ModelLiteral, ModelRenderStyle,
+        EnumConflictPolicy, EnumPatch, ExistingEnumMember, ModelEnumMember, ModelEnumPlan,
+        ModelEnumPlanItem, ModelEnumPlanMember, ModelIr, ModelKind, ModelLiteral, ModelRenderStyle,
     },
     parser::build_model_ir,
     renderer::render_model_files,
@@ -27,7 +27,7 @@ pub fn build_model_enum_plan(open_api: &OpenAPIObject) -> Result<ModelEnumPlan, 
 
 pub fn build_model_enum_plan_with_existing(
     open_api: &OpenAPIObject,
-    existing_enums: Option<&HashMap<String, HashMap<String, String>>>,
+    existing_enums: Option<&HashMap<String, HashMap<String, ExistingEnumMember>>>,
 ) -> Result<ModelEnumPlan, String> {
     let ir = parse_openapi_to_model_ir(open_api)?;
     Ok(build_model_enum_plan_from_ir(&ir, existing_enums))
@@ -39,7 +39,7 @@ pub fn build_model_enum_plan_json(open_api: &OpenAPIObject) -> Result<String, St
 
 pub fn build_model_enum_plan_json_with_existing(
     open_api: &OpenAPIObject,
-    existing_enums: Option<&HashMap<String, HashMap<String, String>>>,
+    existing_enums: Option<&HashMap<String, HashMap<String, ExistingEnumMember>>>,
 ) -> Result<String, String> {
     let plan = build_model_enum_plan_with_existing(open_api, existing_enums)?;
     serde_json::to_string_pretty(&plan).map_err(|err| err.to_string())
@@ -52,6 +52,48 @@ pub fn generate_model_files(
 ) -> Result<HashMap<String, String>, String> {
     let ir = parse_openapi_to_model_ir(open_api)?;
     render_model_files(&ir, style, only_names)
+}
+
+pub fn generate_model_files_with_existing(
+    open_api: &OpenAPIObject,
+    style: ModelRenderStyle,
+    only_names: &[String],
+    existing_enums: &HashMap<String, HashMap<String, ExistingEnumMember>>,
+) -> Result<HashMap<String, String>, String> {
+    let mut ir = parse_openapi_to_model_ir(open_api)?;
+    apply_existing_enums_to_ir(&mut ir, existing_enums)?;
+    render_model_files(&ir, style, only_names)
+}
+
+fn apply_existing_enums_to_ir(
+    ir: &mut ModelIr,
+    existing_enums: &HashMap<String, HashMap<String, ExistingEnumMember>>,
+) -> Result<(), String> {
+    for model in &mut ir.models {
+        let ModelKind::Enum { members } = &mut model.kind else {
+            continue;
+        };
+
+        let existing_members = existing_enums.get(&model.name);
+
+        for (index, member) in members.iter_mut().enumerate() {
+            let value_key = literal_to_key(&member.value);
+
+            if let Some(existing) = existing_members {
+                if let Some(historical) = existing.get(&value_key) {
+                    // Only preserve if the historical name is NOT auto-generated
+                    if !is_auto_generated(&historical.name, &value_key, index) {
+                        member.name = historical.name.clone();
+                        // Preserve comment if it exists
+                        if let Some(comment) = &historical.comment {
+                            member.comment = Some(comment.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn generate_model_files_with_enum_patch(
@@ -68,7 +110,7 @@ pub fn generate_model_files_with_enum_patch(
 
 fn build_model_enum_plan_from_ir(
     ir: &ModelIr,
-    existing_enums: Option<&HashMap<String, HashMap<String, String>>>,
+    existing_enums: Option<&HashMap<String, HashMap<String, ExistingEnumMember>>>,
 ) -> ModelEnumPlan {
     let mut enums = Vec::new();
     for model in &ir.models {
@@ -89,13 +131,18 @@ fn build_model_enum_plan_from_ir(
                 .map(|(index, member)| {
                     let value_key = literal_to_key(&member.value);
                     let mut name = member.name.clone();
+                    let mut comment = member.comment.clone();
 
                     // If we have existing data, check if we should preserve the historical name
                     if let Some(existing) = existing_members {
-                        if let Some(historical_name) = existing.get(&value_key) {
+                        if let Some(historical) = existing.get(&value_key) {
                             // Only preserve if the historical name is NOT auto-generated
-                            if !is_auto_generated(historical_name, &value_key, index) {
-                                name = historical_name.clone();
+                            if !is_auto_generated(&historical.name, &value_key, index) {
+                                name = historical.name.clone();
+                                // Preserve comment if it exists
+                                if let Some(historical_comment) = &historical.comment {
+                                    comment = Some(historical_comment.clone());
+                                }
                             }
                         }
                     }
@@ -103,7 +150,7 @@ fn build_model_enum_plan_from_ir(
                     ModelEnumPlanMember {
                         name,
                         value: value_key,
-                        comment: member.comment.clone(),
+                        comment,
                     }
                 })
                 .collect(),
