@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,9 +51,11 @@ pub struct EndpointItem {
     pub query_fields: Vec<String>,
     pub path_fields: Vec<String>,
     pub has_request_options: bool,
-    pub supports_query: bool,
-    pub supports_mutation: bool,
     pub deprecated: bool,
+    /// Meta fields for endpoint configuration.
+    /// Used for both internal classification (keys starting with "__") and
+    /// for generating RequestSpec meta fields (keys not starting with "__").
+    pub meta: IndexMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

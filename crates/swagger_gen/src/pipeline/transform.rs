@@ -1,5 +1,8 @@
 use super::model::GeneratorInput;
 
+/// Meta key for Query/Mutation classification (internal use, not rendered to TS)
+pub const META_SUPPORTS_QUERY: &str = "__supports_query";
+
 pub trait TransformPass {
     fn name(&self) -> &'static str;
     fn apply(&self, input: &mut GeneratorInput) -> Result<(), String>;
@@ -42,8 +45,8 @@ impl TransformPass for NormalizeEndpointPass {
 }
 
 /// Default query/mutation classification based on HTTP method.
-/// - GET requests -> supports_query = true
-/// - Other methods -> supports_mutation = true
+/// - GET requests -> supports_query = true (via meta field)
+/// - Other methods -> mutation (no meta field)
 ///
 /// This pass can be replaced or extended with custom classification logic
 /// by implementing a custom TransformPass.
@@ -57,11 +60,7 @@ impl TransformPass for DefaultQueryMutationPass {
     fn apply(&self, input: &mut GeneratorInput) -> Result<(), String> {
         for endpoint in &mut input.endpoints {
             if endpoint.method.eq_ignore_ascii_case("GET") {
-                endpoint.supports_query = true;
-                endpoint.supports_mutation = false;
-            } else {
-                endpoint.supports_query = false;
-                endpoint.supports_mutation = true;
+                endpoint.meta.insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
             }
         }
 

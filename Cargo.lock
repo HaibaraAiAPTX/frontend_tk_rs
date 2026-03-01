@@ -1586,6 +1586,7 @@ dependencies = [
  "criterion",
  "dprint-core",
  "dprint-plugin-typescript",
+ "indexmap",
  "log",
  "path-clean",
  "regex",
@@ -1599,6 +1600,7 @@ name = "swagger_gen_aptx"
 version = "0.1.0"
 dependencies = [
  "Inflector",
+ "indexmap",
  "swagger_gen",
 ]
 

@@ -7,3 +7,4 @@ description = "@aptx specific renderers for swagger_gen"
 [dependencies]
 swagger_gen = { path = "../swagger_gen" }
 Inflector = "0.11.4"
+indexmap = { version = "2.7.1", features = ["serde"] }

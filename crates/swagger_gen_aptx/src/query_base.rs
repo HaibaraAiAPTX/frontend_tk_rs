@@ -2,6 +2,7 @@
 //!
 //! This module contains common functionality used by both ReactQuery and VueQuery renderers.
 
+use crate::META_SUPPORTS_QUERY;
 use crate::{
     get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
     resolve_file_import_path, resolve_model_import_base, should_use_package_import,
@@ -26,7 +27,9 @@ pub fn render_query_terminal(
     let mut files = Vec::new();
 
     for endpoint in &input.endpoints {
-        if endpoint.supports_query {
+        let supports_query = endpoint.meta.get(META_SUPPORTS_QUERY) == Some(&"true".to_string());
+
+        if supports_query {
             let query_path = get_query_file_path(endpoint, terminal);
             let query_model_import_base = resolve_model_import_base(input, &query_path);
             let query_content = render_query_file(
@@ -41,8 +44,8 @@ pub fn render_query_terminal(
                 path: query_path,
                 content: query_content,
             });
-        }
-        if endpoint.supports_mutation {
+        } else {
+            // If not a query, it's a mutation
             let mutation_path = get_mutation_file_path(endpoint, terminal);
             let mutation_model_import_base = resolve_model_import_base(input, &mutation_path);
             let mutation_content = render_mutation_file(
@@ -269,6 +272,7 @@ pub fn render_mutation_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indexmap::IndexMap;
 
     #[test]
     fn test_terminal_dir() {
@@ -320,6 +324,9 @@ mod tests {
 
     #[test]
     fn test_render_query_file_imports_spec_with_dynamic_relative_path() {
+        let mut meta = IndexMap::new();
+        meta.insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
+
         let endpoint = EndpointItem {
             namespace: vec!["group".to_string(), "item".to_string()],
             operation_name: "fetchOne".to_string(),
@@ -334,9 +341,8 @@ mod tests {
             query_fields: vec![],
             path_fields: vec![],
             has_request_options: false,
-            supports_query: true,
-            supports_mutation: false,
             deprecated: false,
+            meta,
         };
 
         let content = render_query_file(
@@ -369,9 +375,8 @@ mod tests {
             query_fields: vec![],
             path_fields: vec![],
             has_request_options: false,
-            supports_query: false,
-            supports_mutation: true,
             deprecated: false,
+            meta: IndexMap::new(),
         };
 
         let content = render_mutation_file(

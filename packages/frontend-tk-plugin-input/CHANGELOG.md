@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-plugin-input
 
+## 0.1.4
+
+### Patch Changes
+
+- @aptx/frontend-tk-core@0.1.4
+
 ## 0.1.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.4
+
+### Patch Changes
+
+- 新增适配防刷新 token 401 死锁的机制
+
 ## 0.1.3
 
 ### Patch Changes

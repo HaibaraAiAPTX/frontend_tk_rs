@@ -2,6 +2,7 @@
 //!
 //! Generates TypeScript function calls that use @aptx/api-client for API execution.
 
+use crate::META_SKIP_AUTH_REFRESH;
 use crate::{
     get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
     render_type_import_line, resolve_file_import_path, resolve_model_import_base,
@@ -104,14 +105,57 @@ fn render_spec_file(endpoint: &EndpointItem, model_import_base: &str, use_packag
         format!("    query: {{ {keys} }},\n")
     };
 
-    let prefix = if input_import.is_empty() {
-        "import type { RequestSpec } from \"@aptx/api-client\";\n\n".to_string()
+    // Check if endpoint has skip_auth_refresh meta
+    let has_skip_auth_refresh = endpoint.meta.get(META_SKIP_AUTH_REFRESH) == Some(&"true".to_string());
+
+    // Collect all non-internal meta fields (keys not starting with "__")
+    let meta_fields: Vec<_> = endpoint.meta
+        .iter()
+        .filter(|(k, _)| !k.starts_with("__"))
+        .collect();
+
+    // Build meta field for RequestSpec
+    let meta_field = if !meta_fields.is_empty() {
+        let fields: Vec<String> = meta_fields
+            .iter()
+            .map(|(k, v)| {
+                // For SKIP_AUTH_REFRESH_META_KEY, use computed property syntax
+                if k.as_str() == META_SKIP_AUTH_REFRESH {
+                    format!("[{k}]: {v}")
+                } else {
+                    format!("{k}: {v}")
+                }
+            })
+            .collect();
+        format!("    meta: {{ {} }},\n", fields.join(", "))
     } else {
-        format!("{input_import}\nimport type {{ RequestSpec }} from \"@aptx/api-client\";\n\n")
+        String::new()
+    };
+
+    // Build imports
+    let mut imports = Vec::new();
+
+    // Add input type import if needed
+    if !input_import.is_empty() {
+        imports.push(input_import);
+    }
+
+    // Add RequestSpec import (and SKIP_AUTH_REFRESH_META_KEY if needed)
+    if has_skip_auth_refresh {
+        imports.push("import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx/api-plugin-auth\";".to_string());
+        imports.push("import type { RequestSpec } from \"@aptx/api-client\";".to_string());
+    } else {
+        imports.push("import type { RequestSpec } from \"@aptx/api-client\";".to_string());
+    }
+
+    let prefix = if imports.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n\n", imports.join("\n"))
     };
 
     format!(
-        "{prefix}export function {builder}({signature}): RequestSpec {{\n  return {{\n    method: \"{method}\",\n    path: \"{path}\",\n{query_lines}{payload_field}  }};\n}}\n",
+        "{prefix}export function {builder}({signature}): RequestSpec {{\n  return {{\n    method: \"{method}\",\n    path: \"{path}\",\n{query_lines}{payload_field}{meta_field}  }};\n}}\n",
         signature = signature,
         method = endpoint.method,
         path = endpoint.path
@@ -169,6 +213,7 @@ fn render_function_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indexmap::IndexMap;
 
     #[test]
     fn test_renderer_id() {
@@ -192,9 +237,8 @@ mod tests {
             query_fields: vec![],
             path_fields: vec!["id".to_string()],
             has_request_options: false,
-            supports_query: false,
-            supports_mutation: false,
             deprecated: false,
+            meta: IndexMap::new(),
         };
         assert_eq!(get_spec_file_path(&endpoint), "spec/users/getUser.ts");
     }
@@ -215,9 +259,8 @@ mod tests {
             query_fields: vec![],
             path_fields: vec!["id".to_string()],
             has_request_options: false,
-            supports_query: false,
-            supports_mutation: false,
             deprecated: false,
+            meta: IndexMap::new(),
         };
         assert_eq!(
             get_function_file_path(&endpoint),
@@ -241,9 +284,8 @@ mod tests {
             query_fields: vec![],
             path_fields: vec![],
             has_request_options: false,
-            supports_query: false,
-            supports_mutation: false,
             deprecated: false,
+            meta: IndexMap::new(),
         };
         let content = render_function_file(
             &endpoint,
@@ -272,12 +314,72 @@ mod tests {
             query_fields: vec!["StoreType".to_string()],
             path_fields: vec![],
             has_request_options: false,
-            supports_query: false,
-            supports_mutation: true,
             deprecated: false,
+            meta: IndexMap::new(),
         };
 
         let content = render_spec_file(&endpoint, "../../../domains", false);
         assert!(content.contains("import type { StoreType } from \"../../../domains/StoreType\";"));
+    }
+
+    #[test]
+    fn test_render_spec_file_with_skip_auth_refresh() {
+        let mut meta = IndexMap::new();
+        meta.insert(META_SKIP_AUTH_REFRESH.to_string(), "true".to_string());
+
+        let endpoint = EndpointItem {
+            namespace: vec!["user".to_string()],
+            operation_name: "refreshToken".to_string(),
+            export_name: "userRefreshToken".to_string(),
+            builder_name: "buildUserRefreshTokenSpec".to_string(),
+            summary: None,
+            method: "POST".to_string(),
+            path: "/MainAPI/User/RefreshToken".to_string(),
+            input_type_name: "RefreshTokenInput".to_string(),
+            output_type_name: "RefreshTokenOutput".to_string(),
+            request_body_field: Some("body".to_string()),
+            query_fields: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            deprecated: false,
+            meta,
+        };
+
+        let content = render_spec_file(&endpoint, "../../../domains", false);
+
+        // Should import SKIP_AUTH_REFRESH_META_KEY
+        assert!(content.contains("import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx/api-plugin-auth\";"));
+
+        // Should include meta field with computed key
+        assert!(content.contains("meta: { [SKIP_AUTH_REFRESH_META_KEY]: true }"));
+    }
+
+    #[test]
+    fn test_render_spec_file_without_skip_auth_refresh() {
+        let endpoint = EndpointItem {
+            namespace: vec!["user".to_string()],
+            operation_name: "getUser".to_string(),
+            export_name: "userGetUser".to_string(),
+            builder_name: "buildUserGetUserSpec".to_string(),
+            summary: None,
+            method: "GET".to_string(),
+            path: "/user/{id}".to_string(),
+            input_type_name: "void".to_string(),
+            output_type_name: "User".to_string(),
+            request_body_field: None,
+            query_fields: vec![],
+            path_fields: vec!["id".to_string()],
+            has_request_options: false,
+            deprecated: false,
+            meta: IndexMap::new(),
+        };
+
+        let content = render_spec_file(&endpoint, "../../../domains", false);
+
+        // Should NOT import SKIP_AUTH_REFRESH_META_KEY
+        assert!(!content.contains("SKIP_AUTH_REFRESH_META_KEY"));
+
+        // Should NOT include meta field
+        assert!(!content.contains("meta:"));
     }
 }

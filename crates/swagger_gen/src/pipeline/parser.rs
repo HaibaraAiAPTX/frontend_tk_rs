@@ -1,6 +1,7 @@
 use inflector::cases::{
     camelcase::to_camel_case, kebabcase::to_kebab_case, pascalcase::to_pascal_case,
 };
+use indexmap::IndexMap;
 use std::collections::HashSet;
 use swagger_tk::model::{OpenAPIObject, OperationObject, PathItemObject};
 
@@ -123,9 +124,8 @@ fn build_endpoint(
             .map(|item| item.name)
             .collect(),
         has_request_options: true,
-        supports_query: method == "GET",
-        supports_mutation: method != "GET",
         deprecated: operation.deprecated.unwrap_or(false),
+        meta: IndexMap::new(),
     }
 }
 
@@ -297,9 +297,8 @@ mod tests {
             query_fields: vec![],
             path_fields: vec![],
             has_request_options: false,
-            supports_query: false,
-            supports_mutation: true,
             deprecated: false,
+            meta: IndexMap::new(),
         }
     }
 

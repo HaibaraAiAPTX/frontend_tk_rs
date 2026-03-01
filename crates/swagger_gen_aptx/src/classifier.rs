@@ -4,6 +4,7 @@
 //! logic to handle cases where POST requests are used for data retrieval (e.g., list
 //! queries with complex filters that exceed URL length limits).
 
+use crate::META_SUPPORTS_QUERY;
 use swagger_gen::pipeline::{EndpointItem, GeneratorInput, TransformPass};
 
 /// Aptx-specific query/mutation classification pass.
@@ -34,8 +35,9 @@ impl TransformPass for AptxQueryMutationPass {
     fn apply(&self, input: &mut GeneratorInput) -> Result<(), String> {
         for endpoint in &mut input.endpoints {
             let is_query = classify_endpoint(endpoint);
-            endpoint.supports_query = is_query;
-            endpoint.supports_mutation = !is_query;
+            if is_query {
+                endpoint.meta.insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
+            }
         }
         Ok(())
     }
@@ -89,6 +91,7 @@ fn is_query_semantic_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indexmap::IndexMap;
 
     #[test]
     fn test_is_query_semantic_name() {
@@ -140,9 +143,8 @@ mod tests {
             query_fields: vec![],
             path_fields: vec![],
             has_request_options: false,
-            supports_query: false,
-            supports_mutation: false,
             deprecated: false,
+            meta: IndexMap::new(),
         }
     }
 
@@ -229,23 +231,18 @@ mod tests {
         pass.apply(&mut input).unwrap();
 
         // GET getUser -> query
-        assert!(input.endpoints[0].supports_query);
-        assert!(!input.endpoints[0].supports_mutation);
+        assert!(input.endpoints[0].meta.get(META_SUPPORTS_QUERY) == Some(&"true".to_string()));
 
         // POST getList -> query (special case)
-        assert!(input.endpoints[1].supports_query);
-        assert!(!input.endpoints[1].supports_mutation);
+        assert!(input.endpoints[1].meta.get(META_SUPPORTS_QUERY) == Some(&"true".to_string()));
 
-        // POST createUser -> mutation
-        assert!(!input.endpoints[2].supports_query);
-        assert!(input.endpoints[2].supports_mutation);
+        // POST createUser -> mutation (no supports_query meta)
+        assert!(input.endpoints[2].meta.get(META_SUPPORTS_QUERY).is_none());
 
-        // PUT updateUser -> mutation
-        assert!(!input.endpoints[3].supports_query);
-        assert!(input.endpoints[3].supports_mutation);
+        // PUT updateUser -> mutation (no supports_query meta)
+        assert!(input.endpoints[3].meta.get(META_SUPPORTS_QUERY).is_none());
 
-        // DELETE deleteUser -> mutation
-        assert!(!input.endpoints[4].supports_query);
-        assert!(input.endpoints[4].supports_mutation);
+        // DELETE deleteUser -> mutation (no supports_query meta)
+        assert!(input.endpoints[4].meta.get(META_SUPPORTS_QUERY).is_none());
     }
 }
