@@ -54,10 +54,27 @@ function createModelCommands(): CommandDescriptor[] {
           description: 'Preserve existing translated enum names when regenerating models',
           defaultValue: false,
         },
+        {
+          flags: '--no-manifest',
+          description: 'Disable manifest tracking and deletion report generation',
+          defaultValue: false,
+        },
+        {
+          flags: '--manifest-dir <path>',
+          description: 'Custom directory for manifest files (default: .generated)',
+          defaultValue: '.generated',
+        },
+        {
+          flags: '--dry-run',
+          description: 'Preview mode: generate deletion report without updating manifest',
+          defaultValue: false,
+        },
       ],
       examples: [
         'aptx-ft model gen --input openapi.json --output ./src/models',
         'aptx-ft model gen --input openapi.json --output ./src/models --style module',
+        'aptx-ft model gen --input openapi.json --output ./src/models --dry-run',
+        'aptx-ft model gen --input openapi.json --output ./src/models --no-manifest',
       ],
       handler: async (ctx: PluginContext, args: Record<string, unknown>) => {
         const binding = ctx.binding as any;
@@ -70,6 +87,9 @@ function createModelCommands(): CommandDescriptor[] {
             names.forEach((n: string) => options.push('--name', n));
           }
           if (args.preserve) options.push('--preserve');
+          if (args.noManifest) options.push('--no-manifest');
+          if (args.manifestDir) options.push('--manifest-dir', String(args.manifestDir));
+          if (args.dryRun) options.push('--dry-run');
 
           binding.runCli({
             input: args.input as string | undefined,

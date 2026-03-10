@@ -1,7 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, path::Path};
 
 use clap::Parser;
-use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter};
+use swagger_gen::manifest::{ManifestTracker, generate_reports, update_manifest};
+use swagger_gen::pipeline::{CodegenPipeline, ExecutionPlan, FileSystemWriter, update_barrel_with_parents};
 use swagger_gen_aptx::{
   AptxFunctionsRenderer, AptxMetaPass, AptxQueryMutationPass, AptxReactQueryRenderer,
   AptxVueQueryRenderer,
@@ -33,9 +34,21 @@ pub struct TerminalCodegenOps {
 
   #[arg(long)]
   model_path: Option<String>,
+
+  /// Disable manifest tracking
+  #[arg(long, default_value = "false")]
+  no_manifest: bool,
+
+  /// Custom manifest directory (default: .generated)
+  #[arg(long, default_value = ".generated")]
+  manifest_dir: String,
+
+  /// Preview mode: generate report without updating manifest
+  #[arg(long, default_value = "false")]
+  dry_run: bool,
 }
 
-pub type TerminalGenerator = Box<dyn for<'a> Fn(&'a OpenAPIObject, &'a Path) -> Result<(), String>>;
+pub type TerminalGenerator = Box<dyn for<'a> Fn(&'a OpenAPIObject, &'a Path) -> Result<ExecutionPlan, String>>;
 
 pub struct TerminalRegistry {
   generators: RefCell<HashMap<String, TerminalGenerator>>,
@@ -55,7 +68,7 @@ impl TerminalRegistry {
       .insert(id.to_string(), generator);
   }
 
-  pub fn generate(&self, id: &str, open_api: &OpenAPIObject, output: &Path) -> Result<(), String> {
+  pub fn generate(&self, id: &str, open_api: &OpenAPIObject, output: &Path) -> Result<ExecutionPlan, String> {
     let generators = self.generators.borrow();
     let generator = generators
       .get(id)
@@ -151,7 +164,7 @@ fn create_builtin_registry_with_options(
         .with_renderer(Box::new(AptxFunctionsRenderer))
         .with_writer(Box::new(FileSystemWriter::new(output)));
 
-      pipeline.plan(open_api).map(|_| ())
+      pipeline.plan(open_api)
     }),
   );
 
@@ -185,7 +198,7 @@ fn create_builtin_registry_with_options(
         .with_renderer(Box::new(AptxReactQueryRenderer))
         .with_writer(Box::new(FileSystemWriter::new(output)));
 
-      pipeline.plan(open_api).map(|_| ())
+      pipeline.plan(open_api)
     }),
   );
 
@@ -219,7 +232,7 @@ fn create_builtin_registry_with_options(
         .with_renderer(Box::new(AptxVueQueryRenderer))
         .with_writer(Box::new(FileSystemWriter::new(output)));
 
-      pipeline.plan(open_api).map(|_| ())
+      pipeline.plan(open_api)
     }),
   );
 
@@ -228,6 +241,16 @@ fn create_builtin_registry_with_options(
 
 thread_local! {
   static BUILTIN_REGISTRY: TerminalRegistry = create_builtin_registry_with_options(None, None, None, None, None, None);
+}
+
+/// Get generator_id for manifest tracking based on terminal type
+fn get_generator_id(terminal: &str) -> &str {
+  match terminal {
+    "functions" => "functions",
+    "react-query" => "react-query",
+    "vue-query" => "vue-query",
+    _ => terminal, // fallback to terminal name
+  }
 }
 
 pub fn run_terminal_codegen(args: &[String], open_api: &OpenAPIObject) {
@@ -249,7 +272,65 @@ pub fn run_terminal_codegen(args: &[String], open_api: &OpenAPIObject) {
       options.model_path,
     );
 
-    registry.generate(&options.terminal, open_api, output)
+    // Execute code generation
+    let execution_plan = registry.generate(&options.terminal, open_api, output)?;
+
+    // Process manifest tracking
+    if !options.no_manifest {
+      let generator_id = get_generator_id(&options.terminal);
+      let mut tracker = ManifestTracker::new(generator_id);
+
+      // Track generated files
+      for file in &execution_plan.planned_files {
+        // Extract the base name from the file path (without extension and directory)
+        let name = Path::new(&file.path)
+          .file_stem()
+          .and_then(|s| s.to_str())
+          .unwrap_or(&file.path);
+        tracker.track(name, file.path.clone());
+      }
+
+      let manifest_path = output.join(&options.manifest_dir).join("manifest.json");
+
+      // Clone entries before finish consumes the tracker
+      let entries = tracker.entries().clone();
+
+      // Calculate diff
+      let diff = tracker.finish(&manifest_path);
+
+      // Generate reports
+      if let Err(e) = generate_reports(&diff, output, &options.manifest_dir) {
+        eprintln!("Warning: Failed to generate reports: {}", e);
+      }
+
+      // Update manifest (non dry_run mode)
+      if !options.dry_run {
+        if let Err(e) = update_manifest(
+          &manifest_path,
+          generator_id.to_string(),
+          entries,
+          "", // openapi_hash
+          "", // openapi_version
+        ) {
+          eprintln!("Warning: Failed to update manifest: {}", e);
+        }
+      }
+
+      // Update barrel files
+      if let Err(e) = update_barrel_with_parents("", output) {
+        eprintln!("Warning: Failed to update barrel files: {}", e);
+      }
+
+      // Output summary
+      if diff.has_changes() {
+        println!("Manifest changes:");
+        println!("  Added: {} files", diff.added.len());
+        println!("  Deleted: {} files", diff.deleted.len());
+        println!("  Unchanged: {} files", diff.unchanged.len());
+      }
+    }
+
+    Ok(())
   })();
 
   if let Err(e) = result {

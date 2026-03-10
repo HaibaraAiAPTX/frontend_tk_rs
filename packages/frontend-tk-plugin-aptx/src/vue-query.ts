@@ -43,9 +43,26 @@ export const vueQueryCommand: CommandDescriptor = {
       flags: '--model-path <path>',
       description: 'Model import base path/package (e.g. ../../domains or @my-org/models)',
     },
+    {
+      flags: '--no-manifest',
+      description: 'Disable manifest tracking and deletion report generation',
+      defaultValue: false,
+    },
+    {
+      flags: '--manifest-dir <path>',
+      description: 'Custom directory for manifest files (default: .generated)',
+      defaultValue: '.generated',
+    },
+    {
+      flags: '--dry-run',
+      description: 'Preview mode: generate deletion report without updating manifest',
+      defaultValue: false,
+    },
   ],
   examples: [
     'aptx-ft aptx vue-query -i openapi.json -o ./generated',
+    'aptx-ft aptx vue-query -i openapi.json -o ./generated --dry-run',
+    'aptx-ft aptx vue-query -i openapi.json -o ./generated --no-manifest',
     'aptx-ft aptx vue-query -i https://api.example.com/openapi.json -o ./src/api',
     'aptx-ft aptx vue-query -i openapi.json -o ./generated --client-mode local --client-path ./api/client.ts',
   ],
@@ -59,6 +76,9 @@ export const vueQueryCommand: CommandDescriptor = {
     const clientImportName = args.clientImportName as string | undefined;
     const modelMode = args.modelMode as string | undefined;
     const modelPath = args.modelPath as string | undefined;
+    const noManifest = args.noManifest as boolean | undefined;
+    const manifestDir = args.manifestDir as string | undefined;
+    const dryRun = args.dryRun as boolean | undefined;
 
     if (!input) {
       throw new Error('--input is required');
@@ -87,6 +107,17 @@ export const vueQueryCommand: CommandDescriptor = {
     }
     if (modelPath) {
       options.push('--model-path', modelPath);
+    }
+
+    // Add manifest tracking options
+    if (noManifest) {
+      options.push('--no-manifest');
+    }
+    if (manifestDir) {
+      options.push('--manifest-dir', manifestDir);
+    }
+    if (dryRun) {
+      options.push('--dry-run');
     }
 
     log(`Generating Vue Query composables from ${input} to ${output}`);

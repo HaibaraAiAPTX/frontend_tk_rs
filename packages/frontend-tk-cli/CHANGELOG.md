@@ -1,5 +1,18 @@
 # @aptx/frontend-tk-cli
 
+## 0.1.5
+
+### Patch Changes
+
+- 新增更新和模型时的记录机制
+- Updated dependencies
+  - @aptx/frontend-tk-binding@0.1.5
+  - @aptx/frontend-tk-core@0.1.5
+  - @aptx/frontend-tk-plugin-aptx@0.1.5
+  - @aptx/frontend-tk-plugin-input@0.1.5
+  - @aptx/frontend-tk-plugin-materal@0.1.5
+  - @aptx/frontend-tk-plugin-model@0.1.5
+
 ## 0.1.4
 
 ### Patch Changes

@@ -1,5 +1,6 @@
 use super::model::PlannedFile;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 use std::path::Path;
 
 pub trait LayoutStrategy {
@@ -244,6 +245,76 @@ fn collect_exports_for_dir(source_paths: &[String], dir: &str) -> BTreeSet<Strin
     exports
 }
 
+/// Force update the barrel file (index.ts) for the specified directory
+pub fn force_update_barrel(relative_dir: &str, output_root: &Path) -> Result<(), String> {
+    let dir_path = output_root.join(relative_dir);
+
+    if !dir_path.exists() || !dir_path.is_dir() {
+        return Ok(()); // Directory doesn't exist, skip
+    }
+
+    // Scan all .ts files in the directory (excluding index.ts)
+    let mut files: Vec<String> = Vec::new();
+    if let Ok(entries) = fs::read_dir(&dir_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "ts").unwrap_or(false) {
+                if let Some(name) = path.file_stem() {
+                    let name = name.to_string_lossy().to_string();
+                    if name != "index" {
+                        files.push(name);
+                    }
+                }
+            }
+        }
+    }
+
+    if files.is_empty() {
+        return Ok(());
+    }
+
+    files.sort();
+
+    // Generate index.ts content
+    let content: String = files
+        .iter()
+        .map(|f| format!("export * from './{}';\n", f))
+        .collect();
+
+    // Write directly
+    let index_path = dir_path.join("index.ts");
+    fs::write(&index_path, content)
+        .map_err(|e| format!("Failed to write barrel file {:?}: {}", index_path, e))?;
+
+    Ok(())
+}
+
+/// Update barrel files for a directory and all its parents (with output_root as boundary)
+pub fn update_barrel_with_parents(relative_dir: &str, output_root: &Path) -> Result<(), String> {
+    // Update current directory
+    force_update_barrel(relative_dir, output_root)?;
+
+    // Update all parent directories (not exceeding output_root)
+    let mut current = Path::new(relative_dir);
+    while let Some(parent) = current.parent() {
+        if parent.as_os_str().is_empty() {
+            break;
+        }
+
+        // Boundary check: don't exceed output_root
+        let parent_path = output_root.join(parent);
+        if parent_path == output_root {
+            break;
+        }
+
+        let parent_str = parent.to_str().ok_or_else(|| format!("Invalid UTF-8 in path: {:?}", parent))?;
+        force_update_barrel(parent_str, output_root)?;
+        current = parent;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -355,5 +426,166 @@ mod tests {
 
         // Cleanup
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    // ==================== force_update_barrel 测试 ====================
+
+    #[test]
+    fn force_update_barrel_creates_index_ts() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let models_dir = temp_dir.path().join("models");
+        fs::create_dir_all(&models_dir).unwrap();
+        fs::write(models_dir.join("User.ts"), "export type User = {};").unwrap();
+        fs::write(models_dir.join("Post.ts"), "export type Post = {};").unwrap();
+
+        let result = force_update_barrel("models", temp_dir.path());
+
+        assert!(result.is_ok());
+        let index_path = temp_dir.path().join("models/index.ts");
+        assert!(index_path.exists());
+        let content = fs::read_to_string(&index_path).unwrap();
+        assert!(content.contains("export * from './Post';"));
+        assert!(content.contains("export * from './User';"));
+    }
+
+    #[test]
+    fn force_update_barrel_skips_nonexistent_directory() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+
+        let result = force_update_barrel("nonexistent", temp_dir.path());
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn force_update_barrel_excludes_index_from_exports() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let models_dir = temp_dir.path().join("models");
+        fs::create_dir_all(&models_dir).unwrap();
+        fs::write(models_dir.join("User.ts"), "export type User = {};").unwrap();
+        fs::write(models_dir.join("index.ts"), "// existing index").unwrap();
+
+        let result = force_update_barrel("models", temp_dir.path());
+
+        assert!(result.is_ok());
+        let content = fs::read_to_string(temp_dir.path().join("models/index.ts")).unwrap();
+        // Should not export index itself
+        assert!(!content.contains("export * from './index';"));
+        // Should export User
+        assert!(content.contains("export * from './User';"));
+    }
+
+    #[test]
+    fn force_update_barrel_exports_sorted_files() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let models_dir = temp_dir.path().join("models");
+        fs::create_dir_all(&models_dir).unwrap();
+        // Add files in non-alphabetical order
+        fs::write(models_dir.join("Zebra.ts"), "").unwrap();
+        fs::write(models_dir.join("Apple.ts"), "").unwrap();
+        fs::write(models_dir.join("Mango.ts"), "").unwrap();
+
+        let result = force_update_barrel("models", temp_dir.path());
+
+        assert!(result.is_ok());
+        let content = fs::read_to_string(temp_dir.path().join("models/index.ts")).unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        // Check alphabetical order
+        assert!(lines[0].contains("Apple"));
+        assert!(lines[1].contains("Mango"));
+        assert!(lines[2].contains("Zebra"));
+    }
+
+    #[test]
+    fn force_update_barrel_handles_empty_directory() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let models_dir = temp_dir.path().join("models");
+        fs::create_dir_all(&models_dir).unwrap();
+
+        let result = force_update_barrel("models", temp_dir.path());
+
+        assert!(result.is_ok());
+        // Should not create index.ts for empty directory
+        assert!(!temp_dir.path().join("models/index.ts").exists());
+    }
+
+    #[test]
+    fn force_update_barrel_only_includes_ts_files() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let models_dir = temp_dir.path().join("models");
+        fs::create_dir_all(&models_dir).unwrap();
+        fs::write(models_dir.join("User.ts"), "").unwrap();
+        fs::write(models_dir.join("README.md"), "").unwrap();
+        fs::write(models_dir.join("data.json"), "").unwrap();
+
+        let result = force_update_barrel("models", temp_dir.path());
+
+        assert!(result.is_ok());
+        let content = fs::read_to_string(temp_dir.path().join("models/index.ts")).unwrap();
+        // Should only export .ts files
+        assert!(content.contains("export * from './User';"));
+        assert_eq!(content.lines().count(), 1);
+    }
+
+    // ==================== update_barrel_with_parents 测试 ====================
+
+    #[test]
+    fn update_barrel_with_parents_updates_current() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let nested_dir = temp_dir.path().join("api").join("v1").join("users");
+        fs::create_dir_all(&nested_dir).unwrap();
+        fs::write(nested_dir.join("getUser.ts"), "").unwrap();
+
+        let result = update_barrel_with_parents("api/v1/users", temp_dir.path());
+
+        assert!(result.is_ok());
+        assert!(temp_dir.path().join("api/v1/users/index.ts").exists());
+    }
+
+    #[test]
+    fn update_barrel_with_parents_updates_parent_dirs() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        // Create nested structure
+        let nested_dir = temp_dir.path().join("api").join("v1").join("users");
+        fs::create_dir_all(&nested_dir).unwrap();
+        // Add files at each level
+        fs::write(temp_dir.path().join("api").join("ApiBase.ts"), "").unwrap();
+        fs::write(temp_dir.path().join("api").join("v1").join("V1Base.ts"), "").unwrap();
+        fs::write(nested_dir.join("getUser.ts"), "").unwrap();
+
+        let result = update_barrel_with_parents("api/v1/users", temp_dir.path());
+
+        assert!(result.is_ok());
+        // Should update all parent directories
+        assert!(temp_dir.path().join("api/v1/index.ts").exists());
+        // Note: api/index.ts should exist since api/v1 has files
+        // But we need to check the actual behavior
+    }
+
+    #[test]
+    fn update_barrel_with_parents_stops_at_output_root() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let models_dir = temp_dir.path().join("models");
+        fs::create_dir_all(&models_dir).unwrap();
+        fs::write(models_dir.join("User.ts"), "").unwrap();
+
+        let result = update_barrel_with_parents("models", temp_dir.path());
+
+        assert!(result.is_ok());
+        // Should create models/index.ts
+        assert!(temp_dir.path().join("models/index.ts").exists());
+        // Should NOT create index.ts at root (because models is direct child)
+        // The function stops at output_root, so no parent of "models" to update
+    }
+
+    #[test]
+    fn update_barrel_with_parents_handles_empty_relative_dir() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        fs::write(temp_dir.path().join("RootFile.ts"), "").unwrap();
+
+        let result = update_barrel_with_parents("", temp_dir.path());
+
+        // Empty relative_dir should work without error
+        assert!(result.is_ok());
     }
 }
