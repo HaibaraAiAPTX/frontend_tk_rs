@@ -1,5 +1,13 @@
 # @aptx/frontend-tk-core
 
+## 0.1.6
+
+### Patch Changes
+
+- 修复 bug
+- Updated dependencies
+  - @aptx/frontend-tk-binding@0.1.6
+
 ## 0.1.5
 
 ### Patch Changes
