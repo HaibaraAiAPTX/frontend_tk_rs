@@ -67,10 +67,12 @@ pub fn run_model_gen(args: &[String], open_api: &OpenAPIObject) {
   };
 
   // Write files and track them
-  for (name, content) in &models {
-    let file_name = format!("{}.ts", name);
-    fs::write(output.join(&file_name), content).unwrap();
-    tracker.track(name, file_name);
+  // Note: `name` from render_model_files already includes the .ts or .d.ts suffix
+  for (file_name, content) in &models {
+    fs::write(output.join(file_name), content).unwrap();
+    // Extract model name from file_name for tracking (remove .ts or .d.ts suffix)
+    let model_name = file_name.strip_suffix(".ts").or_else(|| file_name.strip_suffix(".d.ts")).unwrap_or(file_name);
+    tracker.track(model_name, file_name);
   }
 
   // Process manifest
