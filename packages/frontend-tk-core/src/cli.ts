@@ -6,6 +6,7 @@ import type {
   CommandDescriptor,
   RendererDescriptor,
 } from './types';
+import type { GeneratorInput } from './types';
 
 /**
  * Core CLI interface
@@ -38,6 +39,9 @@ function createPluginContext(): PluginContext {
   return {
     binding,
     log: (msg: string) => console.log(msg),
+    getIr(inputPath: string) {
+      return binding.getIr(inputPath) as GeneratorInput;
+    },
   };
 }
 

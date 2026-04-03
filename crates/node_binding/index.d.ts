@@ -2,6 +2,8 @@
 /* eslint-disable */
 export declare function runCli(options: RunCliOptions): void
 
+export declare function getIr(inputPath: string): unknown
+
 export interface RunCliOptions {
   input?: string
   command: string

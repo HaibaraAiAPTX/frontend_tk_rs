@@ -1,3 +1,5 @@
+import type { GeneratorInput } from './ir';
+
 /**
  * Plugin descriptor - identifies a plugin module
  */
@@ -18,6 +20,7 @@ export interface PluginContext {
   binding: typeof import('@aptx/frontend-tk-binding');
   /** Logging function for output */
   log: (msg: string) => void;
+  getIr(inputPath: string): GeneratorInput;
 }
 
 /**
