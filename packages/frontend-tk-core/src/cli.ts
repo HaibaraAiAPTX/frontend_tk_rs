@@ -1,4 +1,6 @@
 import { Command, Option } from 'commander';
+import * as path from 'path';
+import * as url from 'url';
 import * as binding from '@aptx/frontend-tk-binding';
 import type {
   Plugin,
@@ -43,6 +45,15 @@ function createPluginContext(): PluginContext {
       return binding.getIr(inputPath) as GeneratorInput;
     },
   };
+}
+
+function isBinaryPlugin(filePath: string): boolean {
+  return /\.(node|dll|so|dylib)$/.test(filePath);
+}
+
+function resolvePluginPath(p: string): string {
+  if (path.isAbsolute(p)) return p;
+  return path.resolve(p);
 }
 
 /**
@@ -266,28 +277,60 @@ class CliImpl implements Cli {
         this.state.program.addHelpText('after', '\n' + namespaceHelp);
       }
 
-      // Skip argv[0] (node executable) and argv[1] (script path) to avoid
-      // Windows path issues with commander. Pass only user-provided arguments.
+      // Phase 1: Pre-parse to get global options (--plugin, --input)
       const userArgs = argv.slice(2);
+      const tempProgram = new Command();
+      tempProgram
+        .exitOverride()
+        .allowUnknownOption(true)
+        .addOption(new Option('-i, --input <path>', 'Override input OpenAPI path/url'))
+        .addOption(new Option('-p, --plugin <paths...>', 'Extra plugin paths'));
+
+      let globalPluginPaths: string[] | undefined;
+      try {
+        tempProgram.parse(userArgs, { from: 'user' });
+        const tempOpts = tempProgram.opts();
+        globalPluginPaths = tempOpts.plugin as string[] | undefined;
+      } catch {
+        // Pre-parse may throw for --help/--version; fall through
+      }
+
+      // Phase 2: Load external JS plugins
+      if (globalPluginPaths) {
+        for (const pluginPath of globalPluginPaths) {
+          const resolved = resolvePluginPath(pluginPath);
+          try {
+            if (isBinaryPlugin(resolved)) {
+              console.warn(`Binary plugin skipped in JS path: ${resolved}`);
+              continue;
+            }
+            const pluginModule = await import(url.pathToFileURL(resolved).href);
+            const plugin = pluginModule.default || pluginModule;
+            const plugins = Array.isArray(plugin) ? plugin : [plugin];
+            for (const p of plugins) {
+              this.use(p);
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.warn(`Plugin load failed: ${pluginPath} — ${message}`);
+          }
+        }
+      }
+
+      // Phase 3: Normal command execution with loaded plugins
       await this.state.program.parseAsync(userArgs, { from: 'user' });
     } catch (error) {
-      // Commander with .exitOverride() throws errors for --help and --version
-      // These are not actual errors, so we check for specific error patterns
       const err = error as Error & { code?: string };
       const message = err.message;
 
-      // Skip logging for known Commander "errors" that are actually just help/version output
-      // Commander throws these errors after outputting help/version
-      // The exact messages may vary by Commander version - check for common patterns
       if (message === '(outputHelp)' ||
           message === '(outputVersion)' ||
           message === '(displayHelp)' ||
           message === '(displayVersion)' ||
           message.startsWith('output') ||
           message.startsWith('display') ||
-          // Version number as message (some Commander versions)
           /^\d+\.\d+\.\d+$/.test(message)) {
-        return; // Help/version was shown successfully, no error
+        return;
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -308,3 +351,4 @@ export function createCli(): Cli {
  * Export types for external use
  */
 export type { Plugin, PluginContext, CommandDescriptor, RendererDescriptor } from './types';
+export { isBinaryPlugin, resolvePluginPath };
