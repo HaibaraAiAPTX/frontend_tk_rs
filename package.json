@@ -6,11 +6,12 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "pnpm -r --filter=./packages/* --filter=./crates/* build",
+    "build": "pnpm --filter=./packages/* --filter=./crates/* build",
     "benchmark:codegen": "node scripts/benchmark/run-codegen-10k-benchmark.mjs",
     "benchmark:rust": "cargo bench -p swagger_gen --bench codegen_pipeline",
     "benchmark": "pnpm benchmark:codegen && pnpm benchmark:rust",
-    "publish:bindings": "node scripts/publish-binding.mjs"
+    "publish:bindings": "node scripts/publish-binding.mjs",
+    "check": "pnpm --filter=./packages/* check"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",

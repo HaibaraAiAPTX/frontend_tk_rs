@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-core
 
+## 0.1.8
+
+### Patch Changes
+
+- 修复 --plugin 注册插件的问题
+
 ## 0.1.7
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-core",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Core infrastructure for frontend toolkit CLI plugin system",
   "keywords": [
     "frontend",
@@ -18,7 +18,8 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "@aptx/frontend-tk-binding": "workspace:*",

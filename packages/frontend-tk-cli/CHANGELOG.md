@@ -1,5 +1,16 @@
 # @aptx/frontend-tk-cli
 
+## 0.1.8
+
+### Patch Changes
+
+- Updated dependencies
+  - @aptx/frontend-tk-core@0.1.8
+  - @aptx/frontend-tk-plugin-aptx@0.1.8
+  - @aptx/frontend-tk-plugin-input@0.1.8
+  - @aptx/frontend-tk-plugin-materal@0.1.8
+  - @aptx/frontend-tk-plugin-model@0.1.8
+
 ## 0.1.7
 
 ### Patch Changes

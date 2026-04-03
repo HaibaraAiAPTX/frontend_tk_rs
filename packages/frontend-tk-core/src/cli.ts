@@ -98,7 +98,7 @@ class CliImpl implements Cli {
       .exitOverride()
       .allowUnknownOption(true)
       .addOption(new Option('-i, --input <path>', 'Override input OpenAPI path/url'))
-      .addOption(new Option('-p, --plugin <paths...>', 'Extra plugin dll paths'));
+      .addOption(new Option('-p, --plugin <path>', 'Extra plugin path (can be used multiple times)'));
   }
 
   /**
@@ -272,32 +272,20 @@ class CliImpl implements Cli {
    */
   async run(argv: string[]): Promise<void> {
     try {
-      // Add dynamic namespace help text before parsing
-      const namespaceHelp = this.generateNamespaceHelp();
-      if (namespaceHelp) {
-        this.state.program.addHelpText('after', '\n' + namespaceHelp);
-      }
-
       // Phase 1: Pre-parse to get global options (--plugin, --input)
       const userArgs = argv.slice(2);
-      const tempProgram = new Command();
-      tempProgram
-        .exitOverride()
-        .allowUnknownOption(true)
-        .addOption(new Option('-i, --input <path>', 'Override input OpenAPI path/url'))
-        .addOption(new Option('-p, --plugin <paths...>', 'Extra plugin paths'));
 
-      let globalPluginPaths: string[] | undefined;
-      try {
-        tempProgram.parse(userArgs, { from: 'user' });
-        const tempOpts = tempProgram.opts();
-        globalPluginPaths = tempOpts.plugin as string[] | undefined;
-      } catch {
-        // Pre-parse may throw for --help/--version; fall through
+      // Scan argv for --plugin flags (each takes one value, can be repeated)
+      const globalPluginPaths: string[] = [];
+      for (let i = 0; i < userArgs.length - 1; i++) {
+        if (userArgs[i] === '--plugin' || userArgs[i] === '-p') {
+          globalPluginPaths.push(userArgs[i + 1]);
+          i++;
+        }
       }
 
       // Phase 2: Load external JS plugins
-      if (globalPluginPaths) {
+      if (globalPluginPaths.length > 0) {
         for (const pluginPath of globalPluginPaths) {
           const resolved = resolvePluginPath(pluginPath);
           try {
@@ -316,6 +304,15 @@ class CliImpl implements Cli {
             console.warn(`Plugin load failed: ${pluginPath} — ${message}`);
           }
         }
+      }
+
+      // Flush microtask-scheduled init() hooks before command execution
+      await new Promise((r) => setTimeout(r, 0));
+
+      // Add dynamic namespace help text after plugins are loaded
+      const namespaceHelp = this.generateNamespaceHelp();
+      if (namespaceHelp) {
+        this.state.program.addHelpText('after', '\n' + namespaceHelp);
       }
 
       // Phase 3: Normal command execution with loaded plugins
