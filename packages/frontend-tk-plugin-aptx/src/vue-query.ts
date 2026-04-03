@@ -46,7 +46,7 @@ export const vueQueryCommand: CommandDescriptor = {
     {
       flags: '--no-manifest',
       description: 'Disable manifest tracking and deletion report generation',
-      defaultValue: false,
+      defaultValue: true,
     },
     {
       flags: '--manifest-dir <path>',
@@ -76,7 +76,10 @@ export const vueQueryCommand: CommandDescriptor = {
     const clientImportName = args.clientImportName as string | undefined;
     const modelMode = args.modelMode as string | undefined;
     const modelPath = args.modelPath as string | undefined;
-    const noManifest = args.noManifest as boolean | undefined;
+    // Commander.js treats --no-manifest as a negation flag, setting `manifest` (not `noManifest`)
+    // When --no-manifest is passed: args.manifest === false
+    // When not passed (default): args.manifest === true
+    const noManifest = (args.manifest as boolean | undefined) === false;
     const manifestDir = args.manifestDir as string | undefined;
     const dryRun = args.dryRun as boolean | undefined;
 

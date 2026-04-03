@@ -57,7 +57,7 @@ function createModelCommands(): CommandDescriptor[] {
         {
           flags: '--no-manifest',
           description: 'Disable manifest tracking and deletion report generation',
-          defaultValue: false,
+          defaultValue: true,
         },
         {
           flags: '--manifest-dir <path>',
@@ -87,7 +87,8 @@ function createModelCommands(): CommandDescriptor[] {
             names.forEach((n: string) => options.push('--name', n));
           }
           if (args.preserve) options.push('--preserve');
-          if (args.noManifest) options.push('--no-manifest');
+          // Commander.js treats --no-manifest as a negation flag, setting `manifest` (not `noManifest`)
+          if ((args.manifest as boolean | undefined) === false) options.push('--no-manifest');
           if (args.manifestDir) options.push('--manifest-dir', String(args.manifestDir));
           if (args.dryRun) options.push('--dry-run');
 

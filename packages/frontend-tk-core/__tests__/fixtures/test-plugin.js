@@ -38,6 +38,33 @@ const testPlugin = {
         ctx.log(`Echo: ${JSON.stringify(args)}`);
       },
     },
+    {
+      name: 'test:no-manifest',
+      summary: 'Test --no-manifest negation flag',
+      requiresOpenApi: false,
+      options: [
+        {
+          flags: '--no-manifest',
+          description: 'Disable manifest tracking',
+          defaultValue: true,
+        },
+        {
+          flags: '--manifest-dir <path>',
+          description: 'Manifest directory',
+          defaultValue: '.generated',
+        },
+      ],
+      handler: async (ctx, args) => {
+        globalThis.__testPluginCalls.push({ ctx, args });
+        // Commander.js treats --no-manifest as negation: sets `manifest` property
+        // When --no-manifest passed: manifest=false; default: manifest=true
+        const noManifest = (args.manifest) === false;
+        const passedOptions = [];
+        if (noManifest) passedOptions.push('--no-manifest');
+        if (args.manifestDir) passedOptions.push('--manifest-dir', String(args.manifestDir));
+        ctx.log(`noManifest=${noManifest}, options=${JSON.stringify(passedOptions)}`);
+      },
+    },
   ],
   renderers: [
     {
