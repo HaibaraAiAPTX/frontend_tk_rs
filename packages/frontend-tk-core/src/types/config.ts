@@ -4,9 +4,9 @@
 export type TerminalConfig = string | { id: string; output?: string };
 
 /**
- * Client import mode and configuration
+ * Client import mode and configuration (codegen config level)
  */
-export interface ClientImportConfig {
+export interface CodegenClientImportConfig {
   mode: 'global' | 'local' | 'package';
   clientPath?: string;
   clientPackage?: string;
@@ -19,7 +19,7 @@ export interface ClientImportConfig {
 export interface CodegenConfig {
   outputRoot?: string;
   terminals?: TerminalConfig[];
-  clientImport?: ClientImportConfig;
+  clientImport?: CodegenClientImportConfig;
 }
 
 /**
