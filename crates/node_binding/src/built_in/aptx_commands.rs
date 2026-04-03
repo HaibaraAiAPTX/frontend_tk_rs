@@ -8,7 +8,8 @@
 use std::path::Path;
 
 use clap::Parser;
-use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter};
+use swagger_gen::manifest::{ManifestTracker, generate_reports, update_manifest};
+use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter, update_barrel_with_parents};
 use swagger_gen_aptx::{
   AptxFunctionsRenderer, AptxMetaPass, AptxQueryMutationPass, AptxReactQueryRenderer,
   AptxVueQueryRenderer,
@@ -32,108 +33,24 @@ pub struct AptxCodegenOps {
 
   #[arg(long)]
   client_import_name: Option<String>,
-}
 
-/// Run aptx:functions command
-pub fn run_aptx_functions(args: &[String], open_api: &OpenAPIObject) {
-  let result = (|| -> Result<(), String> {
-    let args: Vec<String> = std::iter::once("--".to_string())
-      .chain(args.iter().cloned())
-      .collect();
-    let options =
-      AptxCodegenOps::try_parse_from(args).map_err(|e| format!("Invalid arguments: {e}"))?;
+  #[arg(long)]
+  model_mode: Option<String>,
 
-    let output = Path::new(&options.output);
+  #[arg(long)]
+  model_path: Option<String>,
 
-    let client_import = build_client_import_config(
-      options.client_mode.as_deref(),
-      options.client_path.as_deref(),
-      options.client_package.as_deref(),
-      options.client_import_name.as_deref(),
-    );
+  /// Disable manifest tracking
+  #[arg(long, default_value = "false")]
+  no_manifest: bool,
 
-    let pipeline = CodegenPipeline::default()
-      .with_transform(Box::new(AptxQueryMutationPass))
-      .with_transform(Box::new(AptxMetaPass))
-      .with_client_import(client_import)
-      .with_renderer(Box::new(AptxFunctionsRenderer))
-      .with_writer(Box::new(FileSystemWriter::new(output)));
+  /// Custom manifest directory (default: .generated)
+  #[arg(long, default_value = ".generated")]
+  manifest_dir: String,
 
-    pipeline.plan(open_api)?;
-    Ok(())
-  })();
-
-  if let Err(e) = result {
-    panic!("aptx:functions failed: {e}");
-  }
-}
-
-/// Run aptx:react-query command
-pub fn run_aptx_react_query(args: &[String], open_api: &OpenAPIObject) {
-  let result = (|| -> Result<(), String> {
-    let args: Vec<String> = std::iter::once("--".to_string())
-      .chain(args.iter().cloned())
-      .collect();
-    let options =
-      AptxCodegenOps::try_parse_from(args).map_err(|e| format!("Invalid arguments: {e}"))?;
-
-    let output = Path::new(&options.output);
-
-    let client_import = build_client_import_config(
-      options.client_mode.as_deref(),
-      options.client_path.as_deref(),
-      options.client_package.as_deref(),
-      options.client_import_name.as_deref(),
-    );
-
-    let pipeline = CodegenPipeline::default()
-      .with_transform(Box::new(AptxQueryMutationPass))
-      .with_transform(Box::new(AptxMetaPass))
-      .with_client_import(client_import)
-      .with_renderer(Box::new(AptxReactQueryRenderer))
-      .with_writer(Box::new(FileSystemWriter::new(output)));
-
-    pipeline.plan(open_api)?;
-    Ok(())
-  })();
-
-  if let Err(e) = result {
-    panic!("aptx:react-query failed: {e}");
-  }
-}
-
-/// Run aptx:vue-query command
-pub fn run_aptx_vue_query(args: &[String], open_api: &OpenAPIObject) {
-  let result = (|| -> Result<(), String> {
-    let args: Vec<String> = std::iter::once("--".to_string())
-      .chain(args.iter().cloned())
-      .collect();
-    let options =
-      AptxCodegenOps::try_parse_from(args).map_err(|e| format!("Invalid arguments: {e}"))?;
-
-    let output = Path::new(&options.output);
-
-    let client_import = build_client_import_config(
-      options.client_mode.as_deref(),
-      options.client_path.as_deref(),
-      options.client_package.as_deref(),
-      options.client_import_name.as_deref(),
-    );
-
-    let pipeline = CodegenPipeline::default()
-      .with_transform(Box::new(AptxQueryMutationPass))
-      .with_transform(Box::new(AptxMetaPass))
-      .with_client_import(client_import)
-      .with_renderer(Box::new(AptxVueQueryRenderer))
-      .with_writer(Box::new(FileSystemWriter::new(output)));
-
-    pipeline.plan(open_api)?;
-    Ok(())
-  })();
-
-  if let Err(e) = result {
-    panic!("aptx:vue-query failed: {e}");
-  }
+  /// Preview mode: generate report without updating manifest
+  #[arg(long, default_value = "false")]
+  dry_run: bool,
 }
 
 /// Build client import configuration from command-line options
@@ -152,4 +69,144 @@ fn build_client_import_config(
       import_name: client_import_name.map(|s| s.to_string()),
     }),
   }
+}
+
+/// Build model import configuration from command-line options
+fn build_model_import_config(
+  model_mode: Option<&str>,
+  model_path: Option<&str>,
+) -> Option<swagger_gen::pipeline::ModelImportConfig> {
+  match model_mode {
+    None => None,
+    Some("package") => Some(swagger_gen::pipeline::ModelImportConfig {
+      import_type: "package".to_string(),
+      package_path: Some(model_path.unwrap_or("@my-org/models").to_string()),
+      relative_path: None,
+      original_path: model_path.map(|s| s.to_string()),
+    }),
+    Some("relative") => Some(swagger_gen::pipeline::ModelImportConfig {
+      import_type: "relative".to_string(),
+      package_path: None,
+      relative_path: None,
+      original_path: model_path.map(|s| s.to_string()),
+    }),
+    _ => None,
+  }
+}
+
+fn process_manifest_and_barrel(
+  output: &Path,
+  generator_id: &str,
+  execution_plan: &swagger_gen::pipeline::ExecutionPlan,
+  manifest_dir: &str,
+  dry_run: bool,
+) {
+  let mut tracker = ManifestTracker::new(generator_id);
+  for file in &execution_plan.planned_files {
+    let name = Path::new(&file.path)
+      .file_stem()
+      .and_then(|s| s.to_str())
+      .unwrap_or(&file.path);
+    tracker.track(name, file.path.clone());
+  }
+
+  let manifest_path = output.join(manifest_dir).join("manifest.json");
+  let entries = tracker.entries().clone();
+  let diff = tracker.finish(&manifest_path);
+
+  if let Err(e) = generate_reports(&diff, output, manifest_dir) {
+    eprintln!("Warning: Failed to generate reports: {}", e);
+  }
+
+  if !dry_run {
+    if let Err(e) = update_manifest(
+      &manifest_path,
+      generator_id.to_string(),
+      entries,
+      "",
+      "",
+    ) {
+      eprintln!("Warning: Failed to update manifest: {}", e);
+    }
+  }
+
+  if let Err(e) = update_barrel_with_parents("", output) {
+    eprintln!("Warning: Failed to update barrel files: {}", e);
+  }
+
+  if diff.has_changes() {
+    println!("Manifest changes:");
+    println!("  Added: {} files", diff.added.len());
+    println!("  Deleted: {} files", diff.deleted.len());
+    println!("  Unchanged: {} files", diff.unchanged.len());
+  }
+}
+
+fn run_aptx_codegen(
+  args: &[String],
+  open_api: &OpenAPIObject,
+  command_name: &str,
+  renderer: Box<dyn swagger_gen::pipeline::Renderer>,
+) {
+  let result = (|| -> Result<(), String> {
+    let args: Vec<String> = std::iter::once("--".to_string())
+      .chain(args.iter().cloned())
+      .collect();
+    let options =
+      AptxCodegenOps::try_parse_from(args).map_err(|e| format!("Invalid arguments: {e}"))?;
+
+    let output = Path::new(&options.output);
+
+    let client_import = build_client_import_config(
+      options.client_mode.as_deref(),
+      options.client_path.as_deref(),
+      options.client_package.as_deref(),
+      options.client_import_name.as_deref(),
+    );
+    let model_import = build_model_import_config(
+      options.model_mode.as_deref(),
+      options.model_path.as_deref(),
+    );
+
+    let pipeline = CodegenPipeline::default()
+      .with_transform(Box::new(AptxQueryMutationPass))
+      .with_transform(Box::new(AptxMetaPass))
+      .with_client_import(client_import)
+      .with_model_import(model_import)
+      .with_renderer(renderer)
+      .with_writer(Box::new(FileSystemWriter::new(output)));
+
+    let execution_plan = pipeline.plan(open_api)?;
+
+    if !options.no_manifest {
+      process_manifest_and_barrel(
+        output,
+        command_name,
+        &execution_plan,
+        &options.manifest_dir,
+        options.dry_run,
+      );
+    }
+
+    Ok(())
+  })();
+
+  if let Err(e) = result {
+    panic!("{command_name} failed: {e}");
+  }
+}
+
+/// Run aptx:functions command
+pub fn run_aptx_functions(args: &[String], open_api: &OpenAPIObject) {
+  run_aptx_codegen(args, open_api, "aptx:functions", Box::new(AptxFunctionsRenderer));
+}
+
+/// Run aptx:react-query command
+pub fn run_aptx_react_query(args: &[String], open_api: &OpenAPIObject) {
+  run_aptx_codegen(args, open_api, "aptx:react-query", Box::new(AptxReactQueryRenderer));
+}
+
+/// Run aptx:vue-query command
+pub fn run_aptx_vue_query(args: &[String], open_api: &OpenAPIObject) {
+  run_aptx_codegen(args, open_api, "aptx:vue-query", Box::new(AptxVueQueryRenderer));
 }

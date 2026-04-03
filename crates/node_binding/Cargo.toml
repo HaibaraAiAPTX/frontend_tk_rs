@@ -12,7 +12,7 @@ clap = { version = "4.5.53", features = ["derive"] }
 frontend_plugin_materal = { version = "0.1.0", path = "../frontend_plugin_materal" }
 libloading = "0.9.0"
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
-napi = { version = "3.6.1", default-features = false, features = ["napi4"] }
+napi = { version = "3.6.1", default-features = false, features = ["napi4", "serde-json"] }
 napi-derive = "3.4.0"
 serde_json = "1.0.145"
 swagger_gen = { version = "0.1.0", path = "../swagger_gen" }
