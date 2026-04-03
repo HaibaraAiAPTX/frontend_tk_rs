@@ -12,7 +12,10 @@
     "declarationDir": "./dist",
     "paths": {
       "@aptx/frontend-tk-binding": ["./node_modules/@aptx/frontend-tk-binding"]
-    }
+    },
+    "types": [
+      "node"
+    ]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

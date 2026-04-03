@@ -168,6 +168,7 @@ class CliImpl implements Cli {
     }
 
     const group = new Command(namespace);
+    group.exitOverride();
     if (description) {
       group.description(description);
     }

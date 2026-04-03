@@ -20,7 +20,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "@aptx/frontend-tk-core": "workspace:*",
