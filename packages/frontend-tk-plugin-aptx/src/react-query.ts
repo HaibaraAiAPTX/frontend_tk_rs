@@ -87,7 +87,7 @@ export const reactQueryCommand: CommandDescriptor = {
       throw new Error('--output is required');
     }
 
-    const options = ['--terminal', 'react-query', '--output', output];
+    const options = ['--output', output];
 
     // Add client import options if provided
     if (clientMode && clientMode !== 'global') {
@@ -123,7 +123,7 @@ export const reactQueryCommand: CommandDescriptor = {
     log(`Generating React Query hooks from ${input} to ${output}`);
     binding.runCli({
       input,
-      command: 'terminal:codegen',
+      command: 'aptx:react-query',
       options,
     });
     log('React Query hooks generated successfully');

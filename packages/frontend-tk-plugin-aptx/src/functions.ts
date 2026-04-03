@@ -87,7 +87,7 @@ export const functionsCommand: CommandDescriptor = {
       throw new Error('--output is required');
     }
 
-    const options = ['--terminal', 'functions', '--output', output];
+    const options = ['--output', output];
 
     // Add client import options if provided
     if (clientMode && clientMode !== 'global') {
@@ -123,7 +123,7 @@ export const functionsCommand: CommandDescriptor = {
     log(`Generating functions module from ${input} to ${output}`);
     binding.runCli({
       input,
-      command: 'terminal:codegen',
+      command: 'aptx:functions',
       options,
     });
     log('Functions module generated successfully');

@@ -87,7 +87,7 @@ export const vueQueryCommand: CommandDescriptor = {
       throw new Error('--output is required');
     }
 
-    const options = ['--terminal', 'vue-query', '--output', output];
+    const options = ['--output', output];
 
     // Add client import options if provided
     if (clientMode && clientMode !== 'global') {
@@ -123,7 +123,7 @@ export const vueQueryCommand: CommandDescriptor = {
     log(`Generating Vue Query composables from ${input} to ${output}`);
     binding.runCli({
       input,
-      command: 'terminal:codegen',
+      command: 'aptx:vue-query',
       options,
     });
     log('Vue Query composables generated successfully');
