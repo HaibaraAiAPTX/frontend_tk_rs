@@ -130,19 +130,30 @@ fn build_endpoint(
 }
 
 fn build_input_type_name(context: &ApiContext) -> String {
+    if context.request_body_name.is_none() {
+        return "void".to_string();
+    }
+
     let Some(parameters) = context.func_parameters.as_ref() else {
         return "void".to_string();
     };
 
-    if parameters.len() == 1 {
-        let single = &parameters[0];
-        if context.request_body_name.is_some() && single.r#in.is_none() {
-            return single.r#type.clone();
-        }
-        return render_inline_input_type(parameters);
+    // Only consider body parameters (r#in is None), exclude query/path/header/cookie params
+    let body_params: Vec<_> = parameters
+        .iter()
+        .filter(|p| p.r#in.is_none())
+        .cloned()
+        .collect();
+
+    if body_params.is_empty() {
+        return "void".to_string();
     }
 
-    render_inline_input_type(parameters)
+    if body_params.len() == 1 {
+        return body_params[0].r#type.clone();
+    }
+
+    render_inline_input_type(&body_params)
 }
 
 fn render_inline_input_type(parameters: &[FuncParameter]) -> String {
