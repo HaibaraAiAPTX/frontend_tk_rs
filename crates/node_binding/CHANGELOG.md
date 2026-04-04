@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.8
+
+### Patch Changes
+
+- 修复文档解析 bug
+
 ## 0.1.7
 
 ### Patch Changes
