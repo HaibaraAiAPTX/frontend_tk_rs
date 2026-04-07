@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.10
+
+### Patch Changes
+
+- 新增 python 的 api、模型生成支持
+
 ## 0.1.8
 
 ### Patch Changes
