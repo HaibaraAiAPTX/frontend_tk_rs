@@ -130,6 +130,7 @@ dependencies = [
  "serde_json",
  "swagger_gen",
  "swagger_gen_aptx",
+ "swagger_gen_python",
  "swagger_tk",
 ]
 
@@ -1794,6 +1795,15 @@ version = "0.1.0"
 dependencies = [
  "Inflector",
  "indexmap",
+ "swagger_gen",
+]
+
+[[package]]
+name = "swagger_gen_python"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde_json",
  "swagger_gen",
 ]
 

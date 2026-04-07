@@ -1,0 +1,33 @@
+{
+  "name": "@aptx/frontend-tk-plugin-python",
+  "version": "0.1.0",
+  "description": "Python codegen commands for frontend toolkit CLI",
+  "keywords": [
+    "frontend",
+    "toolkit",
+    "cli",
+    "plugin",
+    "python",
+    "codegen"
+  ],
+  "author": "",
+  "license": "ISC",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aptx/frontend-tk-core": "workspace:*",
+    "@aptx/frontend-tk-binding": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "typescript": "^5.7.3"
+  }
+}

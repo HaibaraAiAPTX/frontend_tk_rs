@@ -6,6 +6,7 @@ pub mod model_enum_apply;
 pub mod model_enum_plan;
 pub mod model_gen;
 pub mod model_ir;
+pub mod python_commands;
 
 /// 注册内置的命令
 pub fn register_built_in_command(command: &CommandRegistry) {
@@ -77,6 +78,31 @@ pub fn register_built_in_command(command: &CommandRegistry) {
       ..Default::default()
     },
     Box::new(aptx_commands::run_aptx_vue_query),
+  );
+
+  // Register python namespace commands
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "python:functions".to_string(),
+      ..Default::default()
+    },
+    Box::new(python_commands::run_python_functions),
+  );
+
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "python:model".to_string(),
+      ..Default::default()
+    },
+    Box::new(python_commands::run_python_model),
+  );
+
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "python:tools".to_string(),
+      ..Default::default()
+    },
+    Box::new(python_commands::run_python_tools),
   );
 
   frontend_plugin_materal::init_plugin(command);

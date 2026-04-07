@@ -10,6 +10,7 @@ import aptxPlugin from "@aptx/frontend-tk-plugin-aptx";
 import modelPlugin from "@aptx/frontend-tk-plugin-model";
 import materalPlugin from "@aptx/frontend-tk-plugin-materal";
 import inputPlugin from "@aptx/frontend-tk-plugin-input";
+import pythonPlugin from "@aptx/frontend-tk-plugin-python";
 
 // Create CLI instance
 const cli = createCli();
@@ -19,6 +20,7 @@ cli.use(aptxPlugin);
 cli.use(modelPlugin);
 cli.use(materalPlugin);
 cli.use(inputPlugin);
+cli.use(pythonPlugin);
 
 // Start the CLI
 cli.run(process.argv);

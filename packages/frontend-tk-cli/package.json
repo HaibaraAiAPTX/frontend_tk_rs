@@ -29,6 +29,7 @@
     "@aptx/frontend-tk-plugin-model": "workspace:*",
     "@aptx/frontend-tk-plugin-materal": "workspace:*",
     "@aptx/frontend-tk-plugin-input": "workspace:*",
+    "@aptx/frontend-tk-plugin-python": "workspace:*",
     "@aptx/frontend-tk-binding": "workspace:*",
     "chalk": "^5.4.1",
     "commander": "^13.1.0"
