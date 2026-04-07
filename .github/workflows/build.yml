@@ -118,6 +118,21 @@ jobs:
             echo "PUBLISHED: ${name}@${version}"
           fi
 
+      - name: Publish @aptx/frontend-tk-plugin-python
+        working-directory: packages/frontend-tk-plugin-python
+        shell: bash
+        run: |
+          set -uo pipefail
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          echo "==> Publishing ${name}@${version}"
+          if pnpm view "${name}@${version}" --registry=https://winserver.devserver.ink:14873/ version >/dev/null 2>&1; then
+            echo "SKIP: already exists: ${name}@${version}"
+          else
+            pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
+            echo "PUBLISHED: ${name}@${version}"
+          fi
+
       - name: Publish @aptx/frontend-tk-cli
         working-directory: packages/frontend-tk-cli
         shell: bash
