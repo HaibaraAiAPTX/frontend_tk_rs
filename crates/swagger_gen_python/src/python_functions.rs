@@ -4,7 +4,10 @@
 
 use std::collections::HashMap;
 
-use swagger_gen::pipeline::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer};
+use swagger_gen::pipeline::{
+    EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer,
+    resolve_file_import_path, resolve_model_import_base, should_use_package_import,
+};
 
 /// Renderer that generates Python spec + function files.
 #[derive(Default)]
@@ -17,16 +20,29 @@ impl Renderer for PythonFunctionsRenderer {
 
     fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
         let resolved_names = resolve_final_py_names(&input.endpoints);
+        let use_package = should_use_package_import(&input.model_import);
         let mut files = Vec::new();
 
         for (endpoint, py_name) in input.endpoints.iter().zip(resolved_names.iter()) {
+            let spec_path = get_spec_file_path(endpoint, py_name);
+            let function_path = get_function_file_path(endpoint, py_name);
+            let spec_model_import_base =
+                resolve_python_model_import_base(input, &spec_path, use_package);
+            let function_model_import_base =
+                resolve_python_model_import_base(input, &function_path, use_package);
+
             files.push(PlannedFile {
-                path: get_spec_file_path(endpoint, py_name),
-                content: render_spec_file(endpoint, py_name),
+                path: spec_path,
+                content: render_spec_file(endpoint, py_name, &spec_model_import_base),
             });
             files.push(PlannedFile {
-                path: get_function_file_path(endpoint, py_name),
-                content: render_function_file(endpoint, py_name),
+                path: function_path.clone(),
+                content: render_function_file(
+                    endpoint,
+                    py_name,
+                    &function_path,
+                    &function_model_import_base,
+                ),
             });
         }
 
@@ -326,7 +342,66 @@ fn parse_inline_fields(input_type_name: &str) -> Vec<(String, String)> {
     fields
 }
 
-fn render_spec_file(endpoint: &EndpointItem, py_name: &str) -> String {
+fn normalize_python_package_path(import_path: &str) -> String {
+    import_path
+        .replace('\\', ".")
+        .replace('/', ".")
+        .trim_matches('.')
+        .to_string()
+}
+
+fn to_python_relative_import_path(import_path: &str) -> String {
+    let normalized = import_path.replace('\\', "/");
+    let mut rest = normalized.as_str();
+    let mut parent_levels = 0usize;
+
+    while let Some(next) = rest.strip_prefix("../") {
+        parent_levels += 1;
+        rest = next;
+    }
+
+    if rest == ".." {
+        parent_levels += 1;
+        rest = "";
+    }
+
+    if let Some(next) = rest.strip_prefix("./") {
+        rest = next;
+    } else if rest == "." {
+        rest = "";
+    }
+
+    let prefix = ".".repeat(parent_levels + 1);
+    let suffix = rest.trim_matches('/').replace('/', ".");
+
+    if suffix.is_empty() {
+        prefix
+    } else {
+        format!("{prefix}{suffix}")
+    }
+}
+
+fn resolve_python_module_import(from_file_path: &str, to_file_path: &str) -> String {
+    to_python_relative_import_path(&resolve_file_import_path(from_file_path, to_file_path))
+}
+
+fn resolve_python_model_import_base(
+    input: &GeneratorInput,
+    generated_file_path: &str,
+    use_package: bool,
+) -> String {
+    if let Some(config) = &input.model_import {
+        let base = resolve_model_import_base(input, generated_file_path);
+        if use_package || config.import_type == "package" {
+            return normalize_python_package_path(&base);
+        }
+        return to_python_relative_import_path(&base);
+    }
+
+    to_python_relative_import_path(&resolve_file_import_path(generated_file_path, "models"))
+}
+
+fn render_spec_file(endpoint: &EndpointItem, py_name: &str, model_import_base: &str) -> String {
     let mut imports = vec!["from __future__ import annotations".to_string()];
     let input_type = &endpoint.input_type_name;
     let builder_name = format!("build_{py_name}_spec");
@@ -362,7 +437,7 @@ fn render_spec_file(endpoint: &EndpointItem, py_name: &str) -> String {
     } else {
         // Model input
         imports.push(format!(
-            "from models.{} import {}",
+            "from {model_import_base}.{} import {}",
             to_snake_module(input_type),
             input_type
         ));
@@ -430,7 +505,12 @@ fn render_inline_spec_fields(endpoint: &EndpointItem) -> String {
     fields
 }
 
-fn render_function_file(endpoint: &EndpointItem, py_name: &str) -> String {
+fn render_function_file(
+    endpoint: &EndpointItem,
+    py_name: &str,
+    current_file_path: &str,
+    model_import_base: &str,
+) -> String {
     let mut imports = vec!["from __future__ import annotations".to_string()];
     let input_type = &endpoint.input_type_name;
     let output_type = &endpoint.output_type_name;
@@ -438,10 +518,10 @@ fn render_function_file(endpoint: &EndpointItem, py_name: &str) -> String {
 
     imports.push("from aptx_api_core import get_api_client".to_string());
 
-    let escaped_ns: Vec<String> = endpoint.namespace.iter().map(|s| escape_keyword(s)).collect();
+    let spec_file_path = get_spec_file_path(endpoint, py_name);
     let spec_import = format!(
-        "from spec.{}.{py_name}_spec import {builder_name}",
-        escaped_ns.join("."),
+        "from {} import {builder_name}",
+        resolve_python_module_import(current_file_path, &spec_file_path),
     );
     imports.push(spec_import);
 
@@ -457,7 +537,7 @@ fn render_function_file(endpoint: &EndpointItem, py_name: &str) -> String {
         (params.join(",\n"), args.join(", "))
     } else {
         imports.push(format!(
-            "from models.{} import {}",
+            "from {model_import_base}.{} import {}",
             to_snake_module(input_type),
             input_type
         ));
@@ -467,7 +547,7 @@ fn render_function_file(endpoint: &EndpointItem, py_name: &str) -> String {
     let is_void_output = output_type == "void" || output_type == "None";
     if !is_void_output {
         imports.push(format!(
-            "from models.{} import {}",
+            "from {model_import_base}.{} import {}",
             to_snake_module(output_type),
             output_type
         ));
@@ -511,7 +591,7 @@ fn render_function_file(endpoint: &EndpointItem, py_name: &str) -> String {
 mod tests {
     use super::*;
     use indexmap::IndexMap;
-    use swagger_gen::pipeline::{GeneratorInput, ProjectContext};
+    use swagger_gen::pipeline::{GeneratorInput, ModelImportConfig, ProjectContext};
 
     fn make_endpoint(
         namespace: &[&str],
@@ -552,6 +632,25 @@ mod tests {
             model_import: None,
             client_import: None,
             output_root: None,
+        }
+    }
+
+    fn make_generator_input_with_model_import(
+        endpoints: Vec<EndpointItem>,
+        model_import: Option<ModelImportConfig>,
+        output_root: Option<String>,
+    ) -> GeneratorInput {
+        GeneratorInput {
+            project: ProjectContext {
+                package_name: "test".to_string(),
+                api_base_path: None,
+                terminals: vec![],
+                retry_ownership: None,
+            },
+            endpoints,
+            model_import,
+            client_import: None,
+            output_root,
         }
     }
 
@@ -604,7 +703,7 @@ mod tests {
     #[test]
     fn test_void_input_spec() {
         let ep = make_endpoint(&["health"], "check", "GET", "/health", "void", "void");
-        let content = render_spec_file(&ep, "check");
+        let content = render_spec_file(&ep, "check", "...models");
         assert!(content.contains("def build_check_spec() -> RequestSpec:"));
         assert!(content.contains("method=\"GET\""));
         assert!(content.contains("path=\"/health\""));
@@ -617,10 +716,10 @@ mod tests {
         );
         ep.path_fields = vec!["id".to_string()];
 
-        let content = render_spec_file(&ep, "get_user");
+        let content = render_spec_file(&ep, "get_user", "...models");
         assert!(content.contains("def build_get_user_spec("));
         assert!(content.contains("input: GetUserInput"));
-        assert!(content.contains("from models.GetUserInput import GetUserInput"));
+        assert!(content.contains("from ...models.GetUserInput import GetUserInput"));
     }
 
     #[test]
@@ -628,12 +727,17 @@ mod tests {
         let ep = make_endpoint(
             &["users"], "get_user", "GET", "/users/{id}", "GetUserInput", "User",
         );
-        let content = render_function_file(&ep, "get_user");
+        let content = render_function_file(
+            &ep,
+            "get_user",
+            "functions/users/get_user.py",
+            "...models",
+        );
         assert!(content.contains("async def get_user("));
         assert!(content.contains("input: GetUserInput"));
         assert!(content.contains(") -> User:"));
         assert!(content.contains("response_type=User"));
-        assert!(content.contains("from models.User import User"));
+        assert!(content.contains("from ...models.User import User"));
     }
 
     #[test]
@@ -642,12 +746,17 @@ mod tests {
             &["users"], "get_user", "GET", "/users/{id}", "GetUserInput", "User",
         );
 
-        let spec = render_spec_file(&ep, "get_user");
-        assert!(spec.contains("from models.GetUserInput import GetUserInput"));
+        let spec = render_spec_file(&ep, "get_user", "...models");
+        assert!(spec.contains("from ...models.GetUserInput import GetUserInput"));
 
-        let function = render_function_file(&ep, "get_user");
-        assert!(function.contains("from models.GetUserInput import GetUserInput"));
-        assert!(function.contains("from models.User import User"));
+        let function = render_function_file(
+            &ep,
+            "get_user",
+            "functions/users/get_user.py",
+            "...models",
+        );
+        assert!(function.contains("from ...models.GetUserInput import GetUserInput"));
+        assert!(function.contains("from ...models.User import User"));
     }
 
     #[test]
@@ -663,11 +772,16 @@ mod tests {
         ep.query_fields = vec!["StoreType".to_string()];
         ep.request_body_field = Some("body".to_string());
 
-        let spec = render_spec_file(&ep, "upload_image");
+        let spec = render_spec_file(&ep, "upload_image", "...models");
         assert!(spec.contains("StoreType: StoreType"));
         assert!(spec.contains("query="));
 
-        let func = render_function_file(&ep, "upload_image");
+        let func = render_function_file(
+            &ep,
+            "upload_image",
+            "functions/stored_file/upload_image.py",
+            "...models",
+        );
         assert!(func.contains("async def upload_image"));
         assert!(func.contains("-> GuidResult"));
         assert!(func.contains("response_type=GuidResult"));
@@ -680,14 +794,19 @@ mod tests {
         );
         ep.request_body_field = Some("body".to_string());
 
-        let spec = render_spec_file(&ep, "add_user");
+        let spec = render_spec_file(&ep, "add_user", "...models");
         assert!(spec.contains("body=input.model_dump(by_alias=True)"));
     }
 
     #[test]
     fn test_void_output_function() {
         let ep = make_endpoint(&["health"], "check", "GET", "/health", "void", "void");
-        let content = render_function_file(&ep, "check");
+        let content = render_function_file(
+            &ep,
+            "check",
+            "functions/health/check.py",
+            "...models",
+        );
         assert!(content.contains(") -> None:"));
         assert!(!content.contains("response_type="));
     }
@@ -801,7 +920,7 @@ mod tests {
             .iter()
             .find(|f| f.path == "functions/action_authority/add.py")
             .unwrap();
-        assert!(action_function.content.contains("from spec.action_authority.add_spec import build_add_spec"));
+        assert!(action_function.content.contains("from ...spec.action_authority.add_spec import build_add_spec"));
         assert!(action_function.content.contains("async def add("));
     }
 
@@ -864,5 +983,86 @@ mod tests {
         let output = PythonFunctionsRenderer.render(&input).unwrap();
         assert!(output.files.iter().any(|f| f.path == "functions/action_authority/add.py"));
         assert!(output.files.iter().any(|f| f.path == "functions/role/add.py"));
+    }
+
+    #[test]
+    fn test_render_uses_relative_package_imports_for_models_and_specs() {
+        let output_root = std::env::current_dir()
+            .expect("cwd")
+            .join("target/python-relative-imports");
+        let output_root_string = output_root.to_string_lossy().to_string();
+        let model_dir = output_root.join("models").to_string_lossy().to_string();
+
+        let input = make_generator_input_with_model_import(
+            vec![make_endpoint(
+                &["users"],
+                "getUser",
+                "GET",
+                "/users/{id}",
+                "GetUserInput",
+                "User",
+            )],
+            Some(ModelImportConfig {
+                import_type: "relative".to_string(),
+                package_path: None,
+                relative_path: None,
+                original_path: Some(model_dir),
+            }),
+            Some(output_root_string),
+        );
+
+        let output = PythonFunctionsRenderer.render(&input).unwrap();
+        let spec = output
+            .files
+            .iter()
+            .find(|f| f.path.starts_with("spec/users/") && f.path.ends_with("_spec.py"))
+            .expect("spec file");
+        let function = output
+            .files
+            .iter()
+            .find(|f| f.path.starts_with("functions/users/") && f.path.ends_with(".py"))
+            .expect("function file");
+
+        assert!(spec.content.contains("from ...models.GetUserInput import GetUserInput"));
+        assert!(function.content.contains("from ...models.GetUserInput import GetUserInput"));
+        assert!(function.content.contains("from ...models.User import User"));
+        assert!(function.content.contains("from ...spec.users."));
+    }
+
+    #[test]
+    fn test_render_uses_package_imports_when_model_mode_is_package() {
+        let input = make_generator_input_with_model_import(
+            vec![make_endpoint(
+                &["users"],
+                "getUser",
+                "GET",
+                "/users/{id}",
+                "GetUserInput",
+                "User",
+            )],
+            Some(ModelImportConfig {
+                import_type: "package".to_string(),
+                package_path: Some("my_app.generated.models".to_string()),
+                relative_path: None,
+                original_path: Some("my_app.generated.models".to_string()),
+            }),
+            Some("target/python-package-imports".to_string()),
+        );
+
+        let output = PythonFunctionsRenderer.render(&input).unwrap();
+        let spec = output
+            .files
+            .iter()
+            .find(|f| f.path.starts_with("spec/users/") && f.path.ends_with("_spec.py"))
+            .expect("spec file");
+        let function = output
+            .files
+            .iter()
+            .find(|f| f.path.starts_with("functions/users/") && f.path.ends_with(".py"))
+            .expect("function file");
+
+        assert!(spec.content.contains("from my_app.generated.models.GetUserInput import GetUserInput"));
+        assert!(function.content.contains("from my_app.generated.models.GetUserInput import GetUserInput"));
+        assert!(function.content.contains("from my_app.generated.models.User import User"));
     }
 }

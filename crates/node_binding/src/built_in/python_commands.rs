@@ -36,6 +36,28 @@ pub struct PythonCodegenOps {
     dry_run: bool,
 }
 
+fn build_model_import_config(
+    model_mode: Option<&str>,
+    model_path: Option<&str>,
+) -> Option<swagger_gen::pipeline::ModelImportConfig> {
+    match model_mode {
+        None => None,
+        Some("package") => Some(swagger_gen::pipeline::ModelImportConfig {
+            import_type: "package".to_string(),
+            package_path: Some(model_path.unwrap_or("models").to_string()),
+            relative_path: None,
+            original_path: model_path.map(|s| s.to_string()),
+        }),
+        Some("relative") => Some(swagger_gen::pipeline::ModelImportConfig {
+            import_type: "relative".to_string(),
+            package_path: None,
+            relative_path: None,
+            original_path: model_path.map(|s| s.to_string()),
+        }),
+        _ => None,
+    }
+}
+
 fn process_manifest_and_barrel(
     output: &Path,
     generator_id: &str,
@@ -98,8 +120,14 @@ fn run_python_codegen(
             PythonCodegenOps::try_parse_from(args).map_err(|e| format!("Invalid arguments: {e}"))?;
 
         let output = Path::new(&options.output);
+        let model_import = build_model_import_config(
+            options.model_mode.as_deref(),
+            options.model_path.as_deref(),
+        );
 
         let pipeline = CodegenPipeline::default()
+            .with_model_import(model_import)
+            .with_output_root(Some(output.to_string_lossy().to_string()))
             .with_renderer(renderer)
             .with_writer(Box::new(FileSystemWriter::new(output)));
 
@@ -213,4 +241,29 @@ pub fn run_python_tools(args: &[String], open_api: &OpenAPIObject) {
         "python:tools",
         Box::new(PythonToolsRenderer),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_model_import_config;
+
+    #[test]
+    fn test_build_model_import_config_relative() {
+        let config = build_model_import_config(Some("relative"), Some("./src/api/models"))
+            .expect("relative config");
+
+        assert_eq!(config.import_type, "relative");
+        assert_eq!(config.original_path.as_deref(), Some("./src/api/models"));
+        assert!(config.package_path.is_none());
+    }
+
+    #[test]
+    fn test_build_model_import_config_package() {
+        let config = build_model_import_config(Some("package"), Some("my_app.generated.models"))
+            .expect("package config");
+
+        assert_eq!(config.import_type, "package");
+        assert_eq!(config.package_path.as_deref(), Some("my_app.generated.models"));
+        assert_eq!(config.original_path.as_deref(), Some("my_app.generated.models"));
+    }
 }
