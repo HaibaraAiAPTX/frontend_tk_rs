@@ -1,5 +1,13 @@
 # @aptx/frontend-tk-core
 
+## 0.1.14
+
+### Patch Changes
+
+- 优化模型 ir 及 python 端生成的代码
+- Updated dependencies
+  - @aptx/frontend-tk-binding@0.1.14
+
 ## 0.1.13
 
 ### Patch Changes
