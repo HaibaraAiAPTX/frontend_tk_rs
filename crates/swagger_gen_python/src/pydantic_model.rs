@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use swagger_gen::model_pipeline::{
     ModelEnumMember, ModelIr, ModelKind, ModelLiteral, ModelNode, ModelProperty, ModelType,
+    NumberFormat, ScalarType,
 };
 
 use crate::py_types::{collect_python_imports, render_python_type_nullable, to_snake_case};
@@ -110,20 +111,28 @@ fn render_interface(
 fn render_enum(
     model: &ModelNode,
     members: &[ModelEnumMember],
-    _imports: &mut Vec<String>,
+    imports: &mut Vec<String>,
 ) -> String {
     // Determine base type from first member
     let base_type = if let Some(first) = members.first() {
         match &first.value {
             ModelLiteral::String { .. } => "str",
-            ModelLiteral::Number { .. } => "int",
+            ModelLiteral::Integer { .. } => "int",
+            ModelLiteral::Number { format, .. } => match format {
+                NumberFormat::Decimal => "Decimal",
+                NumberFormat::Float | NumberFormat::Double | NumberFormat::Unknown => "float",
+            },
         }
     } else {
         "str"
     };
 
-    // Import Enum from enum module
-    let enum_import = "from enum import Enum";
+    if !imports.contains(&"from enum import Enum".to_string()) {
+        imports.push("from enum import Enum".to_string());
+    }
+    if base_type == "Decimal" && !imports.contains(&"from decimal import Decimal".to_string()) {
+        imports.push("from decimal import Decimal".to_string());
+    }
 
     let mut lines = vec![format!("class {}({}, Enum):", model.name, base_type)];
 
@@ -133,19 +142,18 @@ fn render_enum(
         for member in members {
             let value = match &member.value {
                 ModelLiteral::String { value } => format!("\"{}\"", value),
-                ModelLiteral::Number { value } => value.clone(),
+                ModelLiteral::Integer { value } => value.clone(),
+                ModelLiteral::Number {
+                    value,
+                    format: NumberFormat::Decimal,
+                } => format!("Decimal(\"{}\")", value),
+                ModelLiteral::Number { value, .. } => value.clone(),
             };
             lines.push(format!("    {} = {}", member.name, value));
         }
     }
 
-    // Wrap with enum import at top
-    let mut result = String::new();
-    result.push_str(enum_import);
-    result.push_str("\n\n");
-    result.push_str(&lines.join("\n"));
-    result
-
+    lines.join("\n")
 }
 
 fn render_alias(
@@ -208,7 +216,11 @@ fn collect_model_refs_recursive(model_type: &ModelType, refs: &mut Vec<String>) 
                 collect_model_refs_recursive(variant, refs);
             }
         }
-        ModelType::String
+        ModelType::Scalar(ScalarType::String)
+        | ModelType::Scalar(ScalarType::Boolean)
+        | ModelType::Scalar(ScalarType::Integer(_))
+        | ModelType::Scalar(ScalarType::Number(_))
+        | ModelType::String
         | ModelType::Number
         | ModelType::Boolean
         | ModelType::Object
@@ -293,16 +305,20 @@ mod tests {
     }
 
     #[test]
-    fn test_enum_int_rendering() {
+    fn test_enum_integer_rendering() {
         let model = make_enum_model("Priority", vec![
             ModelEnumMember {
                 name: "Low".to_string(),
-                value: ModelLiteral::Number { value: "1".to_string() },
+                value: ModelLiteral::Integer {
+                    value: "1".to_string(),
+                },
                 comment: None,
             },
             ModelEnumMember {
                 name: "High".to_string(),
-                value: ModelLiteral::Number { value: "3".to_string() },
+                value: ModelLiteral::Integer {
+                    value: "3".to_string(),
+                },
                 comment: None,
             },
         ]);
@@ -311,6 +327,61 @@ mod tests {
         assert!(content.contains("class Priority(int, Enum):"));
         assert!(content.contains("Low = 1"));
         assert!(content.contains("High = 3"));
+    }
+
+    #[test]
+    fn test_enum_number_rendering() {
+        let model = make_enum_model("Ratio", vec![
+            ModelEnumMember {
+                name: "Low".to_string(),
+                value: ModelLiteral::Number {
+                    value: "1.5".to_string(),
+                    format: NumberFormat::Float,
+                },
+                comment: None,
+            },
+            ModelEnumMember {
+                name: "High".to_string(),
+                value: ModelLiteral::Number {
+                    value: "3.0".to_string(),
+                    format: NumberFormat::Double,
+                },
+                comment: None,
+            },
+        ]);
+
+        let content = render_single_model(&model).unwrap();
+        assert!(content.contains("class Ratio(float, Enum):"));
+        assert!(content.contains("Low = 1.5"));
+        assert!(content.contains("High = 3.0"));
+    }
+
+    #[test]
+    fn test_enum_decimal_rendering_imports_decimal() {
+        let model = make_enum_model("Amount", vec![
+            ModelEnumMember {
+                name: "Small".to_string(),
+                value: ModelLiteral::Number {
+                    value: "1.25".to_string(),
+                    format: NumberFormat::Decimal,
+                },
+                comment: None,
+            },
+            ModelEnumMember {
+                name: "Large".to_string(),
+                value: ModelLiteral::Number {
+                    value: "2.50".to_string(),
+                    format: NumberFormat::Decimal,
+                },
+                comment: None,
+            },
+        ]);
+
+        let content = render_single_model(&model).unwrap();
+        assert!(content.contains("from decimal import Decimal"));
+        assert!(content.contains("class Amount(Decimal, Enum):"));
+        assert!(content.contains("Small = Decimal(\"1.25\")"));
+        assert!(content.contains("Large = Decimal(\"2.50\")"));
     }
 
     #[test]
@@ -359,12 +430,71 @@ mod tests {
                 description: None,
                 required: false,
                 nullable: true,
-                r#type: ModelType::Number,
+                r#type: ModelType::Scalar(ScalarType::Number(swagger_gen::model_pipeline::NumberSpec {
+                    format: NumberFormat::Float,
+                })),
             },
         ]);
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("timeout: float | None = Field(default=None, alias=\"timeout\")"));
+    }
+
+    #[test]
+    fn test_integer_field_renders_as_int() {
+        let model = make_interface_model("Counters", vec![
+            ModelProperty {
+                name: "count".to_string(),
+                description: None,
+                required: true,
+                nullable: false,
+                r#type: ModelType::Scalar(ScalarType::Integer(
+                    swagger_gen::model_pipeline::IntegerSpec {
+                        format: swagger_gen::model_pipeline::IntegerFormat::Int64,
+                    },
+                )),
+            },
+        ]);
+
+        let content = render_single_model(&model).unwrap();
+        assert!(content.contains("count: int = Field(alias=\"count\")"));
+    }
+
+    #[test]
+    fn test_number_field_renders_as_float() {
+        let model = make_interface_model("Ratios", vec![
+            ModelProperty {
+                name: "ratio".to_string(),
+                description: None,
+                required: true,
+                nullable: false,
+                r#type: ModelType::Scalar(ScalarType::Number(swagger_gen::model_pipeline::NumberSpec {
+                    format: NumberFormat::Double,
+                })),
+            },
+        ]);
+
+        let content = render_single_model(&model).unwrap();
+        assert!(content.contains("ratio: float = Field(alias=\"ratio\")"));
+    }
+
+    #[test]
+    fn test_decimal_field_renders_as_decimal() {
+        let model = make_interface_model("Prices", vec![
+            ModelProperty {
+                name: "price".to_string(),
+                description: None,
+                required: true,
+                nullable: false,
+                r#type: ModelType::Scalar(ScalarType::Number(swagger_gen::model_pipeline::NumberSpec {
+                    format: NumberFormat::Decimal,
+                })),
+            },
+        ]);
+
+        let content = render_single_model(&model).unwrap();
+        assert!(content.contains("from decimal import Decimal"));
+        assert!(content.contains("price: Decimal = Field(alias=\"price\")"));
     }
 
     #[test]

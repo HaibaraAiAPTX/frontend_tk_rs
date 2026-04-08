@@ -86,9 +86,50 @@ pub struct ExistingEnumMember {
     pub comment: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegerFormat {
+    #[default]
+    Unknown,
+    Int32,
+    Int64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum NumberFormat {
+    #[default]
+    Unknown,
+    Float,
+    Double,
+    Decimal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegerSpec {
+    #[serde(default)]
+    pub format: IntegerFormat,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NumberSpec {
+    #[serde(default)]
+    pub format: NumberFormat,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScalarType {
+    String,
+    Boolean,
+    Integer(IntegerSpec),
+    Number(NumberSpec),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ModelType {
+    Scalar(ScalarType),
     String,
     Number,
     Boolean,
@@ -103,7 +144,12 @@ pub enum ModelType {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ModelLiteral {
     String { value: String },
-    Number { value: String },
+    Integer { value: String },
+    Number {
+        value: String,
+        #[serde(default)]
+        format: NumberFormat,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

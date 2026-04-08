@@ -7,6 +7,7 @@ use super::{
     model::{
         EnumConflictPolicy, EnumPatch, ExistingEnumMember, ModelEnumMember, ModelEnumPlan,
         ModelEnumPlanItem, ModelEnumPlanMember, ModelIr, ModelKind, ModelLiteral, ModelRenderStyle,
+        NumberFormat,
     },
     parser::build_model_ir,
     renderer::render_model_files,
@@ -217,13 +218,14 @@ fn apply_patch_to_enum_members(
 
 fn parse_patch_member_value(raw: &str) -> ModelLiteral {
     if raw.parse::<i64>().is_ok() {
-        return ModelLiteral::Number {
+        return ModelLiteral::Integer {
             value: raw.to_string(),
         };
     }
     if raw.parse::<f64>().is_ok() {
         return ModelLiteral::Number {
             value: raw.to_string(),
+            format: NumberFormat::Unknown,
         };
     }
     ModelLiteral::String {
@@ -297,7 +299,8 @@ fn ensure_unique_member_names(members: &mut [ModelEnumMember]) {
 fn literal_to_key(literal: &ModelLiteral) -> String {
     match literal {
         ModelLiteral::String { value } => value.to_string(),
-        ModelLiteral::Number { value } => value.to_string(),
+        ModelLiteral::Integer { value } => value.to_string(),
+        ModelLiteral::Number { value, .. } => value.to_string(),
     }
 }
 

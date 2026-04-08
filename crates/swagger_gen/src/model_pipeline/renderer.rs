@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use crate::utils::format_ts_code;
 
-use super::model::{ModelIr, ModelKind, ModelLiteral, ModelRenderStyle, ModelType};
+use super::model::{
+    ModelIr, ModelKind, ModelLiteral, ModelRenderStyle, ModelType, ScalarType,
+};
 
 pub fn render_model_files(
     ir: &ModelIr,
@@ -66,7 +68,8 @@ pub fn render_model_files(
                         let value_text = match &member.value {
                             ModelLiteral::String { value } => serde_json::to_string(value)
                                 .unwrap_or_else(|_| format!("\"{value}\"")),
-                            ModelLiteral::Number { value } => value.to_string(),
+                            ModelLiteral::Integer { value } => value.to_string(),
+                            ModelLiteral::Number { value, .. } => value.to_string(),
                         };
                         let comment = member
                             .comment
@@ -124,6 +127,10 @@ fn render_type(
     nullable: bool,
 ) -> String {
     let base = match model_type {
+        ModelType::Scalar(ScalarType::String) => "string".to_string(),
+        ModelType::Scalar(ScalarType::Boolean) => "boolean".to_string(),
+        ModelType::Scalar(ScalarType::Integer(_)) => "number".to_string(),
+        ModelType::Scalar(ScalarType::Number(_)) => "number".to_string(),
         ModelType::String => "string".to_string(),
         ModelType::Number => "number".to_string(),
         ModelType::Boolean => "boolean".to_string(),
@@ -150,7 +157,8 @@ fn render_type(
             ModelLiteral::String { value } => {
                 serde_json::to_string(value).unwrap_or_else(|_| format!("\"{value}\""))
             }
-            ModelLiteral::Number { value } => value.to_string(),
+            ModelLiteral::Integer { value } => value.to_string(),
+            ModelLiteral::Number { value, .. } => value.to_string(),
         },
     };
 
@@ -158,5 +166,124 @@ fn render_type(
         format!("{base} | null")
     } else {
         base
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::model::{
+        IntegerSpec, ModelEnumMember, ModelNode, ModelProperty, NumberFormat, NumberSpec,
+    };
+
+    fn render_single_model(model: ModelNode) -> String {
+        let files = render_model_files(
+            &ModelIr {
+                models: vec![model],
+            },
+            ModelRenderStyle::Module,
+            &[],
+        )
+        .expect("render model files fail");
+
+        files
+            .values()
+            .next()
+            .cloned()
+            .expect("model file should be rendered")
+    }
+
+    #[test]
+    fn renders_integer_and_number_scalars_as_number_in_typescript() {
+        let rendered = render_single_model(ModelNode {
+            name: "Sample".to_string(),
+            description: None,
+            kind: ModelKind::Interface {
+                properties: vec![
+                    ModelProperty {
+                        name: "intValue".to_string(),
+                        description: None,
+                        required: true,
+                        nullable: false,
+                        r#type: ModelType::Scalar(ScalarType::Integer(IntegerSpec {
+                            format: Default::default(),
+                        })),
+                    },
+                    ModelProperty {
+                        name: "numValue".to_string(),
+                        description: None,
+                        required: true,
+                        nullable: false,
+                        r#type: ModelType::Scalar(ScalarType::Number(NumberSpec {
+                            format: Default::default(),
+                        })),
+                    },
+                ],
+            },
+        });
+
+        assert!(rendered.contains("intValue: number"));
+        assert!(rendered.contains("numValue: number"));
+        assert!(!rendered.contains("intValue: integer"));
+        assert!(!rendered.contains("numValue: double"));
+    }
+
+    #[test]
+    fn renders_string_and_boolean_scalars_as_expected_types_in_typescript() {
+        let rendered = render_single_model(ModelNode {
+            name: "ScalarKinds".to_string(),
+            description: None,
+            kind: ModelKind::Interface {
+                properties: vec![
+                    ModelProperty {
+                        name: "textValue".to_string(),
+                        description: None,
+                        required: true,
+                        nullable: false,
+                        r#type: ModelType::Scalar(ScalarType::String),
+                    },
+                    ModelProperty {
+                        name: "flagValue".to_string(),
+                        description: None,
+                        required: true,
+                        nullable: false,
+                        r#type: ModelType::Scalar(ScalarType::Boolean),
+                    },
+                ],
+            },
+        });
+
+        assert!(rendered.contains("textValue: string"));
+        assert!(rendered.contains("flagValue: boolean"));
+    }
+
+    #[test]
+    fn renders_numeric_literals_as_ts_numeric_literals() {
+        let rendered = render_single_model(ModelNode {
+            name: "NumericLiterals".to_string(),
+            description: None,
+            kind: ModelKind::Enum {
+                members: vec![
+                    ModelEnumMember {
+                        name: "IntLiteral".to_string(),
+                        value: ModelLiteral::Integer {
+                            value: "42".to_string(),
+                        },
+                        comment: None,
+                    },
+                    ModelEnumMember {
+                        name: "NumLiteral".to_string(),
+                        value: ModelLiteral::Number {
+                            value: "3.14".to_string(),
+                            format: NumberFormat::Unknown,
+                        },
+                        comment: None,
+                    },
+                ],
+            },
+        });
+
+        assert!(rendered.contains("IntLiteral = 42"));
+        assert!(rendered.contains("NumLiteral = 3.14"));
     }
 }

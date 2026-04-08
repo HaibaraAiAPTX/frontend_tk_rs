@@ -1,10 +1,13 @@
 //! ModelType -> Python type string mapping and import collection.
 
-use swagger_gen::model_pipeline::{ModelLiteral, ModelType};
+use swagger_gen::model_pipeline::{
+    ModelLiteral, ModelType, NumberFormat, NumberSpec, ScalarType,
+};
 
 /// Render a ModelType to a Python type string.
 pub fn render_python_type(model_type: &ModelType) -> String {
     let base = match model_type {
+        ModelType::Scalar(scalar) => render_python_scalar_type(scalar),
         ModelType::String => "str".to_string(),
         ModelType::Number => "float".to_string(),
         ModelType::Boolean => "bool".to_string(),
@@ -14,17 +17,41 @@ pub fn render_python_type(model_type: &ModelType) -> String {
             let inner = render_python_type(item);
             format!("list[{inner}]")
         }
-        ModelType::Union { variants } => variants
-            .iter()
-            .map(|v| render_python_type(v))
-            .collect::<Vec<_>>()
-            .join(" | "),
+        ModelType::Union { variants } => {
+            let mut rendered_variants = Vec::new();
+            for variant in variants {
+                let rendered = render_python_type(variant);
+                if !rendered_variants.contains(&rendered) {
+                    rendered_variants.push(rendered);
+                }
+            }
+            rendered_variants.join(" | ")
+        }
         ModelType::Literal { value } => match value {
             ModelLiteral::String { value } => format!("Literal[\"{value}\"]"),
-            ModelLiteral::Number { value } => format!("Literal[{value}]"),
+            ModelLiteral::Integer { value } => format!("Literal[{value}]"),
+            ModelLiteral::Number {
+                format: NumberFormat::Decimal,
+                ..
+            } => "Decimal".to_string(),
+            ModelLiteral::Number { value, .. } => format!("Literal[{value}]"),
         },
     };
     base
+}
+
+fn render_python_scalar_type(scalar: &ScalarType) -> String {
+    match scalar {
+        ScalarType::String => "str".to_string(),
+        ScalarType::Boolean => "bool".to_string(),
+        ScalarType::Integer(_) => "int".to_string(),
+        ScalarType::Number(number) => match number.format {
+            NumberFormat::Decimal => "Decimal".to_string(),
+            NumberFormat::Float | NumberFormat::Double | NumberFormat::Unknown => {
+                "float".to_string()
+            }
+        },
+    }
 }
 
 /// Render a ModelType with nullable support.
@@ -48,6 +75,7 @@ pub fn collect_python_imports(model_type: &ModelType) -> Vec<String> {
 
 fn collect_imports_recursive(model_type: &ModelType, imports: &mut Vec<String>) {
     match model_type {
+        ModelType::Scalar(scalar) => collect_imports_for_scalar(scalar, imports),
         ModelType::Object => {
             if !imports.contains(&"from typing import Any".to_string()) {
                 imports.push("from typing import Any".to_string());
@@ -61,12 +89,41 @@ fn collect_imports_recursive(model_type: &ModelType, imports: &mut Vec<String>) 
                 collect_imports_recursive(v, imports);
             }
         }
-        ModelType::Literal { .. } => {
-            if !imports.contains(&"from typing import Literal".to_string()) {
+        ModelType::Literal { value } => {
+            collect_imports_for_literal(model_type, imports);
+            if matches!(value, ModelLiteral::String { .. } | ModelLiteral::Integer { .. })
+                && !imports.contains(&"from typing import Literal".to_string())
+            {
                 imports.push("from typing import Literal".to_string());
             }
         }
         _ => {}
+    }
+}
+
+fn collect_imports_for_scalar(scalar: &ScalarType, imports: &mut Vec<String>) {
+    if matches!(
+        scalar,
+        ScalarType::Number(NumberSpec {
+            format: NumberFormat::Decimal
+        })
+    ) && !imports.contains(&"from decimal import Decimal".to_string())
+    {
+        imports.push("from decimal import Decimal".to_string());
+    }
+}
+
+fn collect_imports_for_literal(model_type: &ModelType, imports: &mut Vec<String>) {
+    if let ModelType::Literal {
+        value: ModelLiteral::Number {
+            format: NumberFormat::Decimal,
+            ..
+        },
+    } = model_type
+    {
+        if !imports.contains(&"from decimal import Decimal".to_string()) {
+            imports.push("from decimal import Decimal".to_string());
+        }
     }
 }
 
@@ -96,8 +153,39 @@ mod tests {
     }
 
     #[test]
-    fn test_number_type() {
-        assert_eq!(render_python_type(&ModelType::Number), "float");
+    fn test_scalar_integer_type() {
+        assert_eq!(
+            render_python_type(&ModelType::Scalar(ScalarType::Integer(
+                swagger_gen::model_pipeline::IntegerSpec {
+                    format: swagger_gen::model_pipeline::IntegerFormat::Unknown,
+                },
+            ))),
+            "int"
+        );
+    }
+
+    #[test]
+    fn test_scalar_number_float_type() {
+        assert_eq!(
+            render_python_type(&ModelType::Scalar(ScalarType::Number(
+                NumberSpec {
+                    format: NumberFormat::Float,
+                },
+            ))),
+            "float"
+        );
+    }
+
+    #[test]
+    fn test_scalar_number_decimal_type() {
+        assert_eq!(
+            render_python_type(&ModelType::Scalar(ScalarType::Number(
+                NumberSpec {
+                    format: NumberFormat::Decimal,
+                },
+            ))),
+            "Decimal"
+        );
     }
 
     #[test]
@@ -144,6 +232,29 @@ mod tests {
     }
 
     #[test]
+    fn test_union_deduplicates_decimal_literals() {
+        assert_eq!(
+            render_python_type(&ModelType::Union {
+                variants: vec![
+                    ModelType::Literal {
+                        value: ModelLiteral::Number {
+                            value: "1.25".to_string(),
+                            format: NumberFormat::Decimal,
+                        },
+                    },
+                    ModelType::Literal {
+                        value: ModelLiteral::Number {
+                            value: "2.50".to_string(),
+                            format: NumberFormat::Decimal,
+                        },
+                    },
+                ]
+            }),
+            "Decimal"
+        );
+    }
+
+    #[test]
     fn test_literal_string() {
         assert_eq!(
             render_python_type(&ModelType::Literal {
@@ -160,10 +271,24 @@ mod tests {
         assert_eq!(
             render_python_type(&ModelType::Literal {
                 value: ModelLiteral::Number {
-                    value: "42".to_string()
+                    value: "42".to_string(),
+                    format: swagger_gen::model_pipeline::NumberFormat::Unknown,
                 }
             }),
             "Literal[42]"
+        );
+    }
+
+    #[test]
+    fn test_literal_decimal_type() {
+        assert_eq!(
+            render_python_type(&ModelType::Literal {
+                value: ModelLiteral::Number {
+                    value: "1.25".to_string(),
+                    format: NumberFormat::Decimal,
+                }
+            }),
+            "Decimal"
         );
     }
 
@@ -183,6 +308,28 @@ mod tests {
     fn test_imports_object() {
         let imports = collect_python_imports(&ModelType::Object);
         assert!(imports.contains(&"from typing import Any".to_string()));
+    }
+
+    #[test]
+    fn test_imports_decimal_scalar() {
+        let imports = collect_python_imports(&ModelType::Scalar(ScalarType::Number(
+            NumberSpec {
+                format: NumberFormat::Decimal,
+            },
+        )));
+        assert!(imports.contains(&"from decimal import Decimal".to_string()));
+    }
+
+    #[test]
+    fn test_imports_decimal_literal() {
+        let imports = collect_python_imports(&ModelType::Literal {
+            value: ModelLiteral::Number {
+                value: "1.25".to_string(),
+                format: NumberFormat::Decimal,
+            },
+        });
+        assert!(imports.contains(&"from decimal import Decimal".to_string()));
+        assert!(!imports.contains(&"from typing import Literal".to_string()));
     }
 
     #[test]
