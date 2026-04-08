@@ -578,7 +578,7 @@ fn render_function_file(
     };
 
     format!(
-        "{imports_block}\n\nasync def {py_name}({sig_block}) -> {return_type}:\n    return await get_api_client().execute_async(\n        {call_expr}{response_type_arg}\n    )\n",
+        "{imports_block}\n\ndef {py_name}({sig_block}) -> {return_type}:\n    return get_api_client().execute(\n        {call_expr}{response_type_arg}\n    )\n",
         imports_block = imports.join("\n"),
         sig_block = sig_block,
         return_type = return_type,
@@ -733,10 +733,12 @@ mod tests {
             "functions/users/get_user.py",
             "...models",
         );
-        assert!(content.contains("async def get_user("));
+        assert!(content.contains("def get_user("));
+        assert!(!content.contains("async def get_user("));
         assert!(content.contains("input: GetUserInput"));
         assert!(content.contains(") -> User:"));
         assert!(content.contains("response_type=User"));
+        assert!(content.contains("get_api_client().execute("));
         assert!(content.contains("from ...models.User import User"));
     }
 
@@ -782,9 +784,11 @@ mod tests {
             "functions/stored_file/upload_image.py",
             "...models",
         );
-        assert!(func.contains("async def upload_image"));
+        assert!(func.contains("def upload_image"));
+        assert!(!func.contains("async def upload_image"));
         assert!(func.contains("-> GuidResult"));
         assert!(func.contains("response_type=GuidResult"));
+        assert!(func.contains("get_api_client().execute("));
     }
 
     #[test]
@@ -921,7 +925,8 @@ mod tests {
             .find(|f| f.path == "functions/action_authority/add.py")
             .unwrap();
         assert!(action_function.content.contains("from ...spec.action_authority.add_spec import build_add_spec"));
-        assert!(action_function.content.contains("async def add("));
+        assert!(action_function.content.contains("def add("));
+        assert!(!action_function.content.contains("async def add("));
     }
 
     #[test]
