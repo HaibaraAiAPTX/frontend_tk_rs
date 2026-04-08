@@ -1,0 +1,110 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "python-codegen-regression",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/action-authority/create": {
+      "post": {
+        "tags": ["action_authority"],
+        "operationId": "postEducationalAPIActionAuthorityCreate",
+        "summary": "Create action authority",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionAuthorityCreateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionAuthorityInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/info": {
+      "get": {
+        "tags": ["users"],
+        "operationId": "getEducationalAPIUsersGetInfo",
+        "summary": "Get user info",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActionAuthorityCreateInput": {
+        "type": "object",
+        "required": ["name", "detail"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "detail": {
+            "$ref": "#/components/schemas/ActionAuthorityDetail"
+          }
+        }
+      },
+      "ActionAuthorityDetail": {
+        "type": "object",
+        "required": ["level"],
+        "properties": {
+          "level": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        }
+      },
+      "ActionAuthorityInfoResponse": {
+        "type": "object",
+        "required": ["id", "detail"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "detail": {
+            "$ref": "#/components/schemas/ActionAuthorityDetail"
+          }
+        }
+      },
+      "UserInfoResponse": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "Status": {
+        "type": "string",
+        "enum": ["active", "inactive"]
+      }
+    }
+  }
+}

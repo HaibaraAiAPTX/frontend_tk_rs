@@ -53,6 +53,13 @@ fn render_single_model(model: &ModelNode) -> Result<String, String> {
         }
     }
 
+    let model_imports = collect_model_ref_imports(model);
+    for imp in model_imports {
+        if !imports.contains(&imp) {
+            imports.push(imp);
+        }
+    }
+
     // Always need these for interface models
     if matches!(model.kind, ModelKind::Interface { .. }) {
         let pydantic_imports = vec![
@@ -168,6 +175,45 @@ fn collect_model_imports(model: &ModelNode) -> Vec<String> {
 
 fn collect_model_type_imports(model: &ModelNode) -> Vec<String> {
     collect_model_imports(model)
+}
+
+fn collect_model_ref_imports(model: &ModelNode) -> Vec<String> {
+    let mut refs = Vec::new();
+
+    match &model.kind {
+        ModelKind::Interface { properties } => {
+            for prop in properties {
+                collect_model_refs_recursive(&prop.r#type, &mut refs);
+            }
+        }
+        ModelKind::Alias { target, .. } => collect_model_refs_recursive(target, &mut refs),
+        ModelKind::Enum { .. } => {}
+    }
+
+    refs.sort();
+    refs.dedup();
+
+    refs.into_iter()
+        .filter(|name| name != &model.name)
+        .map(|name| format!("from .{name} import {name}"))
+        .collect()
+}
+
+fn collect_model_refs_recursive(model_type: &ModelType, refs: &mut Vec<String>) {
+    match model_type {
+        ModelType::Ref { name } => refs.push(name.clone()),
+        ModelType::Array { item } => collect_model_refs_recursive(item, refs),
+        ModelType::Union { variants } => {
+            for variant in variants {
+                collect_model_refs_recursive(variant, refs);
+            }
+        }
+        ModelType::String
+        | ModelType::Number
+        | ModelType::Boolean
+        | ModelType::Object
+        | ModelType::Literal { .. } => {}
+    }
 }
 
 #[cfg(test)]
@@ -335,5 +381,35 @@ mod tests {
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("from typing import Any"));
+    }
+
+    #[test]
+    fn test_interface_imports_referenced_models() {
+        let model = make_interface_model("UserDto", vec![
+            ModelProperty {
+                name: "status".to_string(),
+                description: None,
+                required: true,
+                nullable: false,
+                r#type: ModelType::Ref {
+                    name: "Status".to_string(),
+                },
+            },
+            ModelProperty {
+                name: "roles".to_string(),
+                description: None,
+                required: false,
+                nullable: false,
+                r#type: ModelType::Array {
+                    item: Box::new(ModelType::Ref {
+                        name: "Role".to_string(),
+                    }),
+                },
+            },
+        ]);
+
+        let content = render_single_model(&model).unwrap();
+        assert!(content.contains("from .Role import Role"));
+        assert!(content.contains("from .Status import Status"));
     }
 }
