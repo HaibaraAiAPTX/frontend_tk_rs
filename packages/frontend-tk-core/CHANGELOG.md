@@ -1,5 +1,13 @@
 # @aptx/frontend-tk-core
 
+## 0.1.11
+
+### Patch Changes
+
+- 修改 python 侧的 bug
+- Updated dependencies
+  - @aptx/frontend-tk-binding@0.1.11
+
 ## 0.1.10
 
 ### Patch Changes
