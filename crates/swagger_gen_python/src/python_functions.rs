@@ -114,6 +114,16 @@ fn find_common_service_prefix(endpoints: &[EndpointItem]) -> String {
         }
     }
 
+    // Namespace stripping happens later. Do not let the shared prefix eat the namespace
+    // segment itself or any action words that come after it.
+    let namespace_words = split_identifier_words(&namespace_to_camel(&endpoints[0].namespace));
+    if let Some(index) = find_word_sequence(&prefix_words, &namespace_words) {
+        prefix_words.truncate(index);
+        if prefix_words.is_empty() {
+            return String::new();
+        }
+    }
+
     let prefix = prefix_words.join("");
 
     // Don't strip if any endpoint would be left with nothing
@@ -284,6 +294,19 @@ fn split_identifier_words(name: &str) -> Vec<String> {
     }
 
     words
+}
+
+fn find_word_sequence(haystack: &[String], needle: &[String]) -> Option<usize> {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return None;
+    }
+
+    haystack.windows(needle.len()).position(|window| {
+        window
+            .iter()
+            .zip(needle.iter())
+            .all(|(left, right)| left == right)
+    })
 }
 
 fn to_snake_case(name: &str) -> String {
@@ -889,8 +912,8 @@ mod tests {
         ];
 
         let prefix = find_common_service_prefix(&endpoints);
-        assert_eq!(compute_fallback_py_name(&endpoints[0], &prefix), "add");
-        assert_eq!(compute_fallback_py_name(&endpoints[1], &prefix), "user_add");
+        assert_eq!(compute_fallback_py_name(&endpoints[0], &prefix), "user_add");
+        assert_eq!(compute_fallback_py_name(&endpoints[1], &prefix), "user_user_add");
     }
 
     #[test]
@@ -988,6 +1011,47 @@ mod tests {
         let output = PythonFunctionsRenderer.render(&input).unwrap();
         assert!(output.files.iter().any(|f| f.path == "functions/action_authority/add.py"));
         assert!(output.files.iter().any(|f| f.path == "functions/role/add.py"));
+    }
+
+    #[test]
+    fn test_render_keeps_full_action_name_when_namespace_local_prefix_would_over_shorten() {
+        let input = make_generator_input(vec![
+            make_endpoint(
+                &["user"],
+                "getAuthorityAPIUserGetLoginUserInfo",
+                "GET",
+                "/AuthorityAPI/User/GetLoginUserInfo",
+                "void",
+                "void",
+            ),
+            make_endpoint(
+                &["user"],
+                "getAuthorityAPIUserGetLoginUserPermissions",
+                "GET",
+                "/AuthorityAPI/User/GetLoginUserPermissions",
+                "void",
+                "void",
+            ),
+        ]);
+
+        let output = PythonFunctionsRenderer.render(&input).unwrap();
+        assert!(output
+            .files
+            .iter()
+            .any(|f| f.path == "functions/user/get_login_user_info.py"));
+        assert!(output
+            .files
+            .iter()
+            .any(|f| f.path == "spec/user/get_login_user_info_spec.py"));
+        assert!(output
+            .files
+            .iter()
+            .any(|f| f.path == "functions/user/get_login_user_permissions.py"));
+        assert!(!output.files.iter().any(|f| f.path == "functions/user/info.py"));
+        assert!(!output
+            .files
+            .iter()
+            .any(|f| f.path == "spec/user/info_spec.py"));
     }
 
     #[test]
