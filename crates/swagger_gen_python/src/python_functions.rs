@@ -483,7 +483,7 @@ fn render_spec_fields(endpoint: &EndpointItem, has_model_input: bool) -> String 
 
     if has_model_input {
         if endpoint.request_body_field.is_some() {
-            fields.push_str("        body=input.model_dump(by_alias=True),\n");
+            fields.push_str("        body=input.model_dump(by_alias=True, exclude_none=True),\n");
         }
         if !endpoint.query_fields.is_empty() {
             let keys: Vec<String> = endpoint
@@ -822,7 +822,7 @@ mod tests {
         ep.request_body_field = Some("body".to_string());
 
         let spec = render_spec_file(&ep, "add_user", "...models");
-        assert!(spec.contains("body=input.model_dump(by_alias=True)"));
+        assert!(spec.contains("body=input.model_dump(by_alias=True, exclude_none=True)"));
     }
 
     #[test]
