@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.12
+
+### Patch Changes
+
+- 修复 python 文件导入路径错误 bug
+
 ## 0.1.11
 
 ### Patch Changes

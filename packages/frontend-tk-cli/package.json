@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-cli",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Frontend toolkit CLI - assembles core with built-in plugins",
   "keywords": [
     "frontend",
