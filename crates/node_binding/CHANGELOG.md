@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.13
+
+### Patch Changes
+
+- 修改生成的 python 侧为同步代码
+
 ## 0.1.12
 
 ### Patch Changes

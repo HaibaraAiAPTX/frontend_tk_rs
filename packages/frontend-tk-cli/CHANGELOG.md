@@ -1,5 +1,19 @@
 # @aptx/frontend-tk-cli
 
+## 0.1.13
+
+### Patch Changes
+
+- 修改生成的 python 侧为同步代码
+- Updated dependencies
+  - @aptx/frontend-tk-binding@0.1.13
+  - @aptx/frontend-tk-core@0.1.13
+  - @aptx/frontend-tk-plugin-aptx@0.1.13
+  - @aptx/frontend-tk-plugin-input@0.1.13
+  - @aptx/frontend-tk-plugin-materal@0.1.13
+  - @aptx/frontend-tk-plugin-model@0.1.13
+  - @aptx/frontend-tk-plugin-python@0.1.13
+
 ## 0.1.12
 
 ### Patch Changes
