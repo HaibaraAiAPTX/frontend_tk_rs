@@ -3,11 +3,11 @@ use inflector::cases::{
 };
 use indexmap::IndexMap;
 use std::collections::HashSet;
-use swagger_tk::model::{OpenAPIObject, OperationObject, PathItemObject};
+use swagger_tk::model::{OpenAPIObject, OperationObject, ParameterObjectIn, PathItemObject};
 
 use crate::core::{ApiContext, FuncParameter};
 
-use super::model::{EndpointItem, GeneratorInput, ProjectContext};
+use super::model::{EndpointItem, EndpointParameter, GeneratorInput, ProjectContext};
 
 pub trait Parser {
     fn parse(&self, open_api: &OpenAPIObject) -> Result<GeneratorInput, String>;
@@ -84,6 +84,8 @@ fn build_endpoint(
 ) -> EndpointItem {
     let method_lower = method.to_lowercase();
     let context = ApiContext::new(path, &method_lower, path_item, operation);
+    let query_params = collect_endpoint_params(&context, ParameterObjectIn::Query);
+    let path_params = collect_endpoint_params(&context, ParameterObjectIn::Path);
     let namespace = operation
         .tags
         .as_ref()
@@ -111,22 +113,45 @@ fn build_endpoint(
         input_type_name,
         output_type_name: context.response_type.unwrap_or_else(|| "void".to_string()),
         request_body_field: context.request_body_name,
-        query_fields: context
-            .query_params_list
-            .unwrap_or_default()
-            .into_iter()
-            .map(|item| item.name)
-            .collect(),
-        path_fields: context
-            .path_params_list
-            .unwrap_or_default()
-            .into_iter()
-            .map(|item| item.name)
-            .collect(),
+        query_fields: query_params.iter().map(|item| item.name.clone()).collect(),
+        query_params,
+        path_fields: path_params.iter().map(|item| item.name.clone()).collect(),
+        path_params,
         has_request_options: true,
         deprecated: operation.deprecated.unwrap_or(false),
         meta: IndexMap::new(),
     }
+}
+
+fn collect_endpoint_params(
+    context: &ApiContext,
+    target: ParameterObjectIn,
+) -> Vec<EndpointParameter> {
+    context
+        .func_parameters
+        .as_ref()
+        .into_iter()
+        .flatten()
+        .filter_map(|parameter| {
+            let matches_target = matches!(
+                (&parameter.r#in, &target),
+                (Some(ParameterObjectIn::Query), ParameterObjectIn::Query)
+                    | (Some(ParameterObjectIn::Path), ParameterObjectIn::Path)
+                    | (Some(ParameterObjectIn::Header), ParameterObjectIn::Header)
+                    | (Some(ParameterObjectIn::Cookie), ParameterObjectIn::Cookie)
+            );
+
+            if !matches_target {
+                return None;
+            }
+
+            Some(EndpointParameter {
+                name: parameter.name.clone(),
+                type_name: parameter.r#type.clone(),
+                required: parameter.required,
+            })
+        })
+        .collect()
 }
 
 fn build_input_type_name(context: &ApiContext) -> String {
@@ -305,7 +330,9 @@ mod tests {
             input_type_name: "void".to_string(),
             output_type_name: "void".to_string(),
             request_body_field: None,
+            query_params: vec![],
             query_fields: vec![],
+            path_params: vec![],
             path_fields: vec![],
             has_request_options: false,
             deprecated: false,

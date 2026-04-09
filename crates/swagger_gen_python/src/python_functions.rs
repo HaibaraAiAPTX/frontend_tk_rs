@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use swagger_gen::pipeline::{
-    EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer,
+    EndpointItem, EndpointParameter, GeneratorInput, PlannedFile, RenderOutput, Renderer,
     resolve_file_import_path, resolve_model_import_base, should_use_package_import,
 };
 
@@ -404,6 +404,211 @@ fn to_python_relative_import_path(import_path: &str) -> String {
     }
 }
 
+#[derive(Clone)]
+struct RenderedExtraParam {
+    original_name: String,
+    python_name: String,
+    annotation: String,
+    required: bool,
+    imports: Vec<String>,
+}
+
+fn sanitize_python_identifier(name: &str) -> String {
+    let mut result = String::new();
+
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            result.push(ch);
+        } else {
+            result.push('_');
+        }
+    }
+
+    if result.is_empty() {
+        result.push_str("param");
+    }
+
+    if result.chars().next().is_some_and(|ch| ch.is_ascii_digit()) {
+        result.insert(0, '_');
+    }
+
+    escape_keyword(&result)
+}
+
+fn render_python_annotation(type_name: &str, model_import_base: &str) -> (String, Vec<String>) {
+    let trimmed = type_name.trim();
+
+    if let Some(inner) = trimmed
+        .strip_prefix("Array<")
+        .and_then(|rest| rest.strip_suffix('>'))
+    {
+        let (inner_annotation, imports) = render_python_annotation(inner, model_import_base);
+        return (format!("list[{inner_annotation}]"), imports);
+    }
+
+    match trimmed {
+        "string" => ("str".to_string(), vec![]),
+        "number" => ("float".to_string(), vec![]),
+        "boolean" => ("bool".to_string(), vec![]),
+        "object" => (
+            "dict[str, Any]".to_string(),
+            vec!["from typing import Any".to_string()],
+        ),
+        _ if trimmed
+            .chars()
+            .next()
+            .is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_') =>
+        {
+            (
+                trimmed.to_string(),
+                vec![format!(
+                    "from {model_import_base}.{} import {}",
+                    to_snake_module(trimmed),
+                    trimmed
+                )],
+            )
+        }
+        _ => (
+            "Any".to_string(),
+            vec!["from typing import Any".to_string()],
+        ),
+    }
+}
+
+fn render_extra_param(parameter: &EndpointParameter, model_import_base: &str) -> RenderedExtraParam {
+    let (annotation, imports) = render_python_annotation(&parameter.type_name, model_import_base);
+
+    RenderedExtraParam {
+        original_name: parameter.name.clone(),
+        python_name: sanitize_python_identifier(&parameter.name),
+        annotation,
+        required: parameter.required,
+        imports,
+    }
+}
+
+fn collect_extra_params(endpoint: &EndpointItem, model_import_base: &str) -> Vec<RenderedExtraParam> {
+    endpoint
+        .path_params
+        .iter()
+        .chain(endpoint.query_params.iter())
+        .map(|parameter| render_extra_param(parameter, model_import_base))
+        .collect()
+}
+
+fn find_rendered_param<'a>(
+    params: &'a [RenderedExtraParam],
+    original_name: &str,
+) -> Option<&'a RenderedExtraParam> {
+    params
+        .iter()
+        .find(|parameter| parameter.original_name == original_name)
+}
+
+fn render_extra_param_signature(parameter: &RenderedExtraParam) -> String {
+    if parameter.required {
+        format!("    {}: {}", parameter.python_name, parameter.annotation)
+    } else {
+        format!(
+            "    {}: {} | None = None",
+            parameter.python_name, parameter.annotation
+        )
+    }
+}
+
+fn render_signature_block(primary_param: Option<String>, extra_params: &[RenderedExtraParam]) -> String {
+    let mut lines = Vec::new();
+
+    if let Some(primary_param) = primary_param {
+        lines.push(format!("    {primary_param}"));
+    }
+
+    if !extra_params.is_empty() {
+        lines.push("    *".to_string());
+        lines.extend(extra_params.iter().map(render_extra_param_signature));
+    }
+
+    if lines.is_empty() {
+        String::new()
+    } else {
+        format!("\n{},\n", lines.join(",\n"))
+    }
+}
+
+fn render_builder_call(
+    builder_name: &str,
+    primary_arg: Option<&str>,
+    extra_params: &[RenderedExtraParam],
+) -> String {
+    let mut args = Vec::new();
+
+    if let Some(primary_arg) = primary_arg {
+        args.push(primary_arg.to_string());
+    }
+
+    args.extend(
+        extra_params
+            .iter()
+            .map(|parameter| format!("{}={}", parameter.original_name, parameter.python_name)),
+    );
+
+    if args.is_empty() {
+        format!("{builder_name}()")
+    } else {
+        format!("{builder_name}({})", args.join(", "))
+    }
+}
+
+fn resolve_request_value(
+    field_name: &str,
+    extra_params: &[RenderedExtraParam],
+    has_model_input: bool,
+) -> String {
+    if let Some(parameter) = find_rendered_param(extra_params, field_name) {
+        parameter.python_name.clone()
+    } else if has_model_input {
+        format!("input.{field_name}")
+    } else {
+        sanitize_python_identifier(field_name)
+    }
+}
+
+fn render_path_input_assignment(
+    endpoint: &EndpointItem,
+    extra_params: &[RenderedExtraParam],
+    has_model_input: bool,
+) -> Option<String> {
+    if endpoint.path_fields.is_empty() {
+        return has_model_input.then(|| "        input=input,\n".to_string());
+    }
+
+    let fields = endpoint
+        .path_fields
+        .iter()
+        .map(|field| {
+            format!(
+                "{field}={}",
+                resolve_request_value(field, extra_params, has_model_input)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    Some(format!("        input=SimpleNamespace({fields}),\n"))
+}
+
+fn dedupe_lines(lines: Vec<String>) -> Vec<String> {
+    let mut deduped = Vec::new();
+
+    for line in lines {
+        if !deduped.contains(&line) {
+            deduped.push(line);
+        }
+    }
+
+    deduped
+}
+
 fn resolve_python_module_import(from_file_path: &str, to_file_path: &str) -> String {
     to_python_relative_import_path(&resolve_file_import_path(from_file_path, to_file_path))
 }
@@ -428,15 +633,25 @@ fn render_spec_file(endpoint: &EndpointItem, py_name: &str, model_import_base: &
     let mut imports = vec!["from __future__ import annotations".to_string()];
     let input_type = &endpoint.input_type_name;
     let builder_name = format!("build_{py_name}_spec");
+    let extra_params = collect_extra_params(endpoint, model_import_base);
+
+    if !endpoint.path_fields.is_empty() {
+        imports.push("from types import SimpleNamespace".to_string());
+    }
+    for parameter in &extra_params {
+        imports.extend(parameter.imports.iter().cloned());
+    }
 
     if is_void_input(input_type) {
         imports.push("from aptx_api_core import RequestSpec".to_string());
-
-        let body = render_spec_fields(endpoint, false);
+        imports = dedupe_lines(imports);
+        let sig_block = render_signature_block(None, &extra_params);
+        let body = render_spec_fields(endpoint, false, &extra_params);
         format!(
-            "{imports_block}\n\ndef {builder_name}() -> RequestSpec:\n    return RequestSpec(\n{body}    )\n",
+            "{imports_block}\n\ndef {builder_name}({sig_block}) -> RequestSpec:\n    return RequestSpec(\n{body}    )\n",
             imports_block = imports.join("\n"),
             builder_name = builder_name,
+            sig_block = sig_block,
             body = body,
         )
     } else if is_inline_input(input_type) {
@@ -465,19 +680,27 @@ fn render_spec_file(endpoint: &EndpointItem, py_name: &str, model_import_base: &
             input_type
         ));
         imports.push("from aptx_api_core import RequestSpec".to_string());
-
-        let body = render_spec_fields(endpoint, true);
+        imports = dedupe_lines(imports);
+        let sig_block = render_signature_block(
+            Some(format!("input: {input_type}")),
+            &extra_params,
+        );
+        let body = render_spec_fields(endpoint, true, &extra_params);
         format!(
-            "{imports_block}\n\ndef {builder_name}(\n    input: {input_type}) -> RequestSpec:\n    return RequestSpec(\n{body}    )\n",
+            "{imports_block}\n\ndef {builder_name}({sig_block}) -> RequestSpec:\n    return RequestSpec(\n{body}    )\n",
             imports_block = imports.join("\n"),
             builder_name = builder_name,
-            input_type = input_type,
+            sig_block = sig_block,
             body = body,
         )
     }
 }
 
-fn render_spec_fields(endpoint: &EndpointItem, has_model_input: bool) -> String {
+fn render_spec_fields(
+    endpoint: &EndpointItem,
+    has_model_input: bool,
+    extra_params: &[RenderedExtraParam],
+) -> String {
     let mut fields = format!("        method=\"{}\",\n", endpoint.method);
     fields.push_str(&format!("        path=\"{}\",\n", endpoint.path));
 
@@ -485,24 +708,29 @@ fn render_spec_fields(endpoint: &EndpointItem, has_model_input: bool) -> String 
         if endpoint.request_body_field.is_some() {
             fields.push_str("        body=input.model_dump(by_alias=True, exclude_none=True),\n");
         }
-        if !endpoint.query_fields.is_empty() {
-            let keys: Vec<String> = endpoint
-                .query_fields
-                .iter()
-                .map(|f| format!("\"{f}\": input.{f}"))
-                .collect();
-            fields.push_str(&format!("        query={{ {} }},\n", keys.join(", ")));
-        }
-        fields.push_str("        input=input,\n");
     } else {
-        if !endpoint.query_fields.is_empty() {
-            let keys: Vec<String> = endpoint
-                .query_fields
-                .iter()
-                .map(|f| format!("\"{f}\": {f}"))
-                .collect();
-            fields.push_str(&format!("        query={{ {} }},\n", keys.join(", ")));
+        if endpoint.request_body_field.is_some() {
+            fields.push_str("        body=body,\n");
         }
+    }
+
+    if !endpoint.query_fields.is_empty() {
+        let keys: Vec<String> = endpoint
+            .query_fields
+            .iter()
+            .map(|field| {
+                format!(
+                    "\"{field}\": {}",
+                    resolve_request_value(field, extra_params, has_model_input)
+                )
+            })
+            .collect();
+        fields.push_str(&format!("        query={{ {} }},\n", keys.join(", ")));
+    }
+
+    if let Some(input_assignment) = render_path_input_assignment(endpoint, extra_params, has_model_input)
+    {
+        fields.push_str(&input_assignment);
     }
 
     fields
@@ -538,6 +766,7 @@ fn render_function_file(
     let input_type = &endpoint.input_type_name;
     let output_type = &endpoint.output_type_name;
     let builder_name = format!("build_{py_name}_spec");
+    let extra_params = collect_extra_params(endpoint, model_import_base);
 
     imports.push("from aptx_api_core import get_api_client".to_string());
 
@@ -547,9 +776,15 @@ fn render_function_file(
         resolve_python_module_import(current_file_path, &spec_file_path),
     );
     imports.push(spec_import);
+    for parameter in &extra_params {
+        imports.extend(parameter.imports.iter().cloned());
+    }
 
     let (signature, call_args) = if is_void_input(input_type) {
-        (String::new(), String::new())
+        (
+            render_signature_block(None, &extra_params),
+            render_builder_call(&builder_name, None, &extra_params),
+        )
     } else if is_inline_input(input_type) {
         let inline_fields = parse_inline_fields(input_type);
         let params: Vec<String> = inline_fields
@@ -557,14 +792,20 @@ fn render_function_file(
             .map(|(name, type_name)| format!("    *, {name}: {type_name}"))
             .collect();
         let args: Vec<String> = inline_fields.iter().map(|(name, _)| name.clone()).collect();
-        (params.join(",\n"), args.join(", "))
+        (
+            format!("\n{}\n", params.join(",\n")),
+            format!("{builder_name}({})", args.join(", ")),
+        )
     } else {
         imports.push(format!(
             "from {model_import_base}.{} import {}",
             to_snake_module(input_type),
             input_type
         ));
-        (format!("    input: {input_type}"), "input".to_string())
+        (
+            render_signature_block(Some(format!("input: {input_type}")), &extra_params),
+            render_builder_call(&builder_name, Some("input"), &extra_params),
+        )
     };
 
     let is_void_output = output_type == "void" || output_type == "None";
@@ -575,6 +816,7 @@ fn render_function_file(
             output_type
         ));
     }
+    imports = dedupe_lines(imports);
 
     let return_type = if is_void_output {
         "None"
@@ -588,24 +830,12 @@ fn render_function_file(
         format!(",\n        response_type={output_type}")
     };
 
-    let call_expr = if is_void_input(input_type) {
-        format!("{builder_name}()")
-    } else {
-        format!("{builder_name}({call_args})")
-    };
-
-    let sig_block = if signature.is_empty() {
-        String::new()
-    } else {
-        format!("\n{signature},\n")
-    };
-
     format!(
         "{imports_block}\n\ndef {py_name}({sig_block}) -> {return_type}:\n    return get_api_client().execute(\n        {call_expr}{response_type_arg}\n    )\n",
         imports_block = imports.join("\n"),
-        sig_block = sig_block,
+        sig_block = signature,
         return_type = return_type,
-        call_expr = call_expr,
+        call_expr = call_args,
         response_type_arg = response_type_arg,
     )
 }
@@ -614,7 +844,7 @@ fn render_function_file(
 mod tests {
     use super::*;
     use indexmap::IndexMap;
-    use swagger_gen::pipeline::{GeneratorInput, ModelImportConfig, ProjectContext};
+    use swagger_gen::pipeline::{EndpointParameter, GeneratorInput, ModelImportConfig, ProjectContext};
 
     fn make_endpoint(
         namespace: &[&str],
@@ -635,7 +865,9 @@ mod tests {
             input_type_name: input_type.to_string(),
             output_type_name: output_type.to_string(),
             request_body_field: None,
+            query_params: vec![],
             query_fields: vec![],
+            path_params: vec![],
             path_fields: vec![],
             has_request_options: false,
             deprecated: false,
@@ -812,6 +1044,99 @@ mod tests {
         assert!(func.contains("-> GuidResult"));
         assert!(func.contains("response_type=GuidResult"));
         assert!(func.contains("get_api_client().execute("));
+    }
+
+    #[test]
+    fn test_query_only_endpoint_generates_explicit_python_parameters() {
+        let mut ep = make_endpoint(
+            &["user"],
+            "get_login_user_wechat_un_bind",
+            "GET",
+            "/AuthorityAPI/User/LoginUserWechatUnBind",
+            "void",
+            "ResultModel",
+        );
+        ep.query_fields = vec!["subSystemCode".to_string()];
+        ep.query_params = vec![EndpointParameter {
+            name: "subSystemCode".to_string(),
+            type_name: "string".to_string(),
+            required: true,
+        }];
+
+        let spec = render_spec_file(&ep, "login_user_wechat_un_bind", "...models");
+        assert!(spec.contains("def build_login_user_wechat_un_bind_spec("));
+        assert!(spec.contains("subSystemCode: str"));
+        assert!(spec.contains("query={ \"subSystemCode\": subSystemCode }"));
+
+        let func = render_function_file(
+            &ep,
+            "login_user_wechat_un_bind",
+            "functions/user/login_user_wechat_un_bind.py",
+            "...models",
+        );
+        assert!(func.contains("subSystemCode: str"));
+        assert!(func.contains(
+            "build_login_user_wechat_un_bind_spec(subSystemCode=subSystemCode)"
+        ));
+    }
+
+    #[test]
+    fn test_model_input_with_query_params_uses_explicit_kwargs() {
+        let mut ep = make_endpoint(
+            &["user"],
+            "post_unbind",
+            "POST",
+            "/AuthorityAPI/User/Unbind",
+            "UnbindWechatRequest",
+            "ResultModel",
+        );
+        ep.request_body_field = Some("body".to_string());
+        ep.query_fields = vec!["subSystemCode".to_string()];
+        ep.query_params = vec![EndpointParameter {
+            name: "subSystemCode".to_string(),
+            type_name: "string".to_string(),
+            required: true,
+        }];
+
+        let spec = render_spec_file(&ep, "unbind", "...models");
+        assert!(spec.contains("input: UnbindWechatRequest"));
+        assert!(spec.contains("subSystemCode: str"));
+        assert!(spec.contains("body=input.model_dump(by_alias=True, exclude_none=True)"));
+        assert!(spec.contains("query={ \"subSystemCode\": subSystemCode }"));
+        assert!(!spec.contains("input.subSystemCode"));
+
+        let func = render_function_file(
+            &ep,
+            "unbind",
+            "functions/user/unbind.py",
+            "...models",
+        );
+        assert!(func.contains("input: UnbindWechatRequest"));
+        assert!(func.contains("subSystemCode: str"));
+        assert!(func.contains("build_unbind_spec(input, subSystemCode=subSystemCode)"));
+    }
+
+    #[test]
+    fn test_path_only_endpoint_uses_simple_namespace_for_request_input() {
+        let mut ep = make_endpoint(
+            &["user"],
+            "get_user_detail",
+            "GET",
+            "/AuthorityAPI/User/{id}",
+            "void",
+            "User",
+        );
+        ep.path_fields = vec!["id".to_string()];
+        ep.path_params = vec![EndpointParameter {
+            name: "id".to_string(),
+            type_name: "string".to_string(),
+            required: true,
+        }];
+
+        let spec = render_spec_file(&ep, "get_user_detail", "...models");
+        assert!(spec.contains("from types import SimpleNamespace"));
+        assert!(spec.contains("id: str"));
+        assert!(spec.contains("input=SimpleNamespace(id=id)"));
     }
 
     #[test]

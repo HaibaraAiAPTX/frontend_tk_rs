@@ -48,7 +48,11 @@ pub struct EndpointItem {
     pub input_type_name: String,
     pub output_type_name: String,
     pub request_body_field: Option<String>,
+    #[serde(default)]
+    pub query_params: Vec<EndpointParameter>,
     pub query_fields: Vec<String>,
+    #[serde(default)]
+    pub path_params: Vec<EndpointParameter>,
     pub path_fields: Vec<String>,
     pub has_request_options: bool,
     pub deprecated: bool,
@@ -56,6 +60,13 @@ pub struct EndpointItem {
     /// Used for both internal classification (keys starting with "__") and
     /// for generating RequestSpec meta fields (keys not starting with "__").
     pub meta: IndexMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EndpointParameter {
+    pub name: String,
+    pub type_name: String,
+    pub required: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

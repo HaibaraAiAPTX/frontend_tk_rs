@@ -315,6 +315,10 @@ fn input_type_name_all_param_scenarios() {
     let ep = find_endpoint(&ir, "GET", "/items/search").expect("GET /items/search");
     assert_eq!(ep.input_type_name, "void");
     assert_eq!(ep.query_fields, vec!["keyword"]);
+    assert_eq!(ep.query_params.len(), 1);
+    assert_eq!(ep.query_params[0].name, "keyword");
+    assert_eq!(ep.query_params[0].type_name, "string");
+    assert!(!ep.query_params[0].required);
     assert!(ep.path_fields.is_empty());
 
     // 5. Multiple query params → input_type_name = "void", query_fields = ["page", "size"]
@@ -328,6 +332,14 @@ fn input_type_name_all_param_scenarios() {
     assert_eq!(ep.input_type_name, "void");
     assert_eq!(ep.path_fields, vec!["id"]);
     assert_eq!(ep.query_fields, vec!["expand"]);
+    assert_eq!(ep.path_params.len(), 1);
+    assert_eq!(ep.path_params[0].name, "id");
+    assert_eq!(ep.path_params[0].type_name, "string");
+    assert!(ep.path_params[0].required);
+    assert_eq!(ep.query_params.len(), 1);
+    assert_eq!(ep.query_params[0].name, "expand");
+    assert_eq!(ep.query_params[0].type_name, "boolean");
+    assert!(!ep.query_params[0].required);
 
     // 7. Path param + body → input_type_name = body type (not inline merged type)
     let ep = find_endpoint(&ir, "PUT", "/items/{id}/update").expect("PUT /items/{id}/update");
@@ -345,5 +357,9 @@ fn input_type_name_all_param_scenarios() {
     let ep = find_endpoint(&ir, "DELETE", "/items/delete").expect("DELETE /items/delete");
     assert_eq!(ep.input_type_name, "void");
     assert_eq!(ep.query_fields, vec!["id"]);
+    assert_eq!(ep.query_params.len(), 1);
+    assert_eq!(ep.query_params[0].name, "id");
+    assert_eq!(ep.query_params[0].type_name, "string");
+    assert!(ep.query_params[0].required);
     assert!(ep.path_fields.is_empty());
 }
