@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.15
+
+### Patch Changes
+
+- 修复 python 端生成 spec 时缺少 query 参数来源的问题
+
 ## 0.1.14
 
 ### Patch Changes

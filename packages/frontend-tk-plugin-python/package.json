@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-plugin-python",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Python codegen commands for frontend toolkit CLI",
   "keywords": [
     "frontend",

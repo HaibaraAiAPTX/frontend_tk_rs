@@ -1,5 +1,19 @@
 # @aptx/frontend-tk-cli
 
+## 0.1.15
+
+### Patch Changes
+
+- 修复 python 端生成 spec 时缺少 query 参数来源的问题
+- Updated dependencies
+  - @aptx/frontend-tk-binding@0.1.15
+  - @aptx/frontend-tk-core@0.1.15
+  - @aptx/frontend-tk-plugin-aptx@0.1.15
+  - @aptx/frontend-tk-plugin-input@0.1.15
+  - @aptx/frontend-tk-plugin-materal@0.1.15
+  - @aptx/frontend-tk-plugin-model@0.1.15
+  - @aptx/frontend-tk-plugin-python@0.1.15
+
 ## 0.1.14
 
 ### Patch Changes
