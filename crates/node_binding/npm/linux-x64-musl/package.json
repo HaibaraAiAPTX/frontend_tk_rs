@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-binding-linux-x64-musl",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "os": [
     "linux"
   ],
