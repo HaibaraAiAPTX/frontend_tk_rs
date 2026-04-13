@@ -22,7 +22,7 @@ const commonModelOptions: OptionDescriptor[] = [
     required: false,
   },
   {
-    flags: '--output <path>',
+    flags: '-o, --output <path>',
     description: 'Output directory or file path',
     required: false,
   },

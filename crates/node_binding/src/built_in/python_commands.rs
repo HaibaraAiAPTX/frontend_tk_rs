@@ -41,6 +41,12 @@ fn build_model_import_config(
     model_path: Option<&str>,
 ) -> Option<swagger_gen::pipeline::ModelImportConfig> {
     match model_mode {
+        None if model_path.is_some() => Some(swagger_gen::pipeline::ModelImportConfig {
+            import_type: "relative".to_string(),
+            package_path: None,
+            relative_path: None,
+            original_path: model_path.map(|s| s.to_string()),
+        }),
         None => None,
         Some("package") => Some(swagger_gen::pipeline::ModelImportConfig {
             import_type: "package".to_string(),
@@ -246,6 +252,16 @@ pub fn run_python_tools(args: &[String], open_api: &OpenAPIObject) {
 #[cfg(test)]
 mod tests {
     use super::build_model_import_config;
+
+    #[test]
+    fn test_build_model_import_config_defaults_to_relative_when_only_model_path_is_provided() {
+        let config = build_model_import_config(None, Some("./src/api/models"))
+            .expect("default relative config");
+
+        assert_eq!(config.import_type, "relative");
+        assert_eq!(config.original_path.as_deref(), Some("./src/api/models"));
+        assert!(config.package_path.is_none());
+    }
 
     #[test]
     fn test_build_model_import_config_relative() {
