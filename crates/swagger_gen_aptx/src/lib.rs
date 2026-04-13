@@ -28,10 +28,12 @@ mod functions;
 mod meta_pass;
 mod query_base;
 mod react_query;
+mod ts_naming;
 mod vue_query;
 
 pub use classifier::AptxQueryMutationPass;
 pub use functions::AptxFunctionsRenderer;
 pub use meta_pass::AptxMetaPass;
 pub use react_query::AptxReactQueryRenderer;
+pub(crate) use ts_naming::{ResolvedTsName, resolve_final_ts_names};
 pub use vue_query::AptxVueQueryRenderer;

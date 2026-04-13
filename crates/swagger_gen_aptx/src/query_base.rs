@@ -5,7 +5,8 @@
 use crate::META_SUPPORTS_QUERY;
 use crate::{
     get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
-    resolve_file_import_path, resolve_model_import_base, should_use_package_import,
+    resolve_file_import_path, resolve_final_ts_names, resolve_model_import_base,
+    should_use_package_import, ResolvedTsName,
 };
 
 use swagger_gen::pipeline::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput};
@@ -25,15 +26,17 @@ pub fn render_query_terminal(
     let use_package = should_use_package_import(&input.model_import);
     let client_import = &input.client_import;
     let mut files = Vec::new();
+    let resolved_names = resolve_final_ts_names(&input.endpoints);
 
-    for endpoint in &input.endpoints {
+    for (endpoint, resolved_name) in input.endpoints.iter().zip(resolved_names.iter()) {
         let supports_query = endpoint.meta.get(META_SUPPORTS_QUERY) == Some(&"true".to_string());
 
         if supports_query {
-            let query_path = get_query_file_path(endpoint, terminal);
+            let query_path = get_query_file_path(endpoint, resolved_name, terminal);
             let query_model_import_base = resolve_model_import_base(input, &query_path);
             let query_content = render_query_file(
                 endpoint,
+                resolved_name,
                 terminal,
                 &query_path,
                 &query_model_import_base,
@@ -46,10 +49,11 @@ pub fn render_query_terminal(
             });
         } else {
             // If not a query, it's a mutation
-            let mutation_path = get_mutation_file_path(endpoint, terminal);
+            let mutation_path = get_mutation_file_path(endpoint, resolved_name, terminal);
             let mutation_model_import_base = resolve_model_import_base(input, &mutation_path);
             let mutation_content = render_mutation_file(
                 endpoint,
+                resolved_name,
                 terminal,
                 &mutation_path,
                 &mutation_model_import_base,
@@ -118,46 +122,55 @@ pub fn mutation_hook_alias(terminal: QueryTerminal) -> &'static str {
 }
 
 /// Returns the file path for a query file
-pub fn get_query_file_path(endpoint: &EndpointItem, terminal: QueryTerminal) -> String {
+pub fn get_query_file_path(
+    endpoint: &EndpointItem,
+    resolved_name: &ResolvedTsName,
+    terminal: QueryTerminal,
+) -> String {
     let namespace = endpoint.namespace.join("/");
     format!(
         "{}/{namespace}/{}.query.ts",
         terminal_dir(terminal),
-        endpoint.operation_name
+        resolved_name.file_stem
     )
 }
 
 /// Returns the file path for a mutation file
-pub fn get_mutation_file_path(endpoint: &EndpointItem, terminal: QueryTerminal) -> String {
+pub fn get_mutation_file_path(
+    endpoint: &EndpointItem,
+    resolved_name: &ResolvedTsName,
+    terminal: QueryTerminal,
+) -> String {
     let namespace = endpoint.namespace.join("/");
     format!(
         "{}/{namespace}/{}.mutation.ts",
         terminal_dir(terminal),
-        endpoint.operation_name
+        resolved_name.file_stem
     )
 }
 
 /// Renders the content of a query file
 pub fn render_query_file(
     endpoint: &EndpointItem,
+    resolved_name: &ResolvedTsName,
     terminal: QueryTerminal,
     current_file_path: &str,
     model_import_base: &str,
     use_package: bool,
     client_import: &Option<swagger_gen::pipeline::ClientImportConfig>,
 ) -> String {
-    let builder = endpoint.builder_name.clone();
+    let builder = resolved_name.builder_name.clone();
     let hook_name = format!(
         "use{}Query",
-        inflector::cases::pascalcase::to_pascal_case(&endpoint.export_name)
+        inflector::cases::pascalcase::to_pascal_case(&resolved_name.export_name)
     );
-    let query_def = format!("{}QueryDef", endpoint.export_name);
-    let key_name = format!("{}Key", endpoint.export_name);
+    let query_def = format!("{}QueryDef", resolved_name.export_name);
+    let key_name = format!("{}Key", resolved_name.export_name);
     let key_prefix = endpoint
         .namespace
         .iter()
         .map(|item| format!("\"{item}\""))
-        .chain(std::iter::once(format!("\"{}\"", endpoint.operation_name)))
+        .chain(std::iter::once(format!("\"{}\"", resolved_name.file_stem)))
         .collect::<Vec<_>>()
         .join(", ");
     let key_prefix_array = format!("[{key_prefix}] as const");
@@ -183,7 +196,7 @@ pub fn render_query_file(
     let spec_file_path = format!(
         "spec/{}/{}.ts",
         endpoint.namespace.join("/"),
-        endpoint.operation_name
+        resolved_name.file_stem
     );
     let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
     let type_import_block = if type_imports.is_empty() {
@@ -211,18 +224,19 @@ pub fn render_query_file(
 /// Renders the content of a mutation file
 pub fn render_mutation_file(
     endpoint: &EndpointItem,
+    resolved_name: &ResolvedTsName,
     terminal: QueryTerminal,
     current_file_path: &str,
     model_import_base: &str,
     use_package: bool,
     client_import: &Option<swagger_gen::pipeline::ClientImportConfig>,
 ) -> String {
-    let builder = endpoint.builder_name.clone();
+    let builder = resolved_name.builder_name.clone();
     let hook_name = format!(
         "use{}Mutation",
-        inflector::cases::pascalcase::to_pascal_case(&endpoint.export_name)
+        inflector::cases::pascalcase::to_pascal_case(&resolved_name.export_name)
     );
-    let mutation_def = format!("{}MutationDef", endpoint.export_name);
+    let mutation_def = format!("{}MutationDef", resolved_name.export_name);
 
     let input_type = normalize_type_ref(&endpoint.input_type_name);
     let output_type = normalize_type_ref(&endpoint.output_type_name);
@@ -245,7 +259,7 @@ pub fn render_mutation_file(
     let spec_file_path = format!(
         "spec/{}/{}.ts",
         endpoint.namespace.join("/"),
-        endpoint.operation_name
+        resolved_name.file_stem
     );
     let spec_import_path = resolve_file_import_path(current_file_path, &spec_file_path);
     let type_import_block = if type_imports.is_empty() {
@@ -273,6 +287,22 @@ pub fn render_mutation_file(
 mod tests {
     use super::*;
     use indexmap::IndexMap;
+    use swagger_gen::pipeline::{GeneratorInput, ProjectContext};
+
+    fn make_generator_input(endpoints: Vec<EndpointItem>) -> GeneratorInput {
+        GeneratorInput {
+            project: ProjectContext {
+                package_name: "test".to_string(),
+                api_base_path: None,
+                terminals: vec![],
+                retry_ownership: None,
+            },
+            endpoints,
+            model_import: None,
+            client_import: None,
+            output_root: None,
+        }
+    }
 
     #[test]
     fn test_terminal_dir() {
@@ -349,6 +379,11 @@ mod tests {
 
         let content = render_query_file(
             &endpoint,
+            &ResolvedTsName {
+                file_stem: "fetchOne".to_string(),
+                export_name: "fetchOne".to_string(),
+                builder_name: "buildFetchOneSpec".to_string(),
+            },
             QueryTerminal::React,
             "react-query/group/item/fetchOne.query.ts",
             "../../../spec/types",
@@ -358,7 +393,7 @@ mod tests {
 
         assert!(content.contains("from \"../../../spec/group/item/fetchOne\""));
         assert!(!content.contains(": any"));
-        assert!(content.contains("spec: ReturnType<typeof buildItemFetchOneSpec>"));
+        assert!(content.contains("spec: ReturnType<typeof buildFetchOneSpec>"));
     }
 
     #[test]
@@ -385,6 +420,11 @@ mod tests {
 
         let content = render_mutation_file(
             &endpoint,
+            &ResolvedTsName {
+                file_stem: "add".to_string(),
+                export_name: "add".to_string(),
+                builder_name: "buildAddSpec".to_string(),
+            },
             QueryTerminal::React,
             "react-query/assignment/add.mutation.ts",
             "../../domains",
@@ -393,5 +433,78 @@ mod tests {
         );
 
         assert!(!content.contains("\n\n\n"));
+    }
+
+    #[test]
+    fn test_render_query_terminal_uses_short_query_names() {
+        let mut meta = IndexMap::new();
+        meta.insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
+
+        let input = make_generator_input(vec![EndpointItem {
+            namespace: vec!["user".to_string()],
+            operation_name: "getAuthorityAPIUserGetLoginUserInfo".to_string(),
+            export_name: "userGetLoginUserInfo".to_string(),
+            builder_name: "buildUserGetLoginUserInfoSpec".to_string(),
+            summary: None,
+            method: "GET".to_string(),
+            path: "/AuthorityAPI/User/GetLoginUserInfo".to_string(),
+            input_type_name: "void".to_string(),
+            output_type_name: "LoginUserInfo".to_string(),
+            request_body_field: None,
+            query_params: vec![],
+            query_fields: vec![],
+            path_params: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            deprecated: false,
+            meta,
+        }]);
+
+        let output = render_query_terminal(&input, QueryTerminal::React).unwrap();
+        let file = output
+            .files
+            .iter()
+            .find(|f| f.path == "react-query/user/getLoginUserInfo.query.ts")
+            .expect("query file");
+
+        assert!(file.content.contains("import { buildGetLoginUserInfoSpec }"));
+        assert!(file.content.contains("const getLoginUserInfoQueryDef"));
+        assert!(file.content.contains("export const getLoginUserInfoKey"));
+        assert!(file.content.contains("useGetLoginUserInfoQuery"));
+        assert!(!file.content.contains("useInfoQuery"));
+    }
+
+    #[test]
+    fn test_render_query_terminal_uses_short_mutation_names() {
+        let input = make_generator_input(vec![EndpointItem {
+            namespace: vec!["action_authority".to_string()],
+            operation_name: "postAuthorityAPIActionAuthorityAdd".to_string(),
+            export_name: "actionAuthorityAdd".to_string(),
+            builder_name: "buildActionAuthorityAddSpec".to_string(),
+            summary: None,
+            method: "POST".to_string(),
+            path: "/AuthorityAPI/ActionAuthority/Add".to_string(),
+            input_type_name: "AddActionAuthorityRequestModel".to_string(),
+            output_type_name: "GuidResultModel".to_string(),
+            request_body_field: None,
+            query_params: vec![],
+            query_fields: vec![],
+            path_params: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            deprecated: false,
+            meta: IndexMap::new(),
+        }]);
+
+        let output = render_query_terminal(&input, QueryTerminal::React).unwrap();
+        let file = output
+            .files
+            .iter()
+            .find(|f| f.path == "react-query/action_authority/add.mutation.ts")
+            .expect("mutation file");
+
+        assert!(file.content.contains("import { buildAddSpec }"));
+        assert!(file.content.contains("const addMutationDef"));
+        assert!(file.content.contains("useAddMutation"));
     }
 }
