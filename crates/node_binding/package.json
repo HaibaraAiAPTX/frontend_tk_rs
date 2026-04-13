@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-binding",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {

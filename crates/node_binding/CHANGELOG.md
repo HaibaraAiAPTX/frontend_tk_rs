@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.16
+
+### Patch Changes
+
+- 修复 bug，更改生成文件名和方法名的逻辑
+
 ## 0.1.15
 
 ### Patch Changes
