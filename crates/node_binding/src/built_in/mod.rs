@@ -106,5 +106,13 @@ pub fn register_built_in_command(command: &CommandRegistry) {
     Box::new(python_commands::run_python_tools),
   );
 
+  command.register_command_with_descriptor(
+    CommandDescriptor {
+      name: "python:barrel".to_string(),
+      ..Default::default()
+    },
+    Box::new(python_commands::run_python_barrel),
+  );
+
   frontend_plugin_materal::init_plugin(command);
 }

@@ -4,13 +4,16 @@
 //! - `python:functions` - Generate spec + function files using aptx_api_core
 //! - `python:model` - Generate Pydantic model files
 //! - `python:tools` - Generate tools.json for OpenAI function calling
+//! - `python:barrel` - Generate Python package __init__.py files for existing modules
 
 use std::path::Path;
 
 use clap::Parser;
 use swagger_gen::manifest::{generate_reports, update_manifest, ManifestTracker};
 use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter};
-use swagger_gen_python::{PythonFunctionsRenderer, PythonToolsRenderer};
+use swagger_gen_python::{
+  generate_python_package_inits_for_directory, PythonFunctionsRenderer, PythonToolsRenderer,
+};
 use swagger_tk::model::OpenAPIObject;
 
 use super::output_lock::lock_output_root;
@@ -36,6 +39,14 @@ pub struct PythonCodegenOps {
 
   #[arg(long, default_value = "false")]
   dry_run: bool,
+}
+
+/// Options for the python:barrel command
+#[derive(Debug, Clone, Parser)]
+pub struct PythonBarrelOps {
+  /// Input directory to scan for generated Python files
+  #[arg(short, long)]
+  input: String,
 }
 
 fn build_model_import_config(
@@ -241,6 +252,53 @@ pub fn run_python_tools(args: &[String], open_api: &OpenAPIObject) {
   );
 }
 
+/// Run python:barrel command - generate Python package __init__.py files
+pub fn run_python_barrel(args: &[String], _open_api: &OpenAPIObject) {
+  let result = (|| -> Result<(), String> {
+    let args: Vec<String> = std::iter::once("--".to_string())
+      .chain(args.iter().cloned())
+      .collect();
+    let options =
+      PythonBarrelOps::try_parse_from(args).map_err(|e| format!("Invalid arguments: {e}"))?;
+
+    let input_dir = Path::new(&options.input);
+    if !input_dir.exists() {
+      return Err(format!("Input directory does not exist: {}", options.input));
+    }
+    if !input_dir.is_dir() {
+      return Err(format!("Input path is not a directory: {}", options.input));
+    }
+
+    let _output_lock = lock_output_root(input_dir)?;
+    let planned_files = generate_python_package_inits_for_directory(&options.input)?;
+    let count = planned_files.len();
+
+    for planned_file in planned_files {
+      let file_path = input_dir.join(&planned_file.path);
+      if let Some(parent) = file_path.parent() {
+        std::fs::create_dir_all(parent)
+          .map_err(|e| format!("Failed to create directory: {}", e))?;
+      }
+
+      std::fs::write(&file_path, &planned_file.content)
+        .map_err(|e| format!("Failed to write file {}: {}", planned_file.path, e))?;
+
+      println!("Generated: {}", planned_file.path);
+    }
+
+    println!(
+      "Python barrel generation complete. Generated {} files.",
+      count
+    );
+
+    Ok(())
+  })();
+
+  if let Err(e) = result {
+    panic!("python:barrel failed: {e}");
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::{build_model_import_config, manifest_entry_name};
@@ -288,8 +346,8 @@ mod tests {
       "spec/action_authority/add_spec"
     );
     assert_eq!(
-      manifest_entry_name("functions/action_authority/__init__.py"),
-      "functions/action_authority/__init__"
+      manifest_entry_name("functions/action_authority/add.py"),
+      "functions/action_authority/add"
     );
   }
 }

@@ -3,7 +3,6 @@
 //! Generates spec files and function files that use aptx_api_core.
 
 use std::collections::HashMap;
-use std::path::Path;
 
 use swagger_gen::pipeline::{
     EndpointItem, EndpointParameter, GeneratorInput, PlannedFile, RenderOutput, Renderer,
@@ -61,8 +60,6 @@ impl Renderer for PythonFunctionsRenderer {
                 ),
             });
         }
-
-        files.extend(generate_python_package_inits(&files));
 
         Ok(RenderOutput {
             files,
@@ -313,110 +310,6 @@ fn resolve_global_py_export_names(planned: &[PlannedPyName]) -> Vec<String> {
             final_name
         })
         .collect()
-}
-
-fn generate_python_package_inits(files: &[PlannedFile]) -> Vec<PlannedFile> {
-    let leaf_exports = collect_python_leaf_exports(files);
-    let mut dir_exports: HashMap<String, Vec<(String, String)>> = HashMap::new();
-
-    for (module_path, symbol) in leaf_exports {
-        let module_dir = Path::new(&module_path)
-            .parent()
-            .map(|path| path.to_string_lossy().replace('\\', "/"))
-            .unwrap_or_default();
-
-        let root = module_path
-            .split('/')
-            .next()
-            .unwrap_or_default()
-            .to_string();
-
-        let mut current = module_dir.clone();
-        loop {
-            let relative_module = module_path
-                .strip_prefix(&current)
-                .map(|rest| rest.trim_start_matches('/'))
-                .unwrap_or(module_path.as_str())
-                .trim_end_matches(".py")
-                .replace('/', ".");
-
-            dir_exports
-                .entry(current.clone())
-                .or_default()
-                .push((format!(".{relative_module}"), symbol.clone()));
-
-            if current == root {
-                break;
-            }
-
-            current = Path::new(&current)
-                .parent()
-                .map(|path| path.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_else(|| root.clone());
-        }
-    }
-
-    let mut init_files: Vec<PlannedFile> = dir_exports
-        .into_iter()
-        .map(|(dir, mut exports)| {
-            exports.sort();
-            exports.dedup();
-
-            let import_lines = exports
-                .iter()
-                .map(|(module_path, symbol)| format!("from {module_path} import {symbol}"))
-                .collect::<Vec<_>>();
-            let all_exports = exports
-                .iter()
-                .map(|(_, symbol)| format!("\"{symbol}\""))
-                .collect::<Vec<_>>();
-
-            PlannedFile {
-                path: format!("{dir}/__init__.py"),
-                content: format!(
-                    "{}\n\n__all__ = [{}]\n",
-                    import_lines.join("\n"),
-                    all_exports.join(", ")
-                ),
-            }
-        })
-        .collect();
-
-    init_files.sort_by(|left, right| left.path.cmp(&right.path));
-    init_files
-}
-
-fn collect_python_leaf_exports(files: &[PlannedFile]) -> Vec<(String, String)> {
-    let mut exports = Vec::new();
-
-    for file in files {
-        if file.path.ends_with("/__init__.py") || !file.path.ends_with(".py") {
-            continue;
-        }
-
-        let symbol = if file.path.starts_with("functions/") {
-            file.content.lines().find_map(|line| {
-                line.strip_prefix("def ")
-                    .and_then(|rest| rest.split('(').next())
-                    .map(|name| name.to_string())
-            })
-        } else if file.path.starts_with("spec/") {
-            file.content.lines().find_map(|line| {
-                line.strip_prefix("def ")
-                    .and_then(|rest| rest.split('(').next())
-                    .filter(|name| name.starts_with("build_"))
-                    .map(|name| name.to_string())
-            })
-        } else {
-            None
-        };
-
-        if let Some(symbol) = symbol {
-            exports.push((file.path.clone(), symbol));
-        }
-    }
-
-    exports
 }
 
 /// Compute the Python operation name:
@@ -1821,7 +1714,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_generates_python_init_packages_with_unique_exports() {
+    fn test_render_does_not_generate_python_init_packages() {
         let mut account_category = make_endpoint(
             &["account_category"],
             "postAuthorityAPIAccountCategoryAdd",
@@ -1848,59 +1741,11 @@ mod tests {
                 action_authority,
             ]))
             .unwrap();
-
-        let functions_root = output
-            .files
-            .iter()
-            .find(|f| f.path == "functions/__init__.py")
-            .expect("functions root __init__");
         assert!(
-            functions_root
-                .content
-                .contains("from .account_category.add import account_category_add")
-        );
-        assert!(
-            functions_root
-                .content
-                .contains("from .action_authority.add import action_authority_add")
-        );
-
-        let functions_namespace = output
-            .files
-            .iter()
-            .find(|f| f.path == "functions/action_authority/__init__.py")
-            .expect("functions namespace __init__");
-        assert!(
-            functions_namespace
-                .content
-                .contains("from .add import action_authority_add")
-        );
-
-        let spec_root = output
-            .files
-            .iter()
-            .find(|f| f.path == "spec/__init__.py")
-            .expect("spec root __init__");
-        assert!(
-            spec_root
-                .content
-                .contains("from .account_category.add_spec import build_account_category_add_spec")
-        );
-        assert!(
-            spec_root
-                .content
-                .contains("from .action_authority.add_spec import build_action_authority_add_spec")
-        );
-
-        let spec_namespace = output
-            .files
-            .iter()
-            .find(|f| f.path == "spec/action_authority/__init__.py")
-            .expect("spec namespace __init__");
-        assert!(
-            spec_namespace
-                .content
-                .contains("from .add_spec import build_action_authority_add_spec")
+            output
+                .files
+                .iter()
+                .all(|file| !file.path.ends_with("/__init__.py"))
         );
     }
 

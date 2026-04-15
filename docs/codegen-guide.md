@@ -170,7 +170,7 @@ src/api/
 
 说明：
 - 不再使用历史目录 `spec/endpoints/*` 与 `functions/api/*`。
-- 各目录会自动生成 `index.ts` re-export。
+- `index.ts` 需通过显式 `barrel gen` 命令生成，常规 codegen 不再自动写入。
 
 ---
 

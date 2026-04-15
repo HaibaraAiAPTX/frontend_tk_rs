@@ -98,7 +98,7 @@ flowchart TB
 - `functions/{namespace}/{operation}.ts`
 - `react-query/{namespace}/{operation}.query.ts|mutation.ts`
 - `vue-query/{namespace}/{operation}.query.ts|mutation.ts`
-- 自动生成 `index.ts` re-export（多目录）
+- `index.ts` 由显式 `barrel gen` 命令生成，不在常规 codegen 中自动写入
 
 说明：
 - 已完成扁平化，不再使用历史结构 `spec/endpoints/*` 与 `functions/api/*`。

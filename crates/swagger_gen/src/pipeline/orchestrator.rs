@@ -2,7 +2,7 @@ use std::time::Instant;
 use swagger_tk::model::OpenAPIObject;
 
 use super::{
-    layout::{IdentityLayout, LayoutStrategy, inject_barrel_indexes},
+    layout::{IdentityLayout, LayoutStrategy},
     model::{
         ClientImportConfig, ExecutionMetrics, ExecutionPlan, GeneratorInput, ModelImportConfig,
         RendererExecution,
@@ -138,7 +138,6 @@ impl CodegenPipeline {
 
         let layout_start = Instant::now();
         let planned_files = self.layout.apply(planned_files);
-        let planned_files = inject_barrel_indexes(planned_files);
         let layout_ms = layout_start.elapsed().as_millis();
 
         let write_start = Instant::now();

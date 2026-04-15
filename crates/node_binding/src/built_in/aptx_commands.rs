@@ -9,7 +9,7 @@ use std::path::Path;
 
 use clap::Parser;
 use swagger_gen::manifest::{generate_reports, update_manifest, ManifestTracker};
-use swagger_gen::pipeline::{update_barrel_with_parents, CodegenPipeline, FileSystemWriter};
+use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter};
 use swagger_gen_aptx::{
   AptxFunctionsRenderer, AptxMetaPass, AptxQueryMutationPass, AptxReactQueryRenderer,
   AptxVueQueryRenderer,
@@ -102,7 +102,7 @@ fn build_model_import_config(
   }
 }
 
-fn process_manifest_and_barrel(
+fn process_manifest(
   output: &Path,
   generator_id: &str,
   execution_plan: &swagger_gen::pipeline::ExecutionPlan,
@@ -127,10 +127,6 @@ fn process_manifest_and_barrel(
     if let Err(e) = update_manifest(&manifest_path, generator_id.to_string(), entries, "", "") {
       eprintln!("Warning: Failed to update manifest: {}", e);
     }
-  }
-
-  if let Err(e) = update_barrel_with_parents("", output) {
-    eprintln!("Warning: Failed to update barrel files: {}", e);
   }
 
   if diff.has_changes() {
@@ -185,7 +181,7 @@ fn run_aptx_codegen(
     let execution_plan = pipeline.plan(open_api)?;
 
     if !options.no_manifest {
-      process_manifest_and_barrel(
+      process_manifest(
         output,
         command_name,
         &execution_plan,
@@ -273,8 +269,8 @@ mod tests {
       "spec/action_authority/add"
     );
     assert_eq!(
-      manifest_entry_name("functions/action_authority/index.ts"),
-      "functions/action_authority/index"
+      manifest_entry_name("functions/action_authority/add.ts"),
+      "functions/action_authority/add"
     );
   }
 }

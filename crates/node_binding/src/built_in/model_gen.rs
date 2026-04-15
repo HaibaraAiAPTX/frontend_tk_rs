@@ -6,7 +6,6 @@ use swagger_gen::manifest::{generate_reports, update_manifest, ManifestTracker};
 use swagger_gen::model_pipeline::{
   generate_model_files, generate_model_files_with_existing, ModelRenderStyle,
 };
-use swagger_gen::pipeline::update_barrel_with_parents;
 use swagger_tk::model::OpenAPIObject;
 
 use super::model_enum_plan::load_existing_enums_from_model_files;
@@ -112,11 +111,6 @@ pub fn run_model_gen(args: &[String], open_api: &OpenAPIObject) {
       println!("  Added: {} files", diff.added.len());
       println!("  Deleted: {} files", diff.deleted.len());
       println!("  Unchanged: {} files", diff.unchanged.len());
-    }
-
-    // Update barrel file
-    if let Err(e) = update_barrel_with_parents("models", output) {
-      eprintln!("Warning: Failed to update barrel files: {}", e);
     }
   }
 }

@@ -14,9 +14,11 @@ pub use swagger_gen::pipeline::{
 
 mod py_types;
 mod pydantic_model;
+mod python_barrel;
 mod python_functions;
 mod python_tools;
 
 pub use pydantic_model::render_pydantic_models;
+pub use python_barrel::generate_python_package_inits_for_directory;
 pub use python_functions::PythonFunctionsRenderer;
 pub use python_tools::PythonToolsRenderer;
