@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.18
+
+### Patch Changes
+
+- 调整方法名生成规则
+
 ## 0.1.17
 
 ### Patch Changes
