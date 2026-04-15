@@ -228,7 +228,7 @@ fn apply_endpoint_names(endpoints: &mut [EndpointItem]) {
     let mut used = HashSet::<String>::new();
 
     for endpoint in endpoints {
-        let action = normalize_identifier(to_camel_case(&endpoint.operation_name));
+        let action = extract_action_name(&endpoint.operation_name, &endpoint.namespace);
         let base = format!(
             "{}{}",
             controller_prefix(&endpoint.namespace, 1),
@@ -278,6 +278,25 @@ fn apply_endpoint_names(endpoints: &mut [EndpointItem]) {
     }
 }
 
+fn extract_action_name(operation_name: &str, namespace: &[String]) -> String {
+    let operation_words = split_identifier_words(&to_pascal_case(operation_name));
+    let namespace_words = split_identifier_words(&namespace_to_pascal(namespace));
+
+    if !namespace_words.is_empty() {
+        let preferred_index = find_namespace_match_after_api(&operation_words, &namespace_words)
+            .or_else(|| find_word_sequence(&operation_words, &namespace_words));
+
+        if let Some(index) = preferred_index {
+            let action_words = &operation_words[index + namespace_words.len()..];
+            if !action_words.is_empty() {
+                return normalize_identifier(to_camel_case(&action_words.join("")));
+            }
+        }
+    }
+
+    normalize_identifier(to_camel_case(operation_name))
+}
+
 fn controller_prefix(namespace: &[String], take_last: usize) -> String {
     let len = namespace.len();
     let start = len.saturating_sub(take_last);
@@ -288,6 +307,80 @@ fn controller_prefix(namespace: &[String], take_last: usize) -> String {
     } else {
         prefix
     }
+}
+
+fn namespace_to_pascal(namespace: &[String]) -> String {
+    namespace
+        .iter()
+        .map(|segment| to_pascal_case(segment))
+        .collect::<String>()
+}
+
+fn split_identifier_words(name: &str) -> Vec<String> {
+    let chars: Vec<char> = name.chars().collect();
+    if chars.is_empty() {
+        return vec![];
+    }
+
+    let mut words = Vec::new();
+    let mut current = String::new();
+
+    for (index, ch) in chars.iter().enumerate() {
+        let starts_new_word = if index == 0 {
+            false
+        } else if ch.is_uppercase() {
+            let prev = chars[index - 1];
+            let next_is_lower = chars.get(index + 1).is_some_and(|c| c.is_lowercase());
+            prev.is_lowercase() || (prev.is_uppercase() && next_is_lower)
+        } else {
+            false
+        };
+
+        if starts_new_word && !current.is_empty() {
+            words.push(current);
+            current = String::new();
+        }
+
+        current.push(*ch);
+    }
+
+    if !current.is_empty() {
+        words.push(current);
+    }
+
+    words
+}
+
+fn find_word_sequence(haystack: &[String], needle: &[String]) -> Option<usize> {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return None;
+    }
+
+    haystack.windows(needle.len()).position(|window| {
+        window
+            .iter()
+            .zip(needle.iter())
+            .all(|(left, right)| left == right)
+    })
+}
+
+fn find_namespace_match_after_api(haystack: &[String], needle: &[String]) -> Option<usize> {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return None;
+    }
+
+    haystack
+        .windows(needle.len())
+        .enumerate()
+        .find_map(|(index, window)| {
+            let matches_namespace = window
+                .iter()
+                .zip(needle.iter())
+                .all(|(left, right)| left == right);
+            let follows_api = index > 0 && haystack[index - 1].eq_ignore_ascii_case("api");
+
+            (matches_namespace && follows_api).then_some(index)
+        })
 }
 
 fn normalize_identifier(mut value: String) -> String {
@@ -356,6 +449,24 @@ mod tests {
         ];
         apply_endpoint_names(&mut endpoints);
         assert_ne!(endpoints[0].export_name, endpoints[1].export_name);
+    }
+
+    #[test]
+    fn apply_endpoint_names_strips_non_main_api_service_prefix() {
+        let mut endpoints = vec![mock_endpoint(
+            vec!["account_category"],
+            "postFinancialApiAccountCategoryAdd",
+            "POST",
+        )];
+        apply_endpoint_names(&mut endpoints);
+        assert_eq!(endpoints[0].export_name, "accountCategoryAdd");
+        assert_eq!(endpoints[0].builder_name, "buildAccountCategoryAddSpec");
+    }
+
+    #[test]
+    fn extract_action_name_prefers_namespace_match_after_api() {
+        let action = extract_action_name("postUserApiUserAdd", &["user".to_string()]);
+        assert_eq!(action, "add");
     }
 
     #[test]
