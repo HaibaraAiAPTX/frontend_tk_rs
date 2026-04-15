@@ -26,6 +26,7 @@ struct PlannedPyName {
     short_name: String,
     fallback_name: String,
     fallback_export_name: String,
+    method: String,
 }
 
 impl Renderer for PythonFunctionsRenderer {
@@ -229,6 +230,7 @@ fn resolve_final_py_names(endpoints: &[EndpointItem]) -> Vec<ResolvedPyName> {
                 short_name: compute_py_name(endpoint, common_prefix),
                 fallback_name: compute_fallback_py_name(endpoint, common_prefix),
                 fallback_export_name: compute_fallback_py_export_name(endpoint, common_prefix),
+                method: endpoint.method.clone(),
             }
         })
         .collect();
@@ -248,28 +250,49 @@ fn resolve_final_py_names(endpoints: &[EndpointItem]) -> Vec<ResolvedPyName> {
 }
 
 fn resolve_local_py_names(planned: &[PlannedPyName]) -> Vec<String> {
-    let mut short_name_counts: HashMap<(String, String), usize> = HashMap::new();
-    for item in planned {
-        *short_name_counts
-            .entry((item.namespace_path.clone(), item.short_name.clone()))
-            .or_insert(0) += 1;
-    }
+    let mut used_counts: HashMap<(String, String), usize> = HashMap::new();
 
     planned
         .iter()
         .map(|item| {
-            if short_name_counts
-                .get(&(item.namespace_path.clone(), item.short_name.clone()))
-                .copied()
-                .unwrap_or(0)
-                > 1
-            {
-                item.fallback_name.clone()
-            } else {
-                item.short_name.clone()
+            let mut final_name = item.short_name.clone();
+
+            if scoped_py_name_used(&used_counts, &item.namespace_path, &final_name) {
+                final_name = format!("{}_{}", item.short_name, item.method.to_lowercase());
             }
+
+            if scoped_py_name_used(&used_counts, &item.namespace_path, &final_name) {
+                final_name = item.fallback_name.clone();
+            }
+
+            if scoped_py_name_used(&used_counts, &item.namespace_path, &final_name) {
+                let mut serial = 2usize;
+                let mut candidate = format!("{final_name}_{serial}");
+                while scoped_py_name_used(&used_counts, &item.namespace_path, &candidate) {
+                    serial += 1;
+                    candidate = format!("{final_name}_{serial}");
+                }
+                final_name = candidate;
+            }
+
+            *used_counts
+                .entry((item.namespace_path.clone(), final_name.clone()))
+                .or_insert(0) += 1;
+            final_name
         })
         .collect()
+}
+
+fn scoped_py_name_used(
+    used_counts: &HashMap<(String, String), usize>,
+    namespace_path: &str,
+    candidate: &str,
+) -> bool {
+    used_counts
+        .get(&(namespace_path.to_string(), candidate.to_string()))
+        .copied()
+        .unwrap_or(0)
+        > 0
 }
 
 fn resolve_global_py_export_names(planned: &[PlannedPyName]) -> Vec<String> {
@@ -313,15 +336,7 @@ fn compute_py_name(endpoint: &EndpointItem, common_prefix: &str) -> String {
         .strip_prefix(common_prefix)
         .unwrap_or(service_part);
 
-    // Strip namespace prefix, even when a service segment still appears before it.
-    let ns_camel = namespace_to_camel(&endpoint.namespace);
-    let action = if let Some(rest) = after_service.strip_prefix(&ns_camel) {
-        rest
-    } else if let Some(index) = after_service.find(&ns_camel) {
-        &after_service[index + ns_camel.len()..]
-    } else {
-        after_service
-    };
+    let action = extract_action_after_namespace(after_service, &endpoint.namespace);
 
     // If action is empty after stripping, fall back to full name after service prefix
     if action.is_empty() {
@@ -345,6 +360,28 @@ fn namespace_to_camel(namespace: &[String]) -> String {
             }
         })
         .collect()
+}
+
+fn extract_action_after_namespace<'a>(service_part: &'a str, namespace: &[String]) -> &'a str {
+    let service_words = split_identifier_words(service_part);
+    let namespace_words = split_identifier_words(&namespace_to_camel(namespace));
+
+    if namespace_words.is_empty() {
+        return service_part;
+    }
+
+    let preferred_index = find_namespace_match_after_api(&service_words, &namespace_words)
+        .or_else(|| find_word_sequence(&service_words, &namespace_words));
+
+    if let Some(index) = preferred_index {
+        let consumed = service_words[..index + namespace_words.len()]
+            .iter()
+            .map(|word| word.len())
+            .sum::<usize>();
+        return &service_part[consumed..];
+    }
+
+    service_part
 }
 
 fn split_identifier_words(name: &str) -> Vec<String> {
@@ -393,6 +430,25 @@ fn find_word_sequence(haystack: &[String], needle: &[String]) -> Option<usize> {
             .zip(needle.iter())
             .all(|(left, right)| left == right)
     })
+}
+
+fn find_namespace_match_after_api(haystack: &[String], needle: &[String]) -> Option<usize> {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return None;
+    }
+
+    haystack
+        .windows(needle.len())
+        .enumerate()
+        .find_map(|(index, window)| {
+            let matches_namespace = window
+                .iter()
+                .zip(needle.iter())
+                .all(|(left, right)| left == right);
+            let follows_api = index > 0 && haystack[index - 1].eq_ignore_ascii_case("api");
+
+            (matches_namespace && follows_api).then_some(index)
+        })
 }
 
 fn to_snake_case(name: &str) -> String {
@@ -1823,6 +1879,74 @@ mod tests {
         assert!(output.files.iter().all(
             |f| f.path != "functions/user/add.py" || !f.content.contains("build_user_add_spec")
         ));
+    }
+
+    #[test]
+    fn test_local_file_names_prefer_method_suffix_before_long_service_name() {
+        let input = make_generator_input(vec![
+            make_endpoint(
+                &["article"],
+                "getServerAPIArticleAdd",
+                "GET",
+                "/ServerAPI/Article/Add",
+                "void",
+                "void",
+            ),
+            make_endpoint(
+                &["article"],
+                "postServerAPIArticleAdd",
+                "POST",
+                "/ServerAPI/Article/Add",
+                "void",
+                "void",
+            ),
+        ]);
+
+        let output = PythonFunctionsRenderer.render(&input).unwrap();
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/article/add.py")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/article/add_post.py")
+        );
+        assert!(
+            !output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/article/server_api_article_add.py")
+        );
+    }
+
+    #[test]
+    fn test_single_article_server_endpoint_uses_add_file_name() {
+        let input = make_generator_input(vec![make_endpoint(
+            &["article"],
+            "postArticleServerAPIArticleAdd",
+            "POST",
+            "/ArticleServerAPI/Article/Add",
+            "AddArticleRequestModel",
+            "GuidResultModel",
+        )]);
+
+        let output = PythonFunctionsRenderer.render(&input).unwrap();
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/article/add.py")
+        );
+        assert!(
+            !output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/article/server_api_article_add.py")
+        );
     }
 
     #[test]

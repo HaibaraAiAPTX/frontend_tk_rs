@@ -722,13 +722,13 @@ mod tests {
             output
                 .files
                 .iter()
-                .any(|f| f.path == "functions/user/userAdd.ts")
+                .any(|f| f.path == "functions/user/add.ts")
         );
         assert!(
             output
                 .files
                 .iter()
-                .any(|f| f.path == "functions/user/userAddGet.ts")
+                .any(|f| f.path == "functions/user/addGet.ts")
         );
     }
 }

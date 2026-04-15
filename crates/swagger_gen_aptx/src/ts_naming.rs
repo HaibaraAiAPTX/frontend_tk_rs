@@ -53,36 +53,23 @@ pub(crate) fn resolve_final_ts_names(endpoints: &[EndpointItem]) -> Vec<Resolved
 }
 
 fn resolve_local_names(planned: &[PlannedTsName]) -> Vec<String> {
-    let mut short_name_counts: HashMap<(String, String), usize> = HashMap::new();
-    for item in planned {
-        *short_name_counts
-            .entry((item.namespace_path.clone(), item.short_name.clone()))
-            .or_insert(0) += 1;
-    }
-
     let mut used_counts: HashMap<(String, String), usize> = HashMap::new();
 
     planned
         .iter()
         .map(|item| {
-            let prefers_short = short_name_counts
-                .get(&(item.namespace_path.clone(), item.short_name.clone()))
-                .copied()
-                .unwrap_or(0)
-                == 1;
-
-            let mut final_name = if prefers_short {
-                item.short_name.clone()
-            } else {
-                item.fallback_name.clone()
-            };
+            let mut final_name = item.short_name.clone();
 
             if scoped_name_used(&used_counts, &item.namespace_path, &final_name) {
                 final_name = sanitize_reserved(&normalize_identifier(format!(
                     "{}{}",
-                    final_name,
+                    item.short_name,
                     to_pascal_case(&item.method.to_lowercase())
                 )));
+            }
+
+            if scoped_name_used(&used_counts, &item.namespace_path, &final_name) {
+                final_name = item.fallback_name.clone();
             }
 
             if scoped_name_used(&used_counts, &item.namespace_path, &final_name) {
@@ -219,15 +206,7 @@ fn compute_ts_name(endpoint: &EndpointItem, common_prefix: &str) -> String {
     let after_service = service_part
         .strip_prefix(common_prefix)
         .unwrap_or(service_part);
-    let namespace_camel = namespace_to_camel(&endpoint.namespace);
-
-    let action = if let Some(rest) = after_service.strip_prefix(&namespace_camel) {
-        rest
-    } else if let Some(index) = after_service.find(&namespace_camel) {
-        &after_service[index + namespace_camel.len()..]
-    } else {
-        after_service
-    };
+    let action = extract_action_after_namespace(after_service, &endpoint.namespace);
 
     if action.is_empty() {
         return sanitize_reserved(&normalize_identifier(to_camel_case(after_service)));
@@ -265,6 +244,28 @@ fn namespace_to_camel(namespace: &[String]) -> String {
             }
         })
         .collect()
+}
+
+fn extract_action_after_namespace<'a>(service_part: &'a str, namespace: &[String]) -> &'a str {
+    let service_words = split_identifier_words(service_part);
+    let namespace_words = split_identifier_words(&namespace_to_camel(namespace));
+
+    if namespace_words.is_empty() {
+        return service_part;
+    }
+
+    let preferred_index = find_namespace_match_after_api(&service_words, &namespace_words)
+        .or_else(|| find_word_sequence(&service_words, &namespace_words));
+
+    if let Some(index) = preferred_index {
+        let consumed = service_words[..index + namespace_words.len()]
+            .iter()
+            .map(|word| word.len())
+            .sum::<usize>();
+        return &service_part[consumed..];
+    }
+
+    service_part
 }
 
 fn split_identifier_words(name: &str) -> Vec<String> {
@@ -313,6 +314,25 @@ fn find_word_sequence(haystack: &[String], needle: &[String]) -> Option<usize> {
             .zip(needle.iter())
             .all(|(left, right)| left == right)
     })
+}
+
+fn find_namespace_match_after_api(haystack: &[String], needle: &[String]) -> Option<usize> {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return None;
+    }
+
+    haystack
+        .windows(needle.len())
+        .enumerate()
+        .find_map(|(index, window)| {
+            let matches_namespace = window
+                .iter()
+                .zip(needle.iter())
+                .all(|(left, right)| left == right);
+            let follows_api = index > 0 && haystack[index - 1].eq_ignore_ascii_case("api");
+
+            (matches_namespace && follows_api).then_some(index)
+        })
 }
 
 fn normalize_identifier(mut value: String) -> String {
@@ -413,5 +433,33 @@ mod tests {
         assert_eq!(resolved[0].file_stem, "getLoginUserInfo");
         assert_eq!(resolved[0].export_name, "userGetLoginUserInfo");
         assert_eq!(resolved[0].builder_name, "buildUserGetLoginUserInfoSpec");
+    }
+
+    #[test]
+    fn resolve_final_ts_names_uses_method_suffix_before_long_file_fallback() {
+        let resolved = resolve_final_ts_names(&[
+            make_endpoint(&["article"], "getServerAPIArticleAdd", "articleAdd", "GET"),
+            make_endpoint(
+                &["article"],
+                "postServerAPIArticleAdd",
+                "articleAddPost",
+                "POST",
+            ),
+        ]);
+
+        assert_eq!(resolved[0].file_stem, "add");
+        assert_eq!(resolved[1].file_stem, "addPost");
+    }
+
+    #[test]
+    fn resolve_final_ts_names_prefers_namespace_after_api_for_file_stem() {
+        let resolved = resolve_final_ts_names(&[make_endpoint(
+            &["article"],
+            "postArticleServerAPIArticleAdd",
+            "articleAdd",
+            "POST",
+        )]);
+
+        assert_eq!(resolved[0].file_stem, "add");
     }
 }
