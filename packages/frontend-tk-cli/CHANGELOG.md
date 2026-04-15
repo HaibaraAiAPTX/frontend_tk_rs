@@ -1,5 +1,19 @@
 # @aptx/frontend-tk-cli
 
+## 0.1.19
+
+### Patch Changes
+
+- 修改方法名短名策略
+- Updated dependencies
+  - @aptx/frontend-tk-binding@0.1.19
+  - @aptx/frontend-tk-core@0.1.19
+  - @aptx/frontend-tk-plugin-aptx@0.1.19
+  - @aptx/frontend-tk-plugin-input@0.1.19
+  - @aptx/frontend-tk-plugin-materal@0.1.19
+  - @aptx/frontend-tk-plugin-model@0.1.19
+  - @aptx/frontend-tk-plugin-python@0.1.19
+
 ## 0.1.18
 
 ### Patch Changes

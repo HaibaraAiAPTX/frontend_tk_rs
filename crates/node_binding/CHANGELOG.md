@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.19
+
+### Patch Changes
+
+- 修改方法名短名策略
+
 ## 0.1.18
 
 ### Patch Changes
