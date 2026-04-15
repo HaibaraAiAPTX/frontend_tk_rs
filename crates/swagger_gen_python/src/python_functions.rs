@@ -622,6 +622,12 @@ struct RenderedExtraParam {
     imports: Vec<String>,
 }
 
+struct RenderedPythonType {
+    annotation: String,
+    imports: Vec<String>,
+    runtime_type: Option<String>,
+}
+
 fn sanitize_python_identifier(name: &str) -> String {
     let mut result = String::new();
 
@@ -682,6 +688,58 @@ fn render_python_annotation(type_name: &str, model_import_base: &str) -> (String
             vec!["from typing import Any".to_string()],
         ),
     }
+}
+
+fn is_python_model_reference(type_name: &str) -> bool {
+    let trimmed = type_name.trim();
+
+    !matches!(trimmed, "string" | "number" | "boolean" | "object")
+        && trimmed
+            .chars()
+            .next()
+            .is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_')
+        && !trimmed.contains(['<', '>', '|', '[', ']', '{', '}', ';'])
+}
+
+fn render_python_type_usage(type_name: &str, model_import_base: &str) -> RenderedPythonType {
+    let (annotation, imports) = render_python_annotation(type_name, model_import_base);
+    let runtime_type = is_python_model_reference(type_name).then(|| type_name.trim().to_string());
+
+    RenderedPythonType {
+        annotation,
+        imports,
+        runtime_type,
+    }
+}
+
+fn render_request_body_value(value_expr: &str, type_name: &str) -> String {
+    render_request_body_value_with_depth(value_expr, type_name, 0)
+}
+
+fn render_request_body_value_with_depth(value_expr: &str, type_name: &str, depth: usize) -> String {
+    let trimmed = type_name.trim();
+
+    if let Some(inner) = trimmed
+        .strip_prefix("Array<")
+        .and_then(|rest| rest.strip_suffix('>'))
+    {
+        let item_var = format!("item_{depth}");
+        let rendered_inner = render_request_body_value_with_depth(&item_var, inner, depth + 1);
+        if rendered_inner == item_var {
+            return value_expr.to_string();
+        }
+        return format!("[{rendered_inner} for {item_var} in {value_expr}]");
+    }
+
+    if matches!(trimmed, "string" | "number" | "boolean" | "object") {
+        return value_expr.to_string();
+    }
+
+    if is_python_model_reference(trimmed) {
+        return format!("{value_expr}.model_dump(by_alias=True, exclude_none=True)");
+    }
+
+    value_expr.to_string()
 }
 
 fn render_extra_param(
@@ -856,6 +914,8 @@ fn render_spec_file(
     let input_type = &endpoint.input_type_name;
     let builder_name = &resolved_name.builder_name;
     let extra_params = collect_extra_params(endpoint, model_import_base);
+    let primary_input = (!is_void_input(input_type) && !is_inline_input(input_type))
+        .then(|| render_python_type_usage(input_type, model_import_base));
 
     if !endpoint.path_fields.is_empty() {
         imports.push("from types import SimpleNamespace".to_string());
@@ -863,12 +923,15 @@ fn render_spec_file(
     for parameter in &extra_params {
         imports.extend(parameter.imports.iter().cloned());
     }
+    if let Some(primary_input) = &primary_input {
+        imports.extend(primary_input.imports.iter().cloned());
+    }
 
     if is_void_input(input_type) {
         imports.push("from aptx_api_core import RequestSpec".to_string());
         imports = dedupe_lines(imports);
         let sig_block = render_signature_block(None, &extra_params);
-        let body = render_spec_fields(endpoint, false, &extra_params);
+        let body = render_spec_fields(endpoint, false, &extra_params, input_type);
         format!(
             "{imports_block}\n\ndef {builder_name}({sig_block}) -> RequestSpec:\n    return RequestSpec(\n{body}    )\n",
             imports_block = imports.join("\n"),
@@ -878,15 +941,28 @@ fn render_spec_file(
         )
     } else if is_inline_input(input_type) {
         let inline_fields = parse_inline_fields(input_type);
-        let params: Vec<String> = inline_fields
+        let rendered_inline_fields: Vec<(String, RenderedPythonType)> = inline_fields
             .iter()
-            .map(|(name, type_name)| format!("    *, {name}: {type_name}"))
+            .map(|(name, type_name)| {
+                (
+                    name.clone(),
+                    render_python_type_usage(type_name, model_import_base),
+                )
+            })
+            .collect();
+        for (_, rendered_type) in &rendered_inline_fields {
+            imports.extend(rendered_type.imports.iter().cloned());
+        }
+        let params: Vec<String> = rendered_inline_fields
+            .iter()
+            .map(|(name, rendered_type)| format!("    *, {name}: {}", rendered_type.annotation))
             .collect();
         let sig = params.join(",\n");
 
         imports.push("from aptx_api_core import RequestSpec".to_string());
+        imports = dedupe_lines(imports);
 
-        let body = render_inline_spec_fields(endpoint);
+        let body = render_inline_spec_fields(endpoint, &inline_fields);
         format!(
             "{imports_block}\n\ndef {builder_name}(\n{sig}\n) -> RequestSpec:\n    return RequestSpec(\n{body}    )\n",
             imports_block = imports.join("\n"),
@@ -895,16 +971,14 @@ fn render_spec_file(
             body = body,
         )
     } else {
-        // Model input
-        imports.push(format!(
-            "from {model_import_base}.{} import {}",
-            to_snake_module(input_type),
-            input_type
-        ));
         imports.push("from aptx_api_core import RequestSpec".to_string());
         imports = dedupe_lines(imports);
-        let sig_block = render_signature_block(Some(format!("input: {input_type}")), &extra_params);
-        let body = render_spec_fields(endpoint, true, &extra_params);
+        let primary_input = primary_input.expect("primary input type");
+        let sig_block = render_signature_block(
+            Some(format!("input: {}", primary_input.annotation)),
+            &extra_params,
+        );
+        let body = render_spec_fields(endpoint, true, &extra_params, input_type);
         format!(
             "{imports_block}\n\ndef {builder_name}({sig_block}) -> RequestSpec:\n    return RequestSpec(\n{body}    )\n",
             imports_block = imports.join("\n"),
@@ -919,13 +993,17 @@ fn render_spec_fields(
     endpoint: &EndpointItem,
     has_model_input: bool,
     extra_params: &[RenderedExtraParam],
+    input_type: &str,
 ) -> String {
     let mut fields = format!("        method=\"{}\",\n", endpoint.method);
     fields.push_str(&format!("        path=\"{}\",\n", endpoint.path));
 
     if has_model_input {
         if endpoint.request_body_field.is_some() {
-            fields.push_str("        body=input.model_dump(by_alias=True, exclude_none=True),\n");
+            fields.push_str(&format!(
+                "        body={},\n",
+                render_request_body_value("input", input_type)
+            ));
         }
     } else {
         if endpoint.request_body_field.is_some() {
@@ -956,7 +1034,10 @@ fn render_spec_fields(
     fields
 }
 
-fn render_inline_spec_fields(endpoint: &EndpointItem) -> String {
+fn render_inline_spec_fields(
+    endpoint: &EndpointItem,
+    inline_fields: &[(String, String)],
+) -> String {
     let mut fields = format!("        method=\"{}\",\n", endpoint.method);
     fields.push_str(&format!("        path=\"{}\",\n", endpoint.path));
 
@@ -970,7 +1051,15 @@ fn render_inline_spec_fields(endpoint: &EndpointItem) -> String {
     }
 
     if endpoint.request_body_field.is_some() {
-        fields.push_str("        body=body,\n");
+        let body_type = inline_fields
+            .iter()
+            .find(|(name, _)| name == "body")
+            .map(|(_, type_name)| type_name.as_str())
+            .unwrap_or("object");
+        fields.push_str(&format!(
+            "        body={},\n",
+            render_request_body_value("body", body_type)
+        ));
     }
 
     fields
@@ -987,6 +1076,10 @@ fn render_function_file(
     let output_type = &endpoint.output_type_name;
     let builder_name = &resolved_name.builder_name;
     let extra_params = collect_extra_params(endpoint, model_import_base);
+    let primary_input = (!is_void_input(input_type) && !is_inline_input(input_type))
+        .then(|| render_python_type_usage(input_type, model_import_base));
+    let rendered_output = (output_type != "void" && output_type != "None")
+        .then(|| render_python_type_usage(output_type, model_import_base));
 
     imports.push("from aptx_api_core import get_api_client".to_string());
 
@@ -999,6 +1092,12 @@ fn render_function_file(
     for parameter in &extra_params {
         imports.extend(parameter.imports.iter().cloned());
     }
+    if let Some(primary_input) = &primary_input {
+        imports.extend(primary_input.imports.iter().cloned());
+    }
+    if let Some(rendered_output) = &rendered_output {
+        imports.extend(rendered_output.imports.iter().cloned());
+    }
 
     let (signature, call_args) = if is_void_input(input_type) {
         (
@@ -1007,9 +1106,21 @@ fn render_function_file(
         )
     } else if is_inline_input(input_type) {
         let inline_fields = parse_inline_fields(input_type);
-        let params: Vec<String> = inline_fields
+        let rendered_inline_fields: Vec<(String, RenderedPythonType)> = inline_fields
             .iter()
-            .map(|(name, type_name)| format!("    *, {name}: {type_name}"))
+            .map(|(name, type_name)| {
+                (
+                    name.clone(),
+                    render_python_type_usage(type_name, model_import_base),
+                )
+            })
+            .collect();
+        for (_, rendered_type) in &rendered_inline_fields {
+            imports.extend(rendered_type.imports.iter().cloned());
+        }
+        let params: Vec<String> = rendered_inline_fields
+            .iter()
+            .map(|(name, rendered_type)| format!("    *, {name}: {}", rendered_type.annotation))
             .collect();
         let args: Vec<String> = inline_fields.iter().map(|(name, _)| name.clone()).collect();
         (
@@ -1017,37 +1128,36 @@ fn render_function_file(
             format!("{builder_name}({})", args.join(", ")),
         )
     } else {
-        imports.push(format!(
-            "from {model_import_base}.{} import {}",
-            to_snake_module(input_type),
-            input_type
-        ));
+        let primary_input = primary_input.expect("primary input type");
         (
-            render_signature_block(Some(format!("input: {input_type}")), &extra_params),
+            render_signature_block(
+                Some(format!("input: {}", primary_input.annotation)),
+                &extra_params,
+            ),
             render_builder_call(&builder_name, Some("input"), &extra_params),
         )
     };
 
     let is_void_output = output_type == "void" || output_type == "None";
-    if !is_void_output {
-        imports.push(format!(
-            "from {model_import_base}.{} import {}",
-            to_snake_module(output_type),
-            output_type
-        ));
-    }
     imports = dedupe_lines(imports);
 
     let return_type = if is_void_output {
-        "None"
+        "None".to_string()
     } else {
-        output_type.as_str()
+        rendered_output
+            .as_ref()
+            .map(|output| output.annotation.clone())
+            .unwrap_or_else(|| output_type.to_string())
     };
 
     let response_type_arg = if is_void_output {
         String::new()
     } else {
-        format!(",\n        response_type={output_type}")
+        rendered_output
+            .as_ref()
+            .and_then(|output| output.runtime_type.as_ref())
+            .map(|runtime_type| format!(",\n        response_type={runtime_type}"))
+            .unwrap_or_default()
     };
 
     format!(
@@ -1454,6 +1564,71 @@ mod tests {
 
         let spec = render_spec_file(&ep, &resolved_py_name("add_user"), "...models");
         assert!(spec.contains("body=input.model_dump(by_alias=True, exclude_none=True)"));
+    }
+
+    #[test]
+    fn test_array_model_input_uses_list_annotation_and_serializes_items() {
+        let mut ep = make_endpoint(
+            &["answer_record"],
+            "post_question_bank_api_answer_record_add",
+            "POST",
+            "/QuestionBankAPI/AnswerRecord/Add",
+            "Array<AddAnswerRecordRequestModel>",
+            "ResultModel",
+        );
+        ep.request_body_field = Some("body".to_string());
+
+        let spec = render_spec_file(
+            &ep,
+            &resolved_py_name("post_question_bank_api_answer_record_add"),
+            "...models",
+        );
+        assert!(spec.contains(
+            "from ...models.AddAnswerRecordRequestModel import AddAnswerRecordRequestModel"
+        ));
+        assert!(spec.contains("input: list[AddAnswerRecordRequestModel]"));
+        assert!(spec.contains(
+            "body=[item_0.model_dump(by_alias=True, exclude_none=True) for item_0 in input]"
+        ));
+        assert!(!spec.contains("Array<AddAnswerRecordRequestModel>"));
+
+        let func = render_function_file(
+            &ep,
+            &resolved_py_name("post_question_bank_api_answer_record_add"),
+            "functions/answer_record/post_question_bank_api_answer_record_add.py",
+            "...models",
+        );
+        assert!(func.contains(
+            "from ...models.AddAnswerRecordRequestModel import AddAnswerRecordRequestModel"
+        ));
+        assert!(func.contains("from ...models.ResultModel import ResultModel"));
+        assert!(func.contains("input: list[AddAnswerRecordRequestModel]"));
+        assert!(func.contains(") -> ResultModel:"));
+        assert!(func.contains("response_type=ResultModel"));
+        assert!(!func.contains("Array<AddAnswerRecordRequestModel>"));
+    }
+
+    #[test]
+    fn test_array_model_output_uses_list_annotation_without_invalid_response_type() {
+        let ep = make_endpoint(
+            &["users"],
+            "get_users",
+            "GET",
+            "/users",
+            "void",
+            "Array<User>",
+        );
+
+        let func = render_function_file(
+            &ep,
+            &resolved_py_name("get_users"),
+            "functions/users/get_users.py",
+            "...models",
+        );
+        assert!(func.contains("from ...models.User import User"));
+        assert!(func.contains(") -> list[User]:"));
+        assert!(!func.contains("response_type=Array<User>"));
+        assert!(!func.contains("response_type=list[User]"));
     }
 
     #[test]
