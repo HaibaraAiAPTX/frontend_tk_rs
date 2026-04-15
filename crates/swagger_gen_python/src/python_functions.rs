@@ -273,28 +273,12 @@ fn resolve_local_py_names(planned: &[PlannedPyName]) -> Vec<String> {
 }
 
 fn resolve_global_py_export_names(planned: &[PlannedPyName]) -> Vec<String> {
-    let mut short_name_counts: HashMap<String, usize> = HashMap::new();
-    for item in planned {
-        *short_name_counts
-            .entry(item.short_name.clone())
-            .or_insert(0) += 1;
-    }
-
     let mut used_counts: HashMap<String, usize> = HashMap::new();
 
     planned
         .iter()
         .map(|item| {
-            let mut final_name = if short_name_counts
-                .get(&item.short_name)
-                .copied()
-                .unwrap_or(0)
-                > 1
-            {
-                item.fallback_export_name.clone()
-            } else {
-                sanitize_python_identifier(&item.short_name)
-            };
+            let mut final_name = item.fallback_export_name.clone();
 
             if used_counts.get(&final_name).copied().unwrap_or(0) > 0 {
                 let mut serial = 2usize;
@@ -1654,6 +1638,25 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_final_py_names_always_prefixes_exports_with_namespace() {
+        let mut announcement = make_endpoint(
+            &["announcement"],
+            "postAuthorityAPIAnnouncementAdd",
+            "POST",
+            "/AuthorityAPI/Announcement/Add",
+            "AddAnnouncementRequestModel",
+            "GuidResultModel",
+        );
+        announcement.export_name = "announcementAdd".to_string();
+
+        let resolved = resolve_final_py_names(&[announcement]);
+
+        assert_eq!(resolved[0].file_stem, "add");
+        assert_eq!(resolved[0].export_name, "announcement_add");
+        assert_eq!(resolved[0].builder_name, "build_announcement_add_spec");
+    }
+
+    #[test]
     fn test_render_uses_short_name_inside_namespace_directory() {
         let mut action_authority = make_endpoint(
             &["action_authority"],
@@ -1711,6 +1714,40 @@ mod tests {
                 .contains("def action_authority_add(")
         );
         assert!(!action_function.content.contains("async def "));
+    }
+
+    #[test]
+    fn test_render_prefixes_single_namespace_function_exports() {
+        let mut announcement = make_endpoint(
+            &["announcement"],
+            "postAuthorityAPIAnnouncementAdd",
+            "POST",
+            "/AuthorityAPI/Announcement/Add",
+            "AddAnnouncementRequestModel",
+            "GuidResultModel",
+        );
+        announcement.export_name = "announcementAdd".to_string();
+
+        let output = PythonFunctionsRenderer
+            .render(&make_generator_input(vec![announcement]))
+            .unwrap();
+        let announcement_function = output
+            .files
+            .iter()
+            .find(|f| f.path == "functions/announcement/add.py")
+            .expect("announcement function");
+
+        assert!(
+            announcement_function
+                .content
+                .contains("from ...spec.announcement.add_spec import build_announcement_add_spec")
+        );
+        assert!(
+            announcement_function
+                .content
+                .contains("def announcement_add(")
+        );
+        assert!(!announcement_function.content.contains("def add("));
     }
 
     #[test]

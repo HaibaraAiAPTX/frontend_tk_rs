@@ -104,29 +104,12 @@ fn resolve_local_names(planned: &[PlannedTsName]) -> Vec<String> {
 }
 
 fn resolve_global_names(planned: &[PlannedTsName]) -> Vec<String> {
-    let mut short_name_counts: HashMap<String, usize> = HashMap::new();
-    for item in planned {
-        *short_name_counts
-            .entry(item.short_name.clone())
-            .or_insert(0) += 1;
-    }
-
     let mut used_counts: HashMap<String, usize> = HashMap::new();
 
     planned
         .iter()
         .map(|item| {
-            let prefers_short = short_name_counts
-                .get(&item.short_name)
-                .copied()
-                .unwrap_or(0)
-                == 1;
-
-            let mut final_name = if prefers_short {
-                item.short_name.clone()
-            } else {
-                item.fallback_name.clone()
-            };
+            let mut final_name = item.fallback_name.clone();
 
             if global_name_used(&used_counts, &final_name) {
                 final_name = sanitize_reserved(&normalize_identifier(format!(
@@ -419,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_final_ts_names_keeps_short_exports_when_no_global_collision() {
+    fn resolve_final_ts_names_always_prefixes_exports_with_namespace() {
         let resolved = resolve_final_ts_names(&[make_endpoint(
             &["user"],
             "getAuthorityAPIUserGetLoginUserInfo",
@@ -428,7 +411,7 @@ mod tests {
         )]);
 
         assert_eq!(resolved[0].file_stem, "getLoginUserInfo");
-        assert_eq!(resolved[0].export_name, "getLoginUserInfo");
-        assert_eq!(resolved[0].builder_name, "buildGetLoginUserInfoSpec");
+        assert_eq!(resolved[0].export_name, "userGetLoginUserInfo");
+        assert_eq!(resolved[0].builder_name, "buildUserGetLoginUserInfoSpec");
     }
 }

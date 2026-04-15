@@ -439,7 +439,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_query_terminal_uses_short_query_names() {
+    fn test_render_query_terminal_uses_namespace_prefixed_query_names() {
         let mut meta = IndexMap::new();
         meta.insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
 
@@ -472,16 +472,19 @@ mod tests {
 
         assert!(
             file.content
-                .contains("import { buildGetLoginUserInfoSpec }")
+                .contains("import { buildUserGetLoginUserInfoSpec }")
         );
-        assert!(file.content.contains("const getLoginUserInfoQueryDef"));
-        assert!(file.content.contains("export const getLoginUserInfoKey"));
-        assert!(file.content.contains("useGetLoginUserInfoQuery"));
+        assert!(file.content.contains("const userGetLoginUserInfoQueryDef"));
+        assert!(
+            file.content
+                .contains("export const userGetLoginUserInfoKey")
+        );
+        assert!(file.content.contains("useUserGetLoginUserInfoQuery"));
         assert!(!file.content.contains("useInfoQuery"));
     }
 
     #[test]
-    fn test_render_query_terminal_uses_short_mutation_names() {
+    fn test_render_query_terminal_uses_namespace_prefixed_mutation_names() {
         let input = make_generator_input(vec![EndpointItem {
             namespace: vec!["action_authority".to_string()],
             operation_name: "postAuthorityAPIActionAuthorityAdd".to_string(),
@@ -509,8 +512,11 @@ mod tests {
             .find(|f| f.path == "react-query/action_authority/add.mutation.ts")
             .expect("mutation file");
 
-        assert!(file.content.contains("import { buildAddSpec }"));
-        assert!(file.content.contains("const addMutationDef"));
-        assert!(file.content.contains("useAddMutation"));
+        assert!(
+            file.content
+                .contains("import { buildActionAuthorityAddSpec }")
+        );
+        assert!(file.content.contains("const actionAuthorityAddMutationDef"));
+        assert!(file.content.contains("useActionAuthorityAddMutation"));
     }
 }

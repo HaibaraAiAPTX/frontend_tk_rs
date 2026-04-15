@@ -557,6 +557,48 @@ mod tests {
     }
 
     #[test]
+    fn test_renderer_prefixes_single_namespace_function_exports() {
+        let input = make_generator_input(vec![EndpointItem {
+            namespace: vec!["announcement".to_string()],
+            operation_name: "postAuthorityAPIAnnouncementAdd".to_string(),
+            export_name: "announcementAdd".to_string(),
+            builder_name: "buildAnnouncementAddSpec".to_string(),
+            summary: None,
+            method: "POST".to_string(),
+            path: "/AuthorityAPI/Announcement/Add".to_string(),
+            input_type_name: "AddAnnouncementRequestModel".to_string(),
+            output_type_name: "GuidResultModel".to_string(),
+            request_body_field: None,
+            query_params: vec![],
+            query_fields: vec![],
+            path_params: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            deprecated: false,
+            meta: IndexMap::new(),
+        }]);
+
+        let output = AptxFunctionsRenderer.render(&input).unwrap();
+        let function = output
+            .files
+            .iter()
+            .find(|f| f.path == "functions/announcement/add.ts")
+            .expect("announcement function");
+
+        assert!(
+            function
+                .content
+                .contains("import { buildAnnouncementAddSpec }")
+        );
+        assert!(
+            function
+                .content
+                .contains("export function announcementAdd(")
+        );
+        assert!(!function.content.contains("export function add("));
+    }
+
+    #[test]
     fn test_renderer_keeps_action_body_after_namespace_prefix() {
         let input = make_generator_input(vec![
             EndpointItem {
