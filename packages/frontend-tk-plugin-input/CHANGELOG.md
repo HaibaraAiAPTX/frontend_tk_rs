@@ -1,5 +1,13 @@
 # @aptx/frontend-tk-plugin-input
 
+## 0.1.20
+
+### Patch Changes
+
+- 修复文件短名 bug
+- Updated dependencies
+  - @aptx/frontend-tk-core@0.1.20
+
 ## 0.1.19
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.20
+
+### Patch Changes
+
+- 修复文件短名 bug
+
 ## 0.1.19
 
 ### Patch Changes
