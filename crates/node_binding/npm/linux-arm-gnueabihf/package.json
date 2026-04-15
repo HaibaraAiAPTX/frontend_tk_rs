@@ -1,6 +1,6 @@
 {
   "name": "@aptx/frontend-tk-binding-linux-arm-gnueabihf",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "os": [
     "linux"
   ],
