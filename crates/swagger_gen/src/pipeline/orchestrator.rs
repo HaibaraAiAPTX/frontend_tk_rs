@@ -187,4 +187,3 @@ pub fn build_report_json(open_api: &OpenAPIObject) -> Result<String, String> {
 pub fn build_ir_snapshot_json(open_api: &OpenAPIObject) -> Result<String, String> {
     CodegenPipeline::default().ir_snapshot_json(open_api)
 }
-

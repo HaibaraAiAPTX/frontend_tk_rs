@@ -26,7 +26,10 @@ pub fn inject_barrel_indexes(files: Vec<PlannedFile>) -> Vec<PlannedFile> {
     generate_barrel_for_directory_with_roots(files, &roots)
 }
 
-pub fn generate_barrel_for_directory_with_roots(files: Vec<PlannedFile>, roots: &[&str]) -> Vec<PlannedFile> {
+pub fn generate_barrel_for_directory_with_roots(
+    files: Vec<PlannedFile>,
+    roots: &[&str],
+) -> Vec<PlannedFile> {
     let mut by_path = BTreeMap::<String, PlannedFile>::new();
     for file in files {
         by_path.insert(file.path.clone(), file);
@@ -93,9 +96,11 @@ pub fn generate_barrel_for_directory(input_dir: &str) -> Vec<PlannedFile> {
     let ts_files = collect_ts_files(input_dir);
 
     // Get the list of source file paths
-    let source_paths: Vec<String> = ts_files.iter()
+    let source_paths: Vec<String> = ts_files
+        .iter()
         .map(|file_path| {
-            let relative_path = file_path.strip_prefix(input_dir)
+            let relative_path = file_path
+                .strip_prefix(input_dir)
                 .map(|p| p.trim_start_matches('/').trim_start_matches('\\'))
                 .unwrap_or(file_path);
             relative_path.replace('\\', "/")
@@ -146,7 +151,8 @@ fn collect_ts_files(input_dir: &str) -> Vec<String> {
                 }
             } else if path.is_dir() {
                 // Skip node_modules and other hidden directories
-                let dir_name = path.file_name()
+                let dir_name = path
+                    .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default();
                 if !dir_name.starts_with('.') && dir_name != "node_modules" {
@@ -168,7 +174,8 @@ fn collect_target_dirs(ts_files: &[String], input_dir: &str) -> BTreeSet<String>
 
     for file_path in ts_files {
         // Get the parent directory relative to input_dir
-        let relative_path = file_path.strip_prefix(input_dir)
+        let relative_path = file_path
+            .strip_prefix(input_dir)
             .map(|p| p.trim_start_matches('/').trim_start_matches('\\'))
             .unwrap_or(file_path);
 
@@ -307,7 +314,9 @@ pub fn update_barrel_with_parents(relative_dir: &str, output_root: &Path) -> Res
             break;
         }
 
-        let parent_str = parent.to_str().ok_or_else(|| format!("Invalid UTF-8 in path: {:?}", parent))?;
+        let parent_str = parent
+            .to_str()
+            .ok_or_else(|| format!("Invalid UTF-8 in path: {:?}", parent))?;
         force_update_barrel(parent_str, output_root)?;
         current = parent;
     }
@@ -385,11 +394,17 @@ mod tests {
         assert!(map["react-query/group/index.ts"].contains("export * from \"./item\";"));
 
         // Check exports in leaf level
-        assert!(map["react-query/group/item/index.ts"].contains("export * from \"./fetchOne.query\";"));
-        assert!(map["react-query/group/item/index.ts"].contains("export * from \"./fetchAll.query\";"));
+        assert!(
+            map["react-query/group/item/index.ts"].contains("export * from \"./fetchOne.query\";")
+        );
+        assert!(
+            map["react-query/group/item/index.ts"].contains("export * from \"./fetchAll.query\";")
+        );
 
         // Check exports in assignment
-        assert!(map["react-query/assignment/index.ts"].contains("export * from \"./add.mutation\";"));
+        assert!(
+            map["react-query/assignment/index.ts"].contains("export * from \"./add.mutation\";")
+        );
     }
 
     #[test]
@@ -401,8 +416,16 @@ mod tests {
         std::fs::create_dir_all(temp_dir.join("react-query/user")).unwrap();
 
         // Create some .ts files
-        std::fs::write(temp_dir.join("functions/assignment/add.ts"), "export const a = 1;").unwrap();
-        std::fs::write(temp_dir.join("react-query/user/get.query.ts"), "export const b = 1;").unwrap();
+        std::fs::write(
+            temp_dir.join("functions/assignment/add.ts"),
+            "export const a = 1;",
+        )
+        .unwrap();
+        std::fs::write(
+            temp_dir.join("react-query/user/get.query.ts"),
+            "export const b = 1;",
+        )
+        .unwrap();
 
         let input_dir = temp_dir.to_string_lossy().to_string();
         let result = generate_barrel_for_directory(&input_dir);
@@ -413,7 +436,10 @@ mod tests {
             .collect::<BTreeMap<_, _>>();
 
         // Should have root index.ts
-        assert!(map.contains_key("index.ts"), "Root index.ts should be generated");
+        assert!(
+            map.contains_key("index.ts"),
+            "Root index.ts should be generated"
+        );
         // Should have subdirectory indexes
         assert!(map.contains_key("functions/index.ts"));
         assert!(map.contains_key("functions/assignment/index.ts"));

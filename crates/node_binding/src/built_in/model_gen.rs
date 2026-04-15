@@ -2,14 +2,15 @@ use std::{fs, path::Path};
 
 use aptx_frontend_tk_binding_plugin::utils::ensure_path;
 use clap::Parser;
-use swagger_gen::manifest::{
-    ManifestTracker, update_manifest, generate_reports,
+use swagger_gen::manifest::{generate_reports, update_manifest, ManifestTracker};
+use swagger_gen::model_pipeline::{
+  generate_model_files, generate_model_files_with_existing, ModelRenderStyle,
 };
 use swagger_gen::pipeline::update_barrel_with_parents;
-use swagger_gen::model_pipeline::{generate_model_files, generate_model_files_with_existing, ModelRenderStyle};
 use swagger_tk::model::OpenAPIObject;
 
 use super::model_enum_plan::load_existing_enums_from_model_files;
+use super::output_lock::lock_output_root;
 
 #[derive(Debug, Clone, Parser)]
 pub struct ModelGenOps {
@@ -44,6 +45,7 @@ pub fn run_model_gen(args: &[String], open_api: &OpenAPIObject) {
     .collect();
   let options = ModelGenOps::try_parse_from(args).unwrap();
   let output = Path::new(&options.output);
+  let _output_lock = lock_output_root(output).unwrap();
   ensure_path(output);
   let style = ModelRenderStyle::parse(&options.style).unwrap();
   let only_names = options.name.unwrap_or_default();
@@ -58,9 +60,7 @@ pub fn run_model_gen(args: &[String], open_api: &OpenAPIObject) {
       Some(enums) => {
         generate_model_files_with_existing(open_api, style, &only_names, &enums).unwrap()
       }
-      None => {
-        generate_model_files(open_api, style, &only_names).unwrap()
-      }
+      None => generate_model_files(open_api, style, &only_names).unwrap(),
     }
   } else {
     generate_model_files(open_api, style, &only_names).unwrap()
@@ -71,7 +71,10 @@ pub fn run_model_gen(args: &[String], open_api: &OpenAPIObject) {
   for (file_name, content) in &models {
     fs::write(output.join(file_name), content).unwrap();
     // Extract model name from file_name for tracking (remove .ts or .d.ts suffix)
-    let model_name = file_name.strip_suffix(".ts").or_else(|| file_name.strip_suffix(".d.ts")).unwrap_or(file_name);
+    let model_name = file_name
+      .strip_suffix(".ts")
+      .or_else(|| file_name.strip_suffix(".d.ts"))
+      .unwrap_or(file_name);
     tracker.track(model_name, file_name);
   }
 

@@ -1,5 +1,11 @@
 # @aptx/frontend-tk-binding
 
+## 0.1.17
+
+### Patch Changes
+
+- 修改方法名生成逻辑，修复并行执行时的 bug，新增 python 桶文件生成
+
 ## 0.1.16
 
 ### Patch Changes

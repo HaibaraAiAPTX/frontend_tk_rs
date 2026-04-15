@@ -11,9 +11,17 @@ pub(crate) struct ResolvedTsName {
     pub(crate) builder_name: String,
 }
 
+#[derive(Debug, Clone)]
+struct PlannedTsName {
+    namespace_path: String,
+    short_name: String,
+    fallback_name: String,
+    method: String,
+}
+
 pub(crate) fn resolve_final_ts_names(endpoints: &[EndpointItem]) -> Vec<ResolvedTsName> {
     let namespace_prefixes = resolve_namespace_common_prefixes(endpoints);
-    let planned: Vec<(String, String, String, String)> = endpoints
+    let planned: Vec<PlannedTsName> = endpoints
         .iter()
         .map(|endpoint| {
             let namespace_path = get_namespace_path(endpoint);
@@ -21,51 +29,66 @@ pub(crate) fn resolve_final_ts_names(endpoints: &[EndpointItem]) -> Vec<Resolved
                 .get(&namespace_path)
                 .map(|s| s.as_str())
                 .unwrap_or("");
-            (
+            PlannedTsName {
                 namespace_path,
-                compute_ts_name(endpoint, common_prefix),
-                compute_fallback_ts_name(endpoint, common_prefix),
-                endpoint.method.clone(),
-            )
+                short_name: compute_ts_name(endpoint, common_prefix),
+                fallback_name: compute_fallback_ts_name(endpoint, common_prefix),
+                method: endpoint.method.clone(),
+            }
         })
         .collect();
 
+    let file_stems = resolve_local_names(&planned);
+    let export_names = resolve_global_names(&planned);
+
+    file_stems
+        .into_iter()
+        .zip(export_names)
+        .map(|(file_stem, export_name)| ResolvedTsName {
+            file_stem,
+            builder_name: format!("build{}Spec", to_pascal_case(&export_name)),
+            export_name,
+        })
+        .collect()
+}
+
+fn resolve_local_names(planned: &[PlannedTsName]) -> Vec<String> {
     let mut short_name_counts: HashMap<(String, String), usize> = HashMap::new();
-    for (namespace_path, short_name, _, _) in &planned {
+    for item in planned {
         *short_name_counts
-            .entry((namespace_path.clone(), short_name.clone()))
+            .entry((item.namespace_path.clone(), item.short_name.clone()))
             .or_insert(0) += 1;
     }
 
     let mut used_counts: HashMap<(String, String), usize> = HashMap::new();
 
     planned
-        .into_iter()
-        .map(|(namespace_path, short_name, fallback_name, method)| {
+        .iter()
+        .map(|item| {
             let prefers_short = short_name_counts
-                .get(&(namespace_path.clone(), short_name.clone()))
+                .get(&(item.namespace_path.clone(), item.short_name.clone()))
                 .copied()
                 .unwrap_or(0)
                 == 1;
 
             let mut final_name = if prefers_short {
-                short_name
+                item.short_name.clone()
             } else {
-                fallback_name
+                item.fallback_name.clone()
             };
 
-            if name_used(&used_counts, &namespace_path, &final_name) {
+            if scoped_name_used(&used_counts, &item.namespace_path, &final_name) {
                 final_name = sanitize_reserved(&normalize_identifier(format!(
                     "{}{}",
                     final_name,
-                    to_pascal_case(&method.to_lowercase())
+                    to_pascal_case(&item.method.to_lowercase())
                 )));
             }
 
-            if name_used(&used_counts, &namespace_path, &final_name) {
+            if scoped_name_used(&used_counts, &item.namespace_path, &final_name) {
                 let mut serial = 2usize;
                 let mut serial_candidate = format!("{final_name}_{serial}");
-                while name_used(&used_counts, &namespace_path, &serial_candidate) {
+                while scoped_name_used(&used_counts, &item.namespace_path, &serial_candidate) {
                     serial += 1;
                     serial_candidate = format!("{final_name}_{serial}");
                 }
@@ -73,19 +96,63 @@ pub(crate) fn resolve_final_ts_names(endpoints: &[EndpointItem]) -> Vec<Resolved
             }
 
             *used_counts
-                .entry((namespace_path, final_name.clone()))
+                .entry((item.namespace_path.clone(), final_name.clone()))
                 .or_insert(0) += 1;
-
-            ResolvedTsName {
-                file_stem: final_name.clone(),
-                export_name: final_name.clone(),
-                builder_name: format!("build{}Spec", to_pascal_case(&final_name)),
-            }
+            final_name
         })
         .collect()
 }
 
-fn name_used(
+fn resolve_global_names(planned: &[PlannedTsName]) -> Vec<String> {
+    let mut short_name_counts: HashMap<String, usize> = HashMap::new();
+    for item in planned {
+        *short_name_counts
+            .entry(item.short_name.clone())
+            .or_insert(0) += 1;
+    }
+
+    let mut used_counts: HashMap<String, usize> = HashMap::new();
+
+    planned
+        .iter()
+        .map(|item| {
+            let prefers_short = short_name_counts
+                .get(&item.short_name)
+                .copied()
+                .unwrap_or(0)
+                == 1;
+
+            let mut final_name = if prefers_short {
+                item.short_name.clone()
+            } else {
+                item.fallback_name.clone()
+            };
+
+            if global_name_used(&used_counts, &final_name) {
+                final_name = sanitize_reserved(&normalize_identifier(format!(
+                    "{}{}",
+                    final_name,
+                    to_pascal_case(&item.method.to_lowercase())
+                )));
+            }
+
+            if global_name_used(&used_counts, &final_name) {
+                let mut serial = 2usize;
+                let mut serial_candidate = format!("{final_name}_{serial}");
+                while global_name_used(&used_counts, &serial_candidate) {
+                    serial += 1;
+                    serial_candidate = format!("{final_name}_{serial}");
+                }
+                final_name = serial_candidate;
+            }
+
+            *used_counts.entry(final_name.clone()).or_insert(0) += 1;
+            final_name
+        })
+        .collect()
+}
+
+fn scoped_name_used(
     used_counts: &HashMap<(String, String), usize>,
     namespace_path: &str,
     candidate: &str,
@@ -95,6 +162,10 @@ fn name_used(
         .copied()
         .unwrap_or(0)
         > 0
+}
+
+fn global_name_used(used_counts: &HashMap<String, usize>, candidate: &str) -> bool {
+    used_counts.get(candidate).copied().unwrap_or(0) > 0
 }
 
 fn extract_service_part(name: &str) -> &str {
@@ -162,7 +233,9 @@ fn resolve_namespace_common_prefixes(endpoints: &[EndpointItem]) -> HashMap<Stri
 
 fn compute_ts_name(endpoint: &EndpointItem, common_prefix: &str) -> String {
     let service_part = extract_service_part(&endpoint.operation_name);
-    let after_service = service_part.strip_prefix(common_prefix).unwrap_or(service_part);
+    let after_service = service_part
+        .strip_prefix(common_prefix)
+        .unwrap_or(service_part);
     let namespace_camel = namespace_to_camel(&endpoint.namespace);
 
     let action = if let Some(rest) = after_service.strip_prefix(&namespace_camel) {
@@ -181,9 +254,16 @@ fn compute_ts_name(endpoint: &EndpointItem, common_prefix: &str) -> String {
 }
 
 fn compute_fallback_ts_name(endpoint: &EndpointItem, common_prefix: &str) -> String {
-    let service_part = extract_service_part(&endpoint.operation_name);
-    let after_service = service_part.strip_prefix(common_prefix).unwrap_or(service_part);
-    sanitize_reserved(&normalize_identifier(to_camel_case(after_service)))
+    let fallback = if endpoint.export_name.trim().is_empty() {
+        let service_part = extract_service_part(&endpoint.operation_name);
+        let after_service = service_part
+            .strip_prefix(common_prefix)
+            .unwrap_or(service_part);
+        to_camel_case(after_service)
+    } else {
+        endpoint.export_name.clone()
+    };
+    sanitize_reserved(&normalize_identifier(fallback))
 }
 
 fn get_namespace_path(endpoint: &EndpointItem) -> String {
@@ -266,13 +346,89 @@ fn normalize_identifier(mut value: String) -> String {
 
 fn sanitize_reserved(value: &str) -> String {
     const RESERVED: [&str; 12] = [
-        "delete", "default", "class", "function", "new", "return", "switch", "case", "var",
-        "let", "const", "import",
+        "delete", "default", "class", "function", "new", "return", "switch", "case", "var", "let",
+        "const", "import",
     ];
 
     if RESERVED.contains(&value) {
         format!("do{}", to_pascal_case(value))
     } else {
         value.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indexmap::IndexMap;
+    use swagger_gen::pipeline::EndpointItem;
+
+    fn make_endpoint(
+        namespace: &[&str],
+        operation_name: &str,
+        export_name: &str,
+        method: &str,
+    ) -> EndpointItem {
+        EndpointItem {
+            namespace: namespace
+                .iter()
+                .map(|segment| segment.to_string())
+                .collect(),
+            operation_name: operation_name.to_string(),
+            export_name: export_name.to_string(),
+            builder_name: format!("build{}Spec", operation_name),
+            summary: None,
+            method: method.to_string(),
+            path: "/test".to_string(),
+            input_type_name: "void".to_string(),
+            output_type_name: "void".to_string(),
+            request_body_field: None,
+            query_params: vec![],
+            query_fields: vec![],
+            path_params: vec![],
+            path_fields: vec![],
+            has_request_options: false,
+            deprecated: false,
+            meta: IndexMap::new(),
+        }
+    }
+
+    #[test]
+    fn resolve_final_ts_names_keeps_short_files_but_promotes_colliding_exports() {
+        let resolved = resolve_final_ts_names(&[
+            make_endpoint(
+                &["account_category"],
+                "postAuthorityAPIAccountCategoryAdd",
+                "accountCategoryAdd",
+                "POST",
+            ),
+            make_endpoint(
+                &["action_authority"],
+                "postAuthorityAPIActionAuthorityAdd",
+                "actionAuthorityAdd",
+                "POST",
+            ),
+        ]);
+
+        assert_eq!(resolved[0].file_stem, "add");
+        assert_eq!(resolved[1].file_stem, "add");
+        assert_eq!(resolved[0].export_name, "accountCategoryAdd");
+        assert_eq!(resolved[1].export_name, "actionAuthorityAdd");
+        assert_eq!(resolved[0].builder_name, "buildAccountCategoryAddSpec");
+        assert_eq!(resolved[1].builder_name, "buildActionAuthorityAddSpec");
+    }
+
+    #[test]
+    fn resolve_final_ts_names_keeps_short_exports_when_no_global_collision() {
+        let resolved = resolve_final_ts_names(&[make_endpoint(
+            &["user"],
+            "getAuthorityAPIUserGetLoginUserInfo",
+            "userGetLoginUserInfo",
+            "GET",
+        )]);
+
+        assert_eq!(resolved[0].file_stem, "getLoginUserInfo");
+        assert_eq!(resolved[0].export_name, "getLoginUserInfo");
+        assert_eq!(resolved[0].builder_name, "buildGetLoginUserInfoSpec");
     }
 }

@@ -1,10 +1,7 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde_json::json;
 use std::str::FromStr;
-use swagger_gen::pipeline::{
-    build_dry_run_plan,
-    parse_openapi_to_ir,
-};
+use swagger_gen::pipeline::{build_dry_run_plan, parse_openapi_to_ir};
 use swagger_tk::model::OpenAPIObject;
 
 fn build_openapi_text(endpoint_count: usize) -> String {

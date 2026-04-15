@@ -35,4 +35,3 @@ impl Renderer for NoopRenderer {
         })
     }
 }
-

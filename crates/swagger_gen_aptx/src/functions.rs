@@ -4,9 +4,9 @@
 
 use crate::META_SKIP_AUTH_REFRESH;
 use crate::{
-    get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
-    render_type_import_line, resolve_file_import_path, resolve_final_ts_names,
-    resolve_model_import_base, should_use_package_import, ResolvedTsName,
+    ResolvedTsName, get_client_call, get_client_import_lines, normalize_type_ref,
+    render_type_import_block, render_type_import_line, resolve_file_import_path,
+    resolve_final_ts_names, resolve_model_import_base, should_use_package_import,
 };
 
 use swagger_gen::pipeline::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer};
@@ -39,7 +39,12 @@ impl Renderer for AptxFunctionsRenderer {
 
             files.push(PlannedFile {
                 path: spec_path,
-                content: render_spec_file(endpoint, resolved_name, &spec_model_import_base, use_package),
+                content: render_spec_file(
+                    endpoint,
+                    resolved_name,
+                    &spec_model_import_base,
+                    use_package,
+                ),
             });
             let function_content = render_function_file(
                 endpoint,
@@ -113,10 +118,12 @@ fn render_spec_file(
     };
 
     // Check if endpoint has skip_auth_refresh meta
-    let has_skip_auth_refresh = endpoint.meta.get(META_SKIP_AUTH_REFRESH) == Some(&"true".to_string());
+    let has_skip_auth_refresh =
+        endpoint.meta.get(META_SKIP_AUTH_REFRESH) == Some(&"true".to_string());
 
     // Collect all non-internal meta fields (keys not starting with "__")
-    let meta_fields: Vec<_> = endpoint.meta
+    let meta_fields: Vec<_> = endpoint
+        .meta
         .iter()
         .filter(|(k, _)| !k.starts_with("__"))
         .collect();
@@ -149,7 +156,9 @@ fn render_spec_file(
 
     // Add RequestSpec import (and SKIP_AUTH_REFRESH_META_KEY if needed)
     if has_skip_auth_refresh {
-        imports.push("import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx/api-plugin-auth\";".to_string());
+        imports.push(
+            "import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx/api-plugin-auth\";".to_string(),
+        );
         imports.push("import type { RequestSpec } from \"@aptx/api-client\";".to_string());
     } else {
         imports.push("import type { RequestSpec } from \"@aptx/api-client\";".to_string());
@@ -271,7 +280,10 @@ mod tests {
             export_name: "getUser".to_string(),
             builder_name: "buildGetUserSpec".to_string(),
         };
-        assert_eq!(get_spec_file_path(&endpoint, &resolved_name), "spec/users/getUser.ts");
+        assert_eq!(
+            get_spec_file_path(&endpoint, &resolved_name),
+            "spec/users/getUser.ts"
+        );
     }
 
     #[test]
@@ -300,7 +312,10 @@ mod tests {
             export_name: "getUser".to_string(),
             builder_name: "buildGetUserSpec".to_string(),
         };
-        assert_eq!(get_function_file_path(&endpoint, &resolved_name), "functions/users/getUser.ts");
+        assert_eq!(
+            get_function_file_path(&endpoint, &resolved_name),
+            "functions/users/getUser.ts"
+        );
     }
 
     #[test]
@@ -412,7 +427,10 @@ mod tests {
         );
 
         // Should import SKIP_AUTH_REFRESH_META_KEY
-        assert!(content.contains("import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx/api-plugin-auth\";"));
+        assert!(
+            content
+                .contains("import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx/api-plugin-auth\";")
+        );
 
         // Should include meta field with computed key
         assert!(content.contains("meta: { [SKIP_AUTH_REFRESH_META_KEY]: true }"));
@@ -502,17 +520,40 @@ mod tests {
         ]);
 
         let output = AptxFunctionsRenderer.render(&input).unwrap();
-        assert!(output.files.iter().any(|f| f.path == "functions/action_authority/add.ts"));
-        assert!(output.files.iter().any(|f| f.path == "spec/action_authority/add.ts"));
-        assert!(output.files.iter().any(|f| f.path == "functions/role/add.ts"));
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/action_authority/add.ts")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "spec/action_authority/add.ts")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/role/add.ts")
+        );
 
         let action_function = output
             .files
             .iter()
             .find(|f| f.path == "functions/action_authority/add.ts")
             .expect("action authority function");
-        assert!(action_function.content.contains("import { buildAddSpec }"));
-        assert!(action_function.content.contains("export function add("));
+        assert!(
+            action_function
+                .content
+                .contains("import { buildActionAuthorityAddSpec }")
+        );
+        assert!(
+            action_function
+                .content
+                .contains("export function actionAuthorityAdd(")
+        );
     }
 
     #[test]
@@ -559,17 +600,36 @@ mod tests {
         ]);
 
         let output = AptxFunctionsRenderer.render(&input).unwrap();
-        assert!(output.files.iter().any(|f| f.path == "functions/user/getLoginUserInfo.ts"));
-        assert!(output.files.iter().any(|f| f.path == "spec/user/getLoginUserInfo.ts"));
-        assert!(output
-            .files
-            .iter()
-            .any(|f| f.path == "functions/user/getLoginUserPermissions.ts"));
-        assert!(!output.files.iter().any(|f| f.path == "functions/user/info.ts"));
-        assert!(!output
-            .files
-            .iter()
-            .any(|f| f.path == "functions/user/permissions.ts"));
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/getLoginUserInfo.ts")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "spec/user/getLoginUserInfo.ts")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/getLoginUserPermissions.ts")
+        );
+        assert!(
+            !output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/info.ts")
+        );
+        assert!(
+            !output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/permissions.ts")
+        );
     }
 
     #[test]
@@ -616,7 +676,17 @@ mod tests {
         ]);
 
         let output = AptxFunctionsRenderer.render(&input).unwrap();
-        assert!(output.files.iter().any(|f| f.path == "functions/user/userAdd.ts"));
-        assert!(output.files.iter().any(|f| f.path == "functions/user/userAddGet.ts"));
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/userAdd.ts")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/userAddGet.ts")
+        );
     }
 }

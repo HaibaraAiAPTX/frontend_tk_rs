@@ -27,7 +27,7 @@ pub fn render_pydantic_models(ir: &ModelIr) -> Result<HashMap<String, String>, S
     }
 
     for model in &ir.models {
-        let file_name = format!("models/{}.py", model.name);
+        let file_name = format!("{}.py", model.name);
         let content = render_single_model(model)?;
         files.insert(file_name, content);
     }
@@ -39,11 +39,11 @@ fn render_single_model(model: &ModelNode) -> Result<String, String> {
     let mut imports = vec!["from __future__ import annotations".to_string()];
 
     let body = match &model.kind {
-        ModelKind::Interface { properties } => {
-            render_interface(model, properties, &mut imports)
-        }
+        ModelKind::Interface { properties } => render_interface(model, properties, &mut imports),
         ModelKind::Enum { members } => render_enum(model, members, &mut imports),
-        ModelKind::Alias { target, nullable } => render_alias(model, target, *nullable, &mut imports),
+        ModelKind::Alias { target, nullable } => {
+            render_alias(model, target, *nullable, &mut imports)
+        }
     };
 
     // Collect type-level imports
@@ -63,9 +63,7 @@ fn render_single_model(model: &ModelNode) -> Result<String, String> {
 
     // Always need these for interface models
     if matches!(model.kind, ModelKind::Interface { .. }) {
-        let pydantic_imports = vec![
-            "from pydantic import BaseModel, ConfigDict, Field",
-        ];
+        let pydantic_imports = vec!["from pydantic import BaseModel, ConfigDict, Field"];
         for imp in pydantic_imports {
             if !imports.contains(&imp.to_string()) {
                 imports.push(imp.to_string());
@@ -95,12 +93,19 @@ fn render_interface(
     } else {
         for prop in properties {
             let snake = to_snake_case(&prop.name);
-            let py_type = render_python_type_nullable(&prop.r#type, prop.nullable || !prop.required);
+            let py_type =
+                render_python_type_nullable(&prop.r#type, prop.nullable || !prop.required);
 
             if prop.required && !prop.nullable {
-                lines.push(format!("    {}: {} = Field(alias=\"{}\")", snake, py_type, prop.name));
+                lines.push(format!(
+                    "    {}: {} = Field(alias=\"{}\")",
+                    snake, py_type, prop.name
+                ));
             } else {
-                lines.push(format!("    {}: {} = Field(default=None, alias=\"{}\")", snake, py_type, prop.name));
+                lines.push(format!(
+                    "    {}: {} = Field(default=None, alias=\"{}\")",
+                    snake, py_type, prop.name
+                ));
             }
         }
     }
@@ -258,22 +263,25 @@ mod tests {
 
     #[test]
     fn test_interface_rendering() {
-        let model = make_interface_model("User", vec![
-            ModelProperty {
-                name: "id".to_string(),
-                description: None,
-                required: true,
-                nullable: false,
-                r#type: ModelType::String,
-            },
-            ModelProperty {
-                name: "email".to_string(),
-                description: None,
-                required: false,
-                nullable: true,
-                r#type: ModelType::String,
-            },
-        ]);
+        let model = make_interface_model(
+            "User",
+            vec![
+                ModelProperty {
+                    name: "id".to_string(),
+                    description: None,
+                    required: true,
+                    nullable: false,
+                    r#type: ModelType::String,
+                },
+                ModelProperty {
+                    name: "email".to_string(),
+                    description: None,
+                    required: false,
+                    nullable: true,
+                    r#type: ModelType::String,
+                },
+            ],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("class User(BaseModel):"));
@@ -285,18 +293,25 @@ mod tests {
 
     #[test]
     fn test_enum_str_rendering() {
-        let model = make_enum_model("Status", vec![
-            ModelEnumMember {
-                name: "Active".to_string(),
-                value: ModelLiteral::String { value: "active".to_string() },
-                comment: None,
-            },
-            ModelEnumMember {
-                name: "Inactive".to_string(),
-                value: ModelLiteral::String { value: "inactive".to_string() },
-                comment: None,
-            },
-        ]);
+        let model = make_enum_model(
+            "Status",
+            vec![
+                ModelEnumMember {
+                    name: "Active".to_string(),
+                    value: ModelLiteral::String {
+                        value: "active".to_string(),
+                    },
+                    comment: None,
+                },
+                ModelEnumMember {
+                    name: "Inactive".to_string(),
+                    value: ModelLiteral::String {
+                        value: "inactive".to_string(),
+                    },
+                    comment: None,
+                },
+            ],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("class Status(str, Enum):"));
@@ -306,22 +321,25 @@ mod tests {
 
     #[test]
     fn test_enum_integer_rendering() {
-        let model = make_enum_model("Priority", vec![
-            ModelEnumMember {
-                name: "Low".to_string(),
-                value: ModelLiteral::Integer {
-                    value: "1".to_string(),
+        let model = make_enum_model(
+            "Priority",
+            vec![
+                ModelEnumMember {
+                    name: "Low".to_string(),
+                    value: ModelLiteral::Integer {
+                        value: "1".to_string(),
+                    },
+                    comment: None,
                 },
-                comment: None,
-            },
-            ModelEnumMember {
-                name: "High".to_string(),
-                value: ModelLiteral::Integer {
-                    value: "3".to_string(),
+                ModelEnumMember {
+                    name: "High".to_string(),
+                    value: ModelLiteral::Integer {
+                        value: "3".to_string(),
+                    },
+                    comment: None,
                 },
-                comment: None,
-            },
-        ]);
+            ],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("class Priority(int, Enum):"));
@@ -331,24 +349,27 @@ mod tests {
 
     #[test]
     fn test_enum_number_rendering() {
-        let model = make_enum_model("Ratio", vec![
-            ModelEnumMember {
-                name: "Low".to_string(),
-                value: ModelLiteral::Number {
-                    value: "1.5".to_string(),
-                    format: NumberFormat::Float,
+        let model = make_enum_model(
+            "Ratio",
+            vec![
+                ModelEnumMember {
+                    name: "Low".to_string(),
+                    value: ModelLiteral::Number {
+                        value: "1.5".to_string(),
+                        format: NumberFormat::Float,
+                    },
+                    comment: None,
                 },
-                comment: None,
-            },
-            ModelEnumMember {
-                name: "High".to_string(),
-                value: ModelLiteral::Number {
-                    value: "3.0".to_string(),
-                    format: NumberFormat::Double,
+                ModelEnumMember {
+                    name: "High".to_string(),
+                    value: ModelLiteral::Number {
+                        value: "3.0".to_string(),
+                        format: NumberFormat::Double,
+                    },
+                    comment: None,
                 },
-                comment: None,
-            },
-        ]);
+            ],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("class Ratio(float, Enum):"));
@@ -358,24 +379,27 @@ mod tests {
 
     #[test]
     fn test_enum_decimal_rendering_imports_decimal() {
-        let model = make_enum_model("Amount", vec![
-            ModelEnumMember {
-                name: "Small".to_string(),
-                value: ModelLiteral::Number {
-                    value: "1.25".to_string(),
-                    format: NumberFormat::Decimal,
+        let model = make_enum_model(
+            "Amount",
+            vec![
+                ModelEnumMember {
+                    name: "Small".to_string(),
+                    value: ModelLiteral::Number {
+                        value: "1.25".to_string(),
+                        format: NumberFormat::Decimal,
+                    },
+                    comment: None,
                 },
-                comment: None,
-            },
-            ModelEnumMember {
-                name: "Large".to_string(),
-                value: ModelLiteral::Number {
-                    value: "2.50".to_string(),
-                    format: NumberFormat::Decimal,
+                ModelEnumMember {
+                    name: "Large".to_string(),
+                    value: ModelLiteral::Number {
+                        value: "2.50".to_string(),
+                        format: NumberFormat::Decimal,
+                    },
+                    comment: None,
                 },
-                comment: None,
-            },
-        ]);
+            ],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("from decimal import Decimal"));
@@ -393,29 +417,38 @@ mod tests {
 
     #[test]
     fn test_alias_nullable() {
-        let model = make_alias_model("MaybeUser", ModelType::Ref { name: "User".to_string() }, true);
+        let model = make_alias_model(
+            "MaybeUser",
+            ModelType::Ref {
+                name: "User".to_string(),
+            },
+            true,
+        );
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("MaybeUser = User | None"));
     }
 
     #[test]
     fn test_snake_case_property_names() {
-        let model = make_interface_model("Item", vec![
-            ModelProperty {
-                name: "firstName".to_string(),
-                description: None,
-                required: true,
-                nullable: false,
-                r#type: ModelType::String,
-            },
-            ModelProperty {
-                name: "lastName".to_string(),
-                description: None,
-                required: true,
-                nullable: false,
-                r#type: ModelType::String,
-            },
-        ]);
+        let model = make_interface_model(
+            "Item",
+            vec![
+                ModelProperty {
+                    name: "firstName".to_string(),
+                    description: None,
+                    required: true,
+                    nullable: false,
+                    r#type: ModelType::String,
+                },
+                ModelProperty {
+                    name: "lastName".to_string(),
+                    description: None,
+                    required: true,
+                    nullable: false,
+                    r#type: ModelType::String,
+                },
+            ],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("first_name: str = Field(alias=\"firstName\")"));
@@ -424,17 +457,20 @@ mod tests {
 
     #[test]
     fn test_optional_field_default_none() {
-        let model = make_interface_model("Config", vec![
-            ModelProperty {
+        let model = make_interface_model(
+            "Config",
+            vec![ModelProperty {
                 name: "timeout".to_string(),
                 description: None,
                 required: false,
                 nullable: true,
-                r#type: ModelType::Scalar(ScalarType::Number(swagger_gen::model_pipeline::NumberSpec {
-                    format: NumberFormat::Float,
-                })),
-            },
-        ]);
+                r#type: ModelType::Scalar(ScalarType::Number(
+                    swagger_gen::model_pipeline::NumberSpec {
+                        format: NumberFormat::Float,
+                    },
+                )),
+            }],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("timeout: float | None = Field(default=None, alias=\"timeout\")"));
@@ -442,8 +478,9 @@ mod tests {
 
     #[test]
     fn test_integer_field_renders_as_int() {
-        let model = make_interface_model("Counters", vec![
-            ModelProperty {
+        let model = make_interface_model(
+            "Counters",
+            vec![ModelProperty {
                 name: "count".to_string(),
                 description: None,
                 required: true,
@@ -453,8 +490,8 @@ mod tests {
                         format: swagger_gen::model_pipeline::IntegerFormat::Int64,
                     },
                 )),
-            },
-        ]);
+            }],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("count: int = Field(alias=\"count\")"));
@@ -462,17 +499,20 @@ mod tests {
 
     #[test]
     fn test_number_field_renders_as_float() {
-        let model = make_interface_model("Ratios", vec![
-            ModelProperty {
+        let model = make_interface_model(
+            "Ratios",
+            vec![ModelProperty {
                 name: "ratio".to_string(),
                 description: None,
                 required: true,
                 nullable: false,
-                r#type: ModelType::Scalar(ScalarType::Number(swagger_gen::model_pipeline::NumberSpec {
-                    format: NumberFormat::Double,
-                })),
-            },
-        ]);
+                r#type: ModelType::Scalar(ScalarType::Number(
+                    swagger_gen::model_pipeline::NumberSpec {
+                        format: NumberFormat::Double,
+                    },
+                )),
+            }],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("ratio: float = Field(alias=\"ratio\")"));
@@ -480,17 +520,20 @@ mod tests {
 
     #[test]
     fn test_decimal_field_renders_as_decimal() {
-        let model = make_interface_model("Prices", vec![
-            ModelProperty {
+        let model = make_interface_model(
+            "Prices",
+            vec![ModelProperty {
                 name: "price".to_string(),
                 description: None,
                 required: true,
                 nullable: false,
-                r#type: ModelType::Scalar(ScalarType::Number(swagger_gen::model_pipeline::NumberSpec {
-                    format: NumberFormat::Decimal,
-                })),
-            },
-        ]);
+                r#type: ModelType::Scalar(ScalarType::Number(
+                    swagger_gen::model_pipeline::NumberSpec {
+                        format: NumberFormat::Decimal,
+                    },
+                )),
+            }],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("from decimal import Decimal"));
@@ -499,15 +542,16 @@ mod tests {
 
     #[test]
     fn test_object_type_imports_any() {
-        let model = make_interface_model("Data", vec![
-            ModelProperty {
+        let model = make_interface_model(
+            "Data",
+            vec![ModelProperty {
                 name: "payload".to_string(),
                 description: None,
                 required: true,
                 nullable: false,
                 r#type: ModelType::Object,
-            },
-        ]);
+            }],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("from typing import Any"));
@@ -515,31 +559,46 @@ mod tests {
 
     #[test]
     fn test_interface_imports_referenced_models() {
-        let model = make_interface_model("UserDto", vec![
-            ModelProperty {
-                name: "status".to_string(),
-                description: None,
-                required: true,
-                nullable: false,
-                r#type: ModelType::Ref {
-                    name: "Status".to_string(),
+        let model = make_interface_model(
+            "UserDto",
+            vec![
+                ModelProperty {
+                    name: "status".to_string(),
+                    description: None,
+                    required: true,
+                    nullable: false,
+                    r#type: ModelType::Ref {
+                        name: "Status".to_string(),
+                    },
                 },
-            },
-            ModelProperty {
-                name: "roles".to_string(),
-                description: None,
-                required: false,
-                nullable: false,
-                r#type: ModelType::Array {
-                    item: Box::new(ModelType::Ref {
-                        name: "Role".to_string(),
-                    }),
+                ModelProperty {
+                    name: "roles".to_string(),
+                    description: None,
+                    required: false,
+                    nullable: false,
+                    r#type: ModelType::Array {
+                        item: Box::new(ModelType::Ref {
+                            name: "Role".to_string(),
+                        }),
+                    },
                 },
-            },
-        ]);
+            ],
+        );
 
         let content = render_single_model(&model).unwrap();
         assert!(content.contains("from .Role import Role"));
         assert!(content.contains("from .Status import Status"));
+    }
+
+    #[test]
+    fn test_render_pydantic_models_writes_to_output_root() {
+        let ir = ModelIr {
+            models: vec![make_alias_model("UserId", ModelType::String, false)],
+        };
+
+        let files = render_pydantic_models(&ir).unwrap();
+
+        assert!(files.contains_key("UserId.py"));
+        assert!(!files.keys().any(|path| path.starts_with("models/")));
     }
 }

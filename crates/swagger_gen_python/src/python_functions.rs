@@ -3,6 +3,7 @@
 //! Generates spec files and function files that use aptx_api_core.
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use swagger_gen::pipeline::{
     EndpointItem, EndpointParameter, GeneratorInput, PlannedFile, RenderOutput, Renderer,
@@ -12,6 +13,21 @@ use swagger_gen::pipeline::{
 /// Renderer that generates Python spec + function files.
 #[derive(Default)]
 pub struct PythonFunctionsRenderer;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResolvedPyName {
+    file_stem: String,
+    export_name: String,
+    builder_name: String,
+}
+
+#[derive(Debug, Clone)]
+struct PlannedPyName {
+    namespace_path: String,
+    short_name: String,
+    fallback_name: String,
+    fallback_export_name: String,
+}
 
 impl Renderer for PythonFunctionsRenderer {
     fn id(&self) -> &'static str {
@@ -23,9 +39,9 @@ impl Renderer for PythonFunctionsRenderer {
         let use_package = should_use_package_import(&input.model_import);
         let mut files = Vec::new();
 
-        for (endpoint, py_name) in input.endpoints.iter().zip(resolved_names.iter()) {
-            let spec_path = get_spec_file_path(endpoint, py_name);
-            let function_path = get_function_file_path(endpoint, py_name);
+        for (endpoint, resolved_name) in input.endpoints.iter().zip(resolved_names.iter()) {
+            let spec_path = get_spec_file_path(endpoint, resolved_name);
+            let function_path = get_function_file_path(endpoint, resolved_name);
             let spec_model_import_base =
                 resolve_python_model_import_base(input, &spec_path, use_package);
             let function_model_import_base =
@@ -33,18 +49,20 @@ impl Renderer for PythonFunctionsRenderer {
 
             files.push(PlannedFile {
                 path: spec_path,
-                content: render_spec_file(endpoint, py_name, &spec_model_import_base),
+                content: render_spec_file(endpoint, resolved_name, &spec_model_import_base),
             });
             files.push(PlannedFile {
                 path: function_path.clone(),
                 content: render_function_file(
                     endpoint,
-                    py_name,
+                    resolved_name,
                     &function_path,
                     &function_model_import_base,
                 ),
             });
         }
+
+        files.extend(generate_python_package_inits(&files));
 
         Ok(RenderOutput {
             files,
@@ -53,24 +71,31 @@ impl Renderer for PythonFunctionsRenderer {
     }
 }
 
-fn get_spec_file_path(endpoint: &EndpointItem, py_name: &str) -> String {
-    let namespace: Vec<String> = endpoint.namespace.iter().map(|s| escape_keyword(s)).collect();
+fn get_spec_file_path(endpoint: &EndpointItem, resolved_name: &ResolvedPyName) -> String {
+    let namespace: Vec<String> = endpoint
+        .namespace
+        .iter()
+        .map(|s| escape_keyword(s))
+        .collect();
     let namespace = namespace.join("/");
-    format!("spec/{namespace}/{py_name}_spec.py")
+    format!("spec/{namespace}/{}_spec.py", resolved_name.file_stem)
 }
 
-fn get_function_file_path(endpoint: &EndpointItem, py_name: &str) -> String {
-    let namespace: Vec<String> = endpoint.namespace.iter().map(|s| escape_keyword(s)).collect();
+fn get_function_file_path(endpoint: &EndpointItem, resolved_name: &ResolvedPyName) -> String {
+    let namespace: Vec<String> = endpoint
+        .namespace
+        .iter()
+        .map(|s| escape_keyword(s))
+        .collect();
     let namespace = namespace.join("/");
-    format!("functions/{namespace}/{py_name}.py")
+    format!("functions/{namespace}/{}.py", resolved_name.file_stem)
 }
 
 const PYTHON_KEYWORDS: &[&str] = &[
-    "False", "None", "True", "and", "as", "assert", "async", "await",
-    "break", "class", "continue", "def", "del", "elif", "else", "except",
-    "finally", "for", "from", "global", "if", "import", "in", "is",
-    "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try",
-    "while", "with", "yield",
+    "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class", "continue",
+    "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import",
+    "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while",
+    "with", "yield",
 ];
 
 fn escape_keyword(name: &str) -> String {
@@ -127,7 +152,10 @@ fn find_common_service_prefix(endpoints: &[EndpointItem]) -> String {
     let prefix = prefix_words.join("");
 
     // Don't strip if any endpoint would be left with nothing
-    if parts.iter().any(|p| p.strip_prefix(&prefix).unwrap_or("").is_empty()) {
+    if parts
+        .iter()
+        .any(|p| p.strip_prefix(&prefix).unwrap_or("").is_empty())
+    {
         return String::new();
     }
 
@@ -144,15 +172,30 @@ fn get_namespace_path(endpoint: &EndpointItem) -> String {
 }
 
 fn compute_fallback_py_name(endpoint: &EndpointItem, common_prefix: &str) -> String {
-    let method_end = endpoint.operation_name.find(|c: char| c.is_uppercase()).unwrap_or(0);
+    let method_end = endpoint
+        .operation_name
+        .find(|c: char| c.is_uppercase())
+        .unwrap_or(0);
     let service_part = &endpoint.operation_name[method_end..];
-    let after_service = service_part.strip_prefix(common_prefix).unwrap_or(service_part);
+    let after_service = service_part
+        .strip_prefix(common_prefix)
+        .unwrap_or(service_part);
 
     if after_service.is_empty() {
         return to_snake_case(service_part);
     }
 
     to_snake_case(after_service)
+}
+
+fn compute_fallback_py_export_name(endpoint: &EndpointItem, common_prefix: &str) -> String {
+    let fallback = if endpoint.export_name.trim().is_empty() {
+        compute_fallback_py_name(endpoint, common_prefix)
+    } else {
+        to_snake_case(&endpoint.export_name)
+    };
+
+    sanitize_python_identifier(&fallback)
 }
 
 fn resolve_namespace_common_prefixes(endpoints: &[EndpointItem]) -> HashMap<String, String> {
@@ -167,15 +210,16 @@ fn resolve_namespace_common_prefixes(endpoints: &[EndpointItem]) -> HashMap<Stri
     grouped
         .into_iter()
         .map(|(namespace_path, group)| {
-            let prefix = find_common_service_prefix(&group.into_iter().cloned().collect::<Vec<_>>());
+            let prefix =
+                find_common_service_prefix(&group.into_iter().cloned().collect::<Vec<_>>());
             (namespace_path, prefix)
         })
         .collect()
 }
 
-fn resolve_final_py_names(endpoints: &[EndpointItem]) -> Vec<String> {
+fn resolve_final_py_names(endpoints: &[EndpointItem]) -> Vec<ResolvedPyName> {
     let namespace_prefixes = resolve_namespace_common_prefixes(endpoints);
-    let planned: Vec<(String, String, String)> = endpoints
+    let planned: Vec<PlannedPyName> = endpoints
         .iter()
         .map(|endpoint| {
             let namespace_path = get_namespace_path(endpoint);
@@ -183,36 +227,196 @@ fn resolve_final_py_names(endpoints: &[EndpointItem]) -> Vec<String> {
                 .get(&namespace_path)
                 .map(|s| s.as_str())
                 .unwrap_or("");
-            (
+            PlannedPyName {
                 namespace_path,
-                compute_py_name(endpoint, common_prefix),
-                compute_fallback_py_name(endpoint, common_prefix),
-            )
+                short_name: compute_py_name(endpoint, common_prefix),
+                fallback_name: compute_fallback_py_name(endpoint, common_prefix),
+                fallback_export_name: compute_fallback_py_export_name(endpoint, common_prefix),
+            }
         })
         .collect();
 
+    let file_stems = resolve_local_py_names(&planned);
+    let export_names = resolve_global_py_export_names(&planned);
+
+    file_stems
+        .into_iter()
+        .zip(export_names)
+        .map(|(file_stem, export_name)| ResolvedPyName {
+            file_stem,
+            builder_name: format!("build_{export_name}_spec"),
+            export_name,
+        })
+        .collect()
+}
+
+fn resolve_local_py_names(planned: &[PlannedPyName]) -> Vec<String> {
     let mut short_name_counts: HashMap<(String, String), usize> = HashMap::new();
-    for (namespace_path, short_name, _) in &planned {
+    for item in planned {
         *short_name_counts
-            .entry((namespace_path.clone(), short_name.clone()))
+            .entry((item.namespace_path.clone(), item.short_name.clone()))
             .or_insert(0) += 1;
     }
 
     planned
-        .into_iter()
-        .map(|(namespace_path, short_name, fallback_name)| {
+        .iter()
+        .map(|item| {
             if short_name_counts
-                .get(&(namespace_path, short_name.clone()))
+                .get(&(item.namespace_path.clone(), item.short_name.clone()))
                 .copied()
                 .unwrap_or(0)
                 > 1
             {
-                fallback_name
+                item.fallback_name.clone()
             } else {
-                short_name
+                item.short_name.clone()
             }
         })
         .collect()
+}
+
+fn resolve_global_py_export_names(planned: &[PlannedPyName]) -> Vec<String> {
+    let mut short_name_counts: HashMap<String, usize> = HashMap::new();
+    for item in planned {
+        *short_name_counts
+            .entry(item.short_name.clone())
+            .or_insert(0) += 1;
+    }
+
+    let mut used_counts: HashMap<String, usize> = HashMap::new();
+
+    planned
+        .iter()
+        .map(|item| {
+            let mut final_name = if short_name_counts
+                .get(&item.short_name)
+                .copied()
+                .unwrap_or(0)
+                > 1
+            {
+                item.fallback_export_name.clone()
+            } else {
+                sanitize_python_identifier(&item.short_name)
+            };
+
+            if used_counts.get(&final_name).copied().unwrap_or(0) > 0 {
+                let mut serial = 2usize;
+                let mut candidate = format!("{final_name}_{serial}");
+                while used_counts.get(&candidate).copied().unwrap_or(0) > 0 {
+                    serial += 1;
+                    candidate = format!("{final_name}_{serial}");
+                }
+                final_name = candidate;
+            }
+
+            *used_counts.entry(final_name.clone()).or_insert(0) += 1;
+            final_name
+        })
+        .collect()
+}
+
+fn generate_python_package_inits(files: &[PlannedFile]) -> Vec<PlannedFile> {
+    let leaf_exports = collect_python_leaf_exports(files);
+    let mut dir_exports: HashMap<String, Vec<(String, String)>> = HashMap::new();
+
+    for (module_path, symbol) in leaf_exports {
+        let module_dir = Path::new(&module_path)
+            .parent()
+            .map(|path| path.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+
+        let root = module_path
+            .split('/')
+            .next()
+            .unwrap_or_default()
+            .to_string();
+
+        let mut current = module_dir.clone();
+        loop {
+            let relative_module = module_path
+                .strip_prefix(&current)
+                .map(|rest| rest.trim_start_matches('/'))
+                .unwrap_or(module_path.as_str())
+                .trim_end_matches(".py")
+                .replace('/', ".");
+
+            dir_exports
+                .entry(current.clone())
+                .or_default()
+                .push((format!(".{relative_module}"), symbol.clone()));
+
+            if current == root {
+                break;
+            }
+
+            current = Path::new(&current)
+                .parent()
+                .map(|path| path.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_else(|| root.clone());
+        }
+    }
+
+    let mut init_files: Vec<PlannedFile> = dir_exports
+        .into_iter()
+        .map(|(dir, mut exports)| {
+            exports.sort();
+            exports.dedup();
+
+            let import_lines = exports
+                .iter()
+                .map(|(module_path, symbol)| format!("from {module_path} import {symbol}"))
+                .collect::<Vec<_>>();
+            let all_exports = exports
+                .iter()
+                .map(|(_, symbol)| format!("\"{symbol}\""))
+                .collect::<Vec<_>>();
+
+            PlannedFile {
+                path: format!("{dir}/__init__.py"),
+                content: format!(
+                    "{}\n\n__all__ = [{}]\n",
+                    import_lines.join("\n"),
+                    all_exports.join(", ")
+                ),
+            }
+        })
+        .collect();
+
+    init_files.sort_by(|left, right| left.path.cmp(&right.path));
+    init_files
+}
+
+fn collect_python_leaf_exports(files: &[PlannedFile]) -> Vec<(String, String)> {
+    let mut exports = Vec::new();
+
+    for file in files {
+        if file.path.ends_with("/__init__.py") || !file.path.ends_with(".py") {
+            continue;
+        }
+
+        let symbol = if file.path.starts_with("functions/") {
+            file.content.lines().find_map(|line| {
+                line.strip_prefix("def ")
+                    .and_then(|rest| rest.split('(').next())
+                    .map(|name| name.to_string())
+            })
+        } else if file.path.starts_with("spec/") {
+            file.content.lines().find_map(|line| {
+                line.strip_prefix("def ")
+                    .and_then(|rest| rest.split('(').next())
+                    .filter(|name| name.starts_with("build_"))
+                    .map(|name| name.to_string())
+            })
+        } else {
+            None
+        };
+
+        if let Some(symbol) = symbol {
+            exports.push((file.path.clone(), symbol));
+        }
+    }
+
+    exports
 }
 
 /// Compute the Python operation name:
@@ -221,11 +425,16 @@ fn resolve_final_py_names(endpoints: &[EndpointItem]) -> Vec<String> {
 /// 3. Strip the namespace prefix (e.g. "Class" for namespace ["class"])
 /// 4. Convert remaining action to snake_case
 fn compute_py_name(endpoint: &EndpointItem, common_prefix: &str) -> String {
-    let method_end = endpoint.operation_name.find(|c: char| c.is_uppercase()).unwrap_or(0);
+    let method_end = endpoint
+        .operation_name
+        .find(|c: char| c.is_uppercase())
+        .unwrap_or(0);
     let service_part = &endpoint.operation_name[method_end..]; // skip HTTP method
 
     // Strip common service prefix
-    let after_service = service_part.strip_prefix(common_prefix).unwrap_or(service_part);
+    let after_service = service_part
+        .strip_prefix(common_prefix)
+        .unwrap_or(service_part);
 
     // Strip namespace prefix, even when a service segment still appears before it.
     let ns_camel = namespace_to_camel(&endpoint.namespace);
@@ -475,7 +684,10 @@ fn render_python_annotation(type_name: &str, model_import_base: &str) -> (String
     }
 }
 
-fn render_extra_param(parameter: &EndpointParameter, model_import_base: &str) -> RenderedExtraParam {
+fn render_extra_param(
+    parameter: &EndpointParameter,
+    model_import_base: &str,
+) -> RenderedExtraParam {
     let (annotation, imports) = render_python_annotation(&parameter.type_name, model_import_base);
 
     RenderedExtraParam {
@@ -487,7 +699,10 @@ fn render_extra_param(parameter: &EndpointParameter, model_import_base: &str) ->
     }
 }
 
-fn collect_extra_params(endpoint: &EndpointItem, model_import_base: &str) -> Vec<RenderedExtraParam> {
+fn collect_extra_params(
+    endpoint: &EndpointItem,
+    model_import_base: &str,
+) -> Vec<RenderedExtraParam> {
     endpoint
         .path_params
         .iter()
@@ -516,7 +731,10 @@ fn render_extra_param_signature(parameter: &RenderedExtraParam) -> String {
     }
 }
 
-fn render_signature_block(primary_param: Option<String>, extra_params: &[RenderedExtraParam]) -> String {
+fn render_signature_block(
+    primary_param: Option<String>,
+    extra_params: &[RenderedExtraParam],
+) -> String {
     let mut lines = Vec::new();
 
     if let Some(primary_param) = primary_param {
@@ -629,10 +847,14 @@ fn resolve_python_model_import_base(
     to_python_relative_import_path(&resolve_file_import_path(generated_file_path, "models"))
 }
 
-fn render_spec_file(endpoint: &EndpointItem, py_name: &str, model_import_base: &str) -> String {
+fn render_spec_file(
+    endpoint: &EndpointItem,
+    resolved_name: &ResolvedPyName,
+    model_import_base: &str,
+) -> String {
     let mut imports = vec!["from __future__ import annotations".to_string()];
     let input_type = &endpoint.input_type_name;
-    let builder_name = format!("build_{py_name}_spec");
+    let builder_name = &resolved_name.builder_name;
     let extra_params = collect_extra_params(endpoint, model_import_base);
 
     if !endpoint.path_fields.is_empty() {
@@ -681,10 +903,7 @@ fn render_spec_file(endpoint: &EndpointItem, py_name: &str, model_import_base: &
         ));
         imports.push("from aptx_api_core import RequestSpec".to_string());
         imports = dedupe_lines(imports);
-        let sig_block = render_signature_block(
-            Some(format!("input: {input_type}")),
-            &extra_params,
-        );
+        let sig_block = render_signature_block(Some(format!("input: {input_type}")), &extra_params);
         let body = render_spec_fields(endpoint, true, &extra_params);
         format!(
             "{imports_block}\n\ndef {builder_name}({sig_block}) -> RequestSpec:\n    return RequestSpec(\n{body}    )\n",
@@ -728,7 +947,8 @@ fn render_spec_fields(
         fields.push_str(&format!("        query={{ {} }},\n", keys.join(", ")));
     }
 
-    if let Some(input_assignment) = render_path_input_assignment(endpoint, extra_params, has_model_input)
+    if let Some(input_assignment) =
+        render_path_input_assignment(endpoint, extra_params, has_model_input)
     {
         fields.push_str(&input_assignment);
     }
@@ -758,19 +978,19 @@ fn render_inline_spec_fields(endpoint: &EndpointItem) -> String {
 
 fn render_function_file(
     endpoint: &EndpointItem,
-    py_name: &str,
+    resolved_name: &ResolvedPyName,
     current_file_path: &str,
     model_import_base: &str,
 ) -> String {
     let mut imports = vec!["from __future__ import annotations".to_string()];
     let input_type = &endpoint.input_type_name;
     let output_type = &endpoint.output_type_name;
-    let builder_name = format!("build_{py_name}_spec");
+    let builder_name = &resolved_name.builder_name;
     let extra_params = collect_extra_params(endpoint, model_import_base);
 
     imports.push("from aptx_api_core import get_api_client".to_string());
 
-    let spec_file_path = get_spec_file_path(endpoint, py_name);
+    let spec_file_path = get_spec_file_path(endpoint, resolved_name);
     let spec_import = format!(
         "from {} import {builder_name}",
         resolve_python_module_import(current_file_path, &spec_file_path),
@@ -831,8 +1051,9 @@ fn render_function_file(
     };
 
     format!(
-        "{imports_block}\n\ndef {py_name}({sig_block}) -> {return_type}:\n    return get_api_client().execute(\n        {call_expr}{response_type_arg}\n    )\n",
+        "{imports_block}\n\ndef {export_name}({sig_block}) -> {return_type}:\n    return get_api_client().execute(\n        {call_expr}{response_type_arg}\n    )\n",
         imports_block = imports.join("\n"),
+        export_name = resolved_name.export_name,
         sig_block = signature,
         return_type = return_type,
         call_expr = call_args,
@@ -844,7 +1065,9 @@ fn render_function_file(
 mod tests {
     use super::*;
     use indexmap::IndexMap;
-    use swagger_gen::pipeline::{EndpointParameter, GeneratorInput, ModelImportConfig, ProjectContext};
+    use swagger_gen::pipeline::{
+        EndpointParameter, GeneratorInput, ModelImportConfig, ProjectContext,
+    };
 
     fn make_endpoint(
         namespace: &[&str],
@@ -909,6 +1132,14 @@ mod tests {
         }
     }
 
+    fn resolved_py_name(file_stem: &str) -> ResolvedPyName {
+        ResolvedPyName {
+            file_stem: file_stem.to_string(),
+            export_name: file_stem.to_string(),
+            builder_name: format!("build_{file_stem}_spec"),
+        }
+    }
+
     #[test]
     fn test_renderer_id() {
         assert_eq!(PythonFunctionsRenderer.id(), "python-functions");
@@ -917,7 +1148,10 @@ mod tests {
     #[test]
     fn test_to_snake_case() {
         assert_eq!(to_snake_case("getUserInfo"), "get_user_info");
-        assert_eq!(to_snake_case("getEducationalAPIClassGetInfo"), "get_educational_api_class_get_info");
+        assert_eq!(
+            to_snake_case("getEducationalAPIClassGetInfo"),
+            "get_educational_api_class_get_info"
+        );
         assert_eq!(to_snake_case("getUserID"), "get_user_id");
         assert_eq!(to_snake_case("parseHTMLString"), "parse_html_string");
     }
@@ -925,9 +1159,30 @@ mod tests {
     #[test]
     fn test_find_common_prefix() {
         let endpoints = vec![
-            make_endpoint(&["a"], "getEducationalAPIClassGetInfo", "GET", "/", "void", "void"),
-            make_endpoint(&["a"], "postEducationalAPIClassAdd", "POST", "/", "void", "void"),
-            make_endpoint(&["a"], "getEducationalAPIEnumsGetAll", "GET", "/", "void", "void"),
+            make_endpoint(
+                &["a"],
+                "getEducationalAPIClassGetInfo",
+                "GET",
+                "/",
+                "void",
+                "void",
+            ),
+            make_endpoint(
+                &["a"],
+                "postEducationalAPIClassAdd",
+                "POST",
+                "/",
+                "void",
+                "void",
+            ),
+            make_endpoint(
+                &["a"],
+                "getEducationalAPIEnumsGetAll",
+                "GET",
+                "/",
+                "void",
+                "void",
+            ),
         ];
         assert_eq!(find_common_service_prefix(&endpoints), "EducationalAPI");
     }
@@ -935,30 +1190,59 @@ mod tests {
     #[test]
     fn test_compute_py_name_strips_prefix_and_namespace() {
         let endpoints = vec![
-            make_endpoint(&["class"], "getEducationalAPIClassGetInfo", "GET", "/", "void", "void"),
-            make_endpoint(&["class"], "postEducationalAPIClassAdd", "POST", "/", "void", "void"),
-            make_endpoint(&["enums"], "getEducationalAPIEnumsGetAllAuditStatusEnum", "GET", "/", "void", "void"),
-            make_endpoint(&["class-schedule"], "getEducationalAPIClassScheduleGetInfo", "GET", "/", "void", "void"),
+            make_endpoint(
+                &["class"],
+                "getEducationalAPIClassGetInfo",
+                "GET",
+                "/",
+                "void",
+                "void",
+            ),
+            make_endpoint(
+                &["class"],
+                "postEducationalAPIClassAdd",
+                "POST",
+                "/",
+                "void",
+                "void",
+            ),
+            make_endpoint(
+                &["enums"],
+                "getEducationalAPIEnumsGetAllAuditStatusEnum",
+                "GET",
+                "/",
+                "void",
+                "void",
+            ),
+            make_endpoint(
+                &["class-schedule"],
+                "getEducationalAPIClassScheduleGetInfo",
+                "GET",
+                "/",
+                "void",
+                "void",
+            ),
         ];
         let prefix = find_common_service_prefix(&endpoints);
         assert_eq!(compute_py_name(&endpoints[0], &prefix), "get_info");
         assert_eq!(compute_py_name(&endpoints[1], &prefix), "add");
-        assert_eq!(compute_py_name(&endpoints[2], &prefix), "get_all_audit_status_enum");
+        assert_eq!(
+            compute_py_name(&endpoints[2], &prefix),
+            "get_all_audit_status_enum"
+        );
         assert_eq!(compute_py_name(&endpoints[3], &prefix), "get_info");
     }
 
     #[test]
     fn test_no_prefix_with_single_endpoint() {
-        let endpoints = vec![
-            make_endpoint(&["a"], "getUser", "GET", "/", "void", "void"),
-        ];
+        let endpoints = vec![make_endpoint(&["a"], "getUser", "GET", "/", "void", "void")];
         assert_eq!(find_common_service_prefix(&endpoints), "");
     }
 
     #[test]
     fn test_void_input_spec() {
         let ep = make_endpoint(&["health"], "check", "GET", "/health", "void", "void");
-        let content = render_spec_file(&ep, "check", "...models");
+        let content = render_spec_file(&ep, &resolved_py_name("check"), "...models");
         assert!(content.contains("def build_check_spec() -> RequestSpec:"));
         assert!(content.contains("method=\"GET\""));
         assert!(content.contains("path=\"/health\""));
@@ -967,11 +1251,16 @@ mod tests {
     #[test]
     fn test_model_input_spec() {
         let mut ep = make_endpoint(
-            &["users"], "get_user", "GET", "/users/{id}", "GetUserInput", "User",
+            &["users"],
+            "get_user",
+            "GET",
+            "/users/{id}",
+            "GetUserInput",
+            "User",
         );
         ep.path_fields = vec!["id".to_string()];
 
-        let content = render_spec_file(&ep, "get_user", "...models");
+        let content = render_spec_file(&ep, &resolved_py_name("get_user"), "...models");
         assert!(content.contains("def build_get_user_spec("));
         assert!(content.contains("input: GetUserInput"));
         assert!(content.contains("from ...models.GetUserInput import GetUserInput"));
@@ -980,11 +1269,16 @@ mod tests {
     #[test]
     fn test_model_input_function() {
         let ep = make_endpoint(
-            &["users"], "get_user", "GET", "/users/{id}", "GetUserInput", "User",
+            &["users"],
+            "get_user",
+            "GET",
+            "/users/{id}",
+            "GetUserInput",
+            "User",
         );
         let content = render_function_file(
             &ep,
-            "get_user",
+            &resolved_py_name("get_user"),
             "functions/users/get_user.py",
             "...models",
         );
@@ -1000,15 +1294,20 @@ mod tests {
     #[test]
     fn test_model_imports_use_pascal_case_modules() {
         let ep = make_endpoint(
-            &["users"], "get_user", "GET", "/users/{id}", "GetUserInput", "User",
+            &["users"],
+            "get_user",
+            "GET",
+            "/users/{id}",
+            "GetUserInput",
+            "User",
         );
 
-        let spec = render_spec_file(&ep, "get_user", "...models");
+        let spec = render_spec_file(&ep, &resolved_py_name("get_user"), "...models");
         assert!(spec.contains("from ...models.GetUserInput import GetUserInput"));
 
         let function = render_function_file(
             &ep,
-            "get_user",
+            &resolved_py_name("get_user"),
             "functions/users/get_user.py",
             "...models",
         );
@@ -1029,13 +1328,13 @@ mod tests {
         ep.query_fields = vec!["StoreType".to_string()];
         ep.request_body_field = Some("body".to_string());
 
-        let spec = render_spec_file(&ep, "upload_image", "...models");
+        let spec = render_spec_file(&ep, &resolved_py_name("upload_image"), "...models");
         assert!(spec.contains("StoreType: StoreType"));
         assert!(spec.contains("query="));
 
         let func = render_function_file(
             &ep,
-            "upload_image",
+            &resolved_py_name("upload_image"),
             "functions/stored_file/upload_image.py",
             "...models",
         );
@@ -1063,21 +1362,23 @@ mod tests {
             required: true,
         }];
 
-        let spec = render_spec_file(&ep, "login_user_wechat_un_bind", "...models");
+        let spec = render_spec_file(
+            &ep,
+            &resolved_py_name("login_user_wechat_un_bind"),
+            "...models",
+        );
         assert!(spec.contains("def build_login_user_wechat_un_bind_spec("));
         assert!(spec.contains("subSystemCode: str"));
         assert!(spec.contains("query={ \"subSystemCode\": subSystemCode }"));
 
         let func = render_function_file(
             &ep,
-            "login_user_wechat_un_bind",
+            &resolved_py_name("login_user_wechat_un_bind"),
             "functions/user/login_user_wechat_un_bind.py",
             "...models",
         );
         assert!(func.contains("subSystemCode: str"));
-        assert!(func.contains(
-            "build_login_user_wechat_un_bind_spec(subSystemCode=subSystemCode)"
-        ));
+        assert!(func.contains("build_login_user_wechat_un_bind_spec(subSystemCode=subSystemCode)"));
     }
 
     #[test]
@@ -1098,7 +1399,7 @@ mod tests {
             required: true,
         }];
 
-        let spec = render_spec_file(&ep, "unbind", "...models");
+        let spec = render_spec_file(&ep, &resolved_py_name("unbind"), "...models");
         assert!(spec.contains("input: UnbindWechatRequest"));
         assert!(spec.contains("subSystemCode: str"));
         assert!(spec.contains("body=input.model_dump(by_alias=True, exclude_none=True)"));
@@ -1107,7 +1408,7 @@ mod tests {
 
         let func = render_function_file(
             &ep,
-            "unbind",
+            &resolved_py_name("unbind"),
             "functions/user/unbind.py",
             "...models",
         );
@@ -1133,7 +1434,7 @@ mod tests {
             required: true,
         }];
 
-        let spec = render_spec_file(&ep, "get_user_detail", "...models");
+        let spec = render_spec_file(&ep, &resolved_py_name("get_user_detail"), "...models");
         assert!(spec.contains("from types import SimpleNamespace"));
         assert!(spec.contains("id: str"));
         assert!(spec.contains("input=SimpleNamespace(id=id)"));
@@ -1142,11 +1443,16 @@ mod tests {
     #[test]
     fn test_post_with_body() {
         let mut ep = make_endpoint(
-            &["users"], "add_user", "POST", "/users", "AddUserRequest", "User",
+            &["users"],
+            "add_user",
+            "POST",
+            "/users",
+            "AddUserRequest",
+            "User",
         );
         ep.request_body_field = Some("body".to_string());
 
-        let spec = render_spec_file(&ep, "add_user", "...models");
+        let spec = render_spec_file(&ep, &resolved_py_name("add_user"), "...models");
         assert!(spec.contains("body=input.model_dump(by_alias=True, exclude_none=True)"));
     }
 
@@ -1155,7 +1461,7 @@ mod tests {
         let ep = make_endpoint(&["health"], "check", "GET", "/health", "void", "void");
         let content = render_function_file(
             &ep,
-            "check",
+            &resolved_py_name("check"),
             "functions/health/check.py",
             "...models",
         );
@@ -1186,7 +1492,10 @@ mod tests {
 
         let prefix = find_common_service_prefix(&endpoints);
         assert_eq!(prefix, "Action");
-        assert_eq!(compute_py_name(&endpoints[0], &prefix), "authority_api_list");
+        assert_eq!(
+            compute_py_name(&endpoints[0], &prefix),
+            "authority_api_list"
+        );
     }
 
     #[test]
@@ -1238,43 +1547,186 @@ mod tests {
 
         let prefix = find_common_service_prefix(&endpoints);
         assert_eq!(compute_fallback_py_name(&endpoints[0], &prefix), "user_add");
-        assert_eq!(compute_fallback_py_name(&endpoints[1], &prefix), "user_user_add");
+        assert_eq!(
+            compute_fallback_py_name(&endpoints[1], &prefix),
+            "user_user_add"
+        );
+    }
+
+    #[test]
+    fn test_resolve_final_py_names_keep_short_files_but_promote_colliding_exports() {
+        let mut account_category = make_endpoint(
+            &["account_category"],
+            "postAuthorityAPIAccountCategoryAdd",
+            "POST",
+            "/AuthorityAPI/AccountCategory/Add",
+            "void",
+            "void",
+        );
+        account_category.export_name = "accountCategoryAdd".to_string();
+
+        let mut action_authority = make_endpoint(
+            &["action_authority"],
+            "postAuthorityAPIActionAuthorityAdd",
+            "POST",
+            "/AuthorityAPI/ActionAuthority/Add",
+            "void",
+            "void",
+        );
+        action_authority.export_name = "actionAuthorityAdd".to_string();
+
+        let resolved = resolve_final_py_names(&[account_category, action_authority]);
+
+        assert_eq!(resolved[0].file_stem, "add");
+        assert_eq!(resolved[1].file_stem, "add");
+        assert_eq!(resolved[0].export_name, "account_category_add");
+        assert_eq!(resolved[1].export_name, "action_authority_add");
+        assert_eq!(resolved[0].builder_name, "build_account_category_add_spec");
+        assert_eq!(resolved[1].builder_name, "build_action_authority_add_spec");
     }
 
     #[test]
     fn test_render_uses_short_name_inside_namespace_directory() {
-        let input = make_generator_input(vec![
-            make_endpoint(
-                &["action_authority"],
-                "postAuthorityAPIActionAuthorityAdd",
-                "POST",
-                "/AuthorityAPI/ActionAuthority/Add",
-                "AddActionAuthorityRequestModel",
-                "GuidResultModel",
-            ),
-            make_endpoint(
-                &["role"],
-                "postAuthorityAPIRoleAdd",
-                "POST",
-                "/AuthorityAPI/Role/Add",
-                "AddRoleRequestModel",
-                "GuidResultModel",
-            ),
-        ]);
+        let mut action_authority = make_endpoint(
+            &["action_authority"],
+            "postAuthorityAPIActionAuthorityAdd",
+            "POST",
+            "/AuthorityAPI/ActionAuthority/Add",
+            "AddActionAuthorityRequestModel",
+            "GuidResultModel",
+        );
+        action_authority.export_name = "actionAuthorityAdd".to_string();
+
+        let mut role = make_endpoint(
+            &["role"],
+            "postAuthorityAPIRoleAdd",
+            "POST",
+            "/AuthorityAPI/Role/Add",
+            "AddRoleRequestModel",
+            "GuidResultModel",
+        );
+        role.export_name = "roleAdd".to_string();
+
+        let input = make_generator_input(vec![action_authority, role]);
 
         let output = PythonFunctionsRenderer.render(&input).unwrap();
-        assert!(output.files.iter().any(|f| f.path == "functions/action_authority/add.py"));
-        assert!(output.files.iter().any(|f| f.path == "spec/action_authority/add_spec.py"));
-        assert!(output.files.iter().any(|f| f.path == "functions/role/add.py"));
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/action_authority/add.py")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "spec/action_authority/add_spec.py")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/role/add.py")
+        );
 
         let action_function = output
             .files
             .iter()
             .find(|f| f.path == "functions/action_authority/add.py")
             .unwrap();
-        assert!(action_function.content.contains("from ...spec.action_authority.add_spec import build_add_spec"));
-        assert!(action_function.content.contains("def add("));
-        assert!(!action_function.content.contains("async def add("));
+        assert!(action_function.content.contains(
+            "from ...spec.action_authority.add_spec import build_action_authority_add_spec"
+        ));
+        assert!(
+            action_function
+                .content
+                .contains("def action_authority_add(")
+        );
+        assert!(!action_function.content.contains("async def "));
+    }
+
+    #[test]
+    fn test_render_generates_python_init_packages_with_unique_exports() {
+        let mut account_category = make_endpoint(
+            &["account_category"],
+            "postAuthorityAPIAccountCategoryAdd",
+            "POST",
+            "/AuthorityAPI/AccountCategory/Add",
+            "AddAccountCategoryRequestModel",
+            "GuidResultModel",
+        );
+        account_category.export_name = "accountCategoryAdd".to_string();
+
+        let mut action_authority = make_endpoint(
+            &["action_authority"],
+            "postAuthorityAPIActionAuthorityAdd",
+            "POST",
+            "/AuthorityAPI/ActionAuthority/Add",
+            "AddActionAuthorityRequestModel",
+            "GuidResultModel",
+        );
+        action_authority.export_name = "actionAuthorityAdd".to_string();
+
+        let output = PythonFunctionsRenderer
+            .render(&make_generator_input(vec![
+                account_category,
+                action_authority,
+            ]))
+            .unwrap();
+
+        let functions_root = output
+            .files
+            .iter()
+            .find(|f| f.path == "functions/__init__.py")
+            .expect("functions root __init__");
+        assert!(
+            functions_root
+                .content
+                .contains("from .account_category.add import account_category_add")
+        );
+        assert!(
+            functions_root
+                .content
+                .contains("from .action_authority.add import action_authority_add")
+        );
+
+        let functions_namespace = output
+            .files
+            .iter()
+            .find(|f| f.path == "functions/action_authority/__init__.py")
+            .expect("functions namespace __init__");
+        assert!(
+            functions_namespace
+                .content
+                .contains("from .add import action_authority_add")
+        );
+
+        let spec_root = output
+            .files
+            .iter()
+            .find(|f| f.path == "spec/__init__.py")
+            .expect("spec root __init__");
+        assert!(
+            spec_root
+                .content
+                .contains("from .account_category.add_spec import build_account_category_add_spec")
+        );
+        assert!(
+            spec_root
+                .content
+                .contains("from .action_authority.add_spec import build_action_authority_add_spec")
+        );
+
+        let spec_namespace = output
+            .files
+            .iter()
+            .find(|f| f.path == "spec/action_authority/__init__.py")
+            .expect("spec namespace __init__");
+        assert!(
+            spec_namespace
+                .content
+                .contains("from .add_spec import build_action_authority_add_spec")
+        );
     }
 
     #[test]
@@ -1299,9 +1751,21 @@ mod tests {
         ]);
 
         let output = PythonFunctionsRenderer.render(&input).unwrap();
-        assert!(output.files.iter().any(|f| f.path == "functions/user/add.py"));
-        assert!(output.files.iter().any(|f| f.path == "functions/user/user_add.py"));
-        assert!(output.files.iter().all(|f| f.path != "functions/user/add.py" || !f.content.contains("build_user_add_spec")));
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/add.py")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/user_add.py")
+        );
+        assert!(output.files.iter().all(
+            |f| f.path != "functions/user/add.py" || !f.content.contains("build_user_add_spec")
+        ));
     }
 
     #[test]
@@ -1334,8 +1798,18 @@ mod tests {
         ]);
 
         let output = PythonFunctionsRenderer.render(&input).unwrap();
-        assert!(output.files.iter().any(|f| f.path == "functions/action_authority/add.py"));
-        assert!(output.files.iter().any(|f| f.path == "functions/role/add.py"));
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/action_authority/add.py")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/role/add.py")
+        );
     }
 
     #[test]
@@ -1360,23 +1834,36 @@ mod tests {
         ]);
 
         let output = PythonFunctionsRenderer.render(&input).unwrap();
-        assert!(output
-            .files
-            .iter()
-            .any(|f| f.path == "functions/user/get_login_user_info.py"));
-        assert!(output
-            .files
-            .iter()
-            .any(|f| f.path == "spec/user/get_login_user_info_spec.py"));
-        assert!(output
-            .files
-            .iter()
-            .any(|f| f.path == "functions/user/get_login_user_permissions.py"));
-        assert!(!output.files.iter().any(|f| f.path == "functions/user/info.py"));
-        assert!(!output
-            .files
-            .iter()
-            .any(|f| f.path == "spec/user/info_spec.py"));
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/get_login_user_info.py")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "spec/user/get_login_user_info_spec.py")
+        );
+        assert!(
+            output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/get_login_user_permissions.py")
+        );
+        assert!(
+            !output
+                .files
+                .iter()
+                .any(|f| f.path == "functions/user/info.py")
+        );
+        assert!(
+            !output
+                .files
+                .iter()
+                .any(|f| f.path == "spec/user/info_spec.py")
+        );
     }
 
     #[test]
@@ -1417,8 +1904,15 @@ mod tests {
             .find(|f| f.path.starts_with("functions/users/") && f.path.ends_with(".py"))
             .expect("function file");
 
-        assert!(spec.content.contains("from ...models.GetUserInput import GetUserInput"));
-        assert!(function.content.contains("from ...models.GetUserInput import GetUserInput"));
+        assert!(
+            spec.content
+                .contains("from ...models.GetUserInput import GetUserInput")
+        );
+        assert!(
+            function
+                .content
+                .contains("from ...models.GetUserInput import GetUserInput")
+        );
         assert!(function.content.contains("from ...models.User import User"));
         assert!(function.content.contains("from ...spec.users."));
     }
@@ -1455,8 +1949,19 @@ mod tests {
             .find(|f| f.path.starts_with("functions/users/") && f.path.ends_with(".py"))
             .expect("function file");
 
-        assert!(spec.content.contains("from my_app.generated.models.GetUserInput import GetUserInput"));
-        assert!(function.content.contains("from my_app.generated.models.GetUserInput import GetUserInput"));
-        assert!(function.content.contains("from my_app.generated.models.User import User"));
+        assert!(
+            spec.content
+                .contains("from my_app.generated.models.GetUserInput import GetUserInput")
+        );
+        assert!(
+            function
+                .content
+                .contains("from my_app.generated.models.GetUserInput import GetUserInput")
+        );
+        assert!(
+            function
+                .content
+                .contains("from my_app.generated.models.User import User")
+        );
     }
 }

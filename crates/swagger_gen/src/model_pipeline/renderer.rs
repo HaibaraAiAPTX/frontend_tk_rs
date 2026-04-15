@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use crate::utils::format_ts_code;
 
-use super::model::{
-    ModelIr, ModelKind, ModelLiteral, ModelRenderStyle, ModelType, ScalarType,
-};
+use super::model::{ModelIr, ModelKind, ModelLiteral, ModelRenderStyle, ModelType, ScalarType};
 
 pub fn render_model_files(
     ir: &ModelIr,
@@ -171,10 +169,10 @@ fn render_type(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::model::{
         IntegerSpec, ModelEnumMember, ModelNode, ModelProperty, NumberFormat, NumberSpec,
     };
+    use super::*;
 
     fn render_single_model(model: ModelNode) -> String {
         let files = render_model_files(

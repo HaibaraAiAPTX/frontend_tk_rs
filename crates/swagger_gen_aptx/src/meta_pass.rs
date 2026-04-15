@@ -30,10 +30,9 @@ impl TransformPass for AptxMetaPass {
     fn apply(&self, input: &mut GeneratorInput) -> Result<(), String> {
         for endpoint in &mut input.endpoints {
             if is_refresh_token_endpoint(endpoint) {
-                endpoint.meta.insert(
-                    META_SKIP_AUTH_REFRESH.to_string(),
-                    "true".to_string(),
-                );
+                endpoint
+                    .meta
+                    .insert(META_SKIP_AUTH_REFRESH.to_string(), "true".to_string());
             }
         }
         Ok(())
@@ -162,7 +161,12 @@ mod tests {
         assert!(input.endpoints[0].meta.get(META_SKIP_AUTH_REFRESH) == Some(&"true".to_string()));
 
         // getUser should not have META_SKIP_AUTH_REFRESH
-        assert!(input.endpoints[1].meta.get(META_SKIP_AUTH_REFRESH).is_none());
+        assert!(
+            input.endpoints[1]
+                .meta
+                .get(META_SKIP_AUTH_REFRESH)
+                .is_none()
+        );
 
         // path ending with /RefreshToken should have META_SKIP_AUTH_REFRESH = true
         assert!(input.endpoints[2].meta.get(META_SKIP_AUTH_REFRESH) == Some(&"true".to_string()));

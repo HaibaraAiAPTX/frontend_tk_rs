@@ -60,7 +60,9 @@ impl TransformPass for DefaultQueryMutationPass {
     fn apply(&self, input: &mut GeneratorInput) -> Result<(), String> {
         for endpoint in &mut input.endpoints {
             if endpoint.method.eq_ignore_ascii_case("GET") {
-                endpoint.meta.insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
+                endpoint
+                    .meta
+                    .insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
             }
         }
 

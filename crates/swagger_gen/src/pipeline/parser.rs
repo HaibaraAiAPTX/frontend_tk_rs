@@ -1,7 +1,7 @@
+use indexmap::IndexMap;
 use inflector::cases::{
     camelcase::to_camel_case, kebabcase::to_kebab_case, pascalcase::to_pascal_case,
 };
-use indexmap::IndexMap;
 use std::collections::HashSet;
 use swagger_tk::model::{OpenAPIObject, OperationObject, ParameterObjectIn, PathItemObject};
 

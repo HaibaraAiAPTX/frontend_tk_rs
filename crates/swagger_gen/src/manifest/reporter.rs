@@ -69,8 +69,7 @@ impl DeletionReport {
         }
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize report: {}", e))?;
-        std::fs::write(path, content)
-            .map_err(|e| format!("Failed to write report: {}", e))
+        std::fs::write(path, content).map_err(|e| format!("Failed to write report: {}", e))
     }
 
     /// 生成 Markdown 报告
@@ -78,7 +77,10 @@ impl DeletionReport {
         let mut md = String::new();
 
         md.push_str("# 代码生成删除报告\n\n");
-        md.push_str(&format!("**生成时间**: {}\n", self.generated_at.format("%Y-%m-%d %H:%M:%S")));
+        md.push_str(&format!(
+            "**生成时间**: {}\n",
+            self.generated_at.format("%Y-%m-%d %H:%M:%S")
+        ));
         md.push_str(&format!("**生成器**: {}\n\n", self.generator_id));
 
         // 摘要
@@ -87,7 +89,10 @@ impl DeletionReport {
         md.push_str("|------|------|\n");
         md.push_str(&format!("| 删除 | {} |\n", self.summary.deleted_count));
         md.push_str(&format!("| 新增 | {} |\n", self.summary.added_count));
-        md.push_str(&format!("| 未变更 | {} |\n\n", self.summary.unchanged_count));
+        md.push_str(&format!(
+            "| 未变更 | {} |\n\n",
+            self.summary.unchanged_count
+        ));
 
         // 删除的文件
         if !self.deleted.is_empty() {
@@ -187,9 +192,7 @@ mod tests {
         let diff = ManifestDiff {
             generator_id: "models".to_string(),
             added: vec![],
-            deleted: vec![
-                ("OldModel".to_string(), "old_model.ts".to_string()),
-            ],
+            deleted: vec![("OldModel".to_string(), "old_model.ts".to_string())],
             unchanged: vec![],
         };
 
@@ -258,7 +261,11 @@ mod tests {
     #[test]
     fn deletion_report_save_json_creates_directory() {
         let temp_dir = TempDir::new().unwrap();
-        let nested_path = temp_dir.path().join("nested").join("dir").join("report.json");
+        let nested_path = temp_dir
+            .path()
+            .join("nested")
+            .join("dir")
+            .join("report.json");
 
         let diff = ManifestDiff {
             generator_id: "models".to_string(),

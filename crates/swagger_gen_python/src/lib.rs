@@ -5,9 +5,11 @@
 //! - `PydanticModelRenderer`: Generates Pydantic model files
 //! - `PythonToolsRenderer`: Generates OpenAI function calling tools.json
 
-pub use swagger_gen::pipeline::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer};
 pub use swagger_gen::model_pipeline::{
-    ModelIr, ModelKind, ModelType, ModelLiteral, ModelNode, ModelProperty, ModelEnumMember,
+    ModelEnumMember, ModelIr, ModelKind, ModelLiteral, ModelNode, ModelProperty, ModelType,
+};
+pub use swagger_gen::pipeline::{
+    EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer,
 };
 
 mod py_types;
@@ -15,6 +17,6 @@ mod pydantic_model;
 mod python_functions;
 mod python_tools;
 
+pub use pydantic_model::render_pydantic_models;
 pub use python_functions::PythonFunctionsRenderer;
 pub use python_tools::PythonToolsRenderer;
-pub use pydantic_model::render_pydantic_models;

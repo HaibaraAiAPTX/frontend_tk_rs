@@ -1,8 +1,8 @@
+use std::str::FromStr;
 use swagger_gen::pipeline::{
     build_dry_run_plan, build_ir_snapshot_json, build_report_json, parse_openapi_to_ir,
 };
 use swagger_tk::model::OpenAPIObject;
-use std::str::FromStr;
 
 /// Mock OpenAPI spec with endpoints for pipeline testing
 const MOCK_OPENAPI: &str = r###"

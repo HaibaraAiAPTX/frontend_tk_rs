@@ -4,9 +4,9 @@
 
 use crate::META_SUPPORTS_QUERY;
 use crate::{
-    get_client_call, get_client_import_lines, normalize_type_ref, render_type_import_block,
-    resolve_file_import_path, resolve_final_ts_names, resolve_model_import_base,
-    should_use_package_import, ResolvedTsName,
+    ResolvedTsName, get_client_call, get_client_import_lines, normalize_type_ref,
+    render_type_import_block, resolve_file_import_path, resolve_final_ts_names,
+    resolve_model_import_base, should_use_package_import,
 };
 
 use swagger_gen::pipeline::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput};
@@ -312,7 +312,10 @@ mod tests {
 
     #[test]
     fn test_terminal_package_name() {
-        assert_eq!(terminal_package_name(QueryTerminal::React), "api-query-react");
+        assert_eq!(
+            terminal_package_name(QueryTerminal::React),
+            "api-query-react"
+        );
         assert_eq!(terminal_package_name(QueryTerminal::Vue), "api-query-vue");
     }
 
@@ -467,7 +470,10 @@ mod tests {
             .find(|f| f.path == "react-query/user/getLoginUserInfo.query.ts")
             .expect("query file");
 
-        assert!(file.content.contains("import { buildGetLoginUserInfoSpec }"));
+        assert!(
+            file.content
+                .contains("import { buildGetLoginUserInfoSpec }")
+        );
         assert!(file.content.contains("const getLoginUserInfoQueryDef"));
         assert!(file.content.contains("export const getLoginUserInfoKey"));
         assert!(file.content.contains("useGetLoginUserInfoQuery"));

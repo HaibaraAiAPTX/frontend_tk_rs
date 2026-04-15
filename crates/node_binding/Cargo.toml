@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 aptx_frontend_tk_binding_plugin = { version = "0.1.0", path = "../node_binding_plugin" }
 clap = { version = "4.5.53", features = ["derive"] }
+fs2 = "0.4.3"
 frontend_plugin_materal = { version = "0.1.0", path = "../frontend_plugin_materal" }
 libloading = "0.9.0"
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
@@ -22,6 +23,9 @@ swagger_tk = { version = "0.1.0", path = "../swagger_tk" }
 
 [build-dependencies]
 napi-build = "2.3.1"
+
+[dev-dependencies]
+tempfile = "3"
 
 [profile.release]
 lto = true

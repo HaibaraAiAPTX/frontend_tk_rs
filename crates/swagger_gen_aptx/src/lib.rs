@@ -8,8 +8,8 @@
 //! - `AptxMetaPass`: Meta field configuration (e.g., skipAuthRefresh for refresh token endpoints)
 
 pub use swagger_gen::pipeline::{
-    ClientImportConfig, EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer,
-    META_SUPPORTS_QUERY,
+    ClientImportConfig, EndpointItem, GeneratorInput, META_SUPPORTS_QUERY, PlannedFile,
+    RenderOutput, Renderer,
 };
 
 /// Meta key for skipping auth refresh (rendered to TS as RequestSpec meta field)

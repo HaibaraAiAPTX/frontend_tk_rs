@@ -14,11 +14,8 @@ impl Renderer for PythonToolsRenderer {
     }
 
     fn render(&self, input: &GeneratorInput) -> Result<RenderOutput, String> {
-        let tools: Vec<serde_json::Value> = input
-            .endpoints
-            .iter()
-            .map(|ep| render_tool(ep))
-            .collect();
+        let tools: Vec<serde_json::Value> =
+            input.endpoints.iter().map(|ep| render_tool(ep)).collect();
 
         let json_output = serde_json::to_string_pretty(&tools)
             .map_err(|e| format!("Failed to serialize tools.json: {e}"))?;

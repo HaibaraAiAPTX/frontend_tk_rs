@@ -128,7 +128,10 @@ mod tests {
         tracker.track("Model1", "model1.ts");
 
         assert_eq!(tracker.entries().len(), 1);
-        assert_eq!(tracker.entries().get("Model1"), Some(&"model1.ts".to_string()));
+        assert_eq!(
+            tracker.entries().get("Model1"),
+            Some(&"model1.ts".to_string())
+        );
     }
 
     #[test]
@@ -139,7 +142,10 @@ mod tests {
         tracker.track("Model1", "updated_model1.ts");
 
         assert_eq!(tracker.entries().len(), 1);
-        assert_eq!(tracker.entries().get("Model1"), Some(&"updated_model1.ts".to_string()));
+        assert_eq!(
+            tracker.entries().get("Model1"),
+            Some(&"updated_model1.ts".to_string())
+        );
     }
 
     #[test]
@@ -224,9 +230,7 @@ mod tests {
 
         // 创建现有 manifest
         let mut manifest = Manifest::default();
-        let entries = HashMap::from([
-            ("Model1".to_string(), "model1.ts".to_string()),
-        ]);
+        let entries = HashMap::from([("Model1".to_string(), "model1.ts".to_string())]);
         manifest.update_generator("models".to_string(), entries);
         manifest.save(&manifest_path).unwrap();
 
@@ -264,9 +268,7 @@ mod tests {
 
         // 创建现有 manifest
         let mut manifest = Manifest::default();
-        let entries = HashMap::from([
-            ("OldModel".to_string(), "old_model.ts".to_string()),
-        ]);
+        let entries = HashMap::from([("OldModel".to_string(), "old_model.ts".to_string())]);
         manifest.update_generator("models".to_string(), entries);
         manifest.save(&manifest_path).unwrap();
 
@@ -286,9 +288,7 @@ mod tests {
 
         // 创建现有 manifest，使用不同的 generator_id
         let mut manifest = Manifest::default();
-        let entries = HashMap::from([
-            ("Model1".to_string(), "model1.ts".to_string()),
-        ]);
+        let entries = HashMap::from([("Model1".to_string(), "model1.ts".to_string())]);
         manifest.update_generator("other_generator".to_string(), entries);
         manifest.save(&manifest_path).unwrap();
 
@@ -310,9 +310,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let manifest_path = temp_dir.path().join("manifest.json");
 
-        let entries = HashMap::from([
-            ("Model1".to_string(), "model1.ts".to_string()),
-        ]);
+        let entries = HashMap::from([("Model1".to_string(), "model1.ts".to_string())]);
 
         let result = update_manifest(
             &manifest_path,
@@ -332,21 +330,18 @@ mod tests {
         let manifest_path = temp_dir.path().join("manifest.json");
 
         // 创建初始 manifest
-        let initial_entries = HashMap::from([
-            ("Model1".to_string(), "model1.ts".to_string()),
-        ]);
+        let initial_entries = HashMap::from([("Model1".to_string(), "model1.ts".to_string())]);
         update_manifest(
             &manifest_path,
             "models".to_string(),
             initial_entries,
             "hash1",
             "1.0.0",
-        ).unwrap();
+        )
+        .unwrap();
 
         // 更新 manifest
-        let updated_entries = HashMap::from([
-            ("Model2".to_string(), "model2.ts".to_string()),
-        ]);
+        let updated_entries = HashMap::from([("Model2".to_string(), "model2.ts".to_string())]);
         let result = update_manifest(
             &manifest_path,
             "models".to_string(),
@@ -396,7 +391,8 @@ mod tests {
             entries,
             "original_hash",
             "1.0.0",
-        ).unwrap();
+        )
+        .unwrap();
 
         // 用空 hash 更新
         let entries = HashMap::new();
@@ -417,16 +413,14 @@ mod tests {
     #[test]
     fn update_manifest_creates_parent_directory() {
         let temp_dir = TempDir::new().unwrap();
-        let nested_path = temp_dir.path().join("nested").join("dir").join("manifest.json");
+        let nested_path = temp_dir
+            .path()
+            .join("nested")
+            .join("dir")
+            .join("manifest.json");
 
         let entries = HashMap::new();
-        let result = update_manifest(
-            &nested_path,
-            "models".to_string(),
-            entries,
-            "",
-            "",
-        );
+        let result = update_manifest(&nested_path, "models".to_string(), entries, "", "");
 
         assert!(result.is_ok());
         assert!(nested_path.exists());

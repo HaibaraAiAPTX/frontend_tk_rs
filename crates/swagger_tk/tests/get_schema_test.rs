@@ -1,6 +1,6 @@
+use std::str::FromStr;
 use swagger_tk::getter::get_schema_by_name;
 use swagger_tk::model::OpenAPIObject;
-use std::str::FromStr;
 
 /// Mock OpenAPI spec with Order schema for testing
 const MOCK_OPENAPI: &str = r###"

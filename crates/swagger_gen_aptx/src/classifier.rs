@@ -36,7 +36,9 @@ impl TransformPass for AptxQueryMutationPass {
         for endpoint in &mut input.endpoints {
             let is_query = classify_endpoint(endpoint);
             if is_query {
-                endpoint.meta.insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
+                endpoint
+                    .meta
+                    .insert(META_SUPPORTS_QUERY.to_string(), "true".to_string());
             }
         }
         Ok(())

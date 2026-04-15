@@ -8,13 +8,15 @@
 use std::path::Path;
 
 use clap::Parser;
-use swagger_gen::manifest::{ManifestTracker, generate_reports, update_manifest};
-use swagger_gen::pipeline::{CodegenPipeline, FileSystemWriter, update_barrel_with_parents};
+use swagger_gen::manifest::{generate_reports, update_manifest, ManifestTracker};
+use swagger_gen::pipeline::{update_barrel_with_parents, CodegenPipeline, FileSystemWriter};
 use swagger_gen_aptx::{
   AptxFunctionsRenderer, AptxMetaPass, AptxQueryMutationPass, AptxReactQueryRenderer,
   AptxVueQueryRenderer,
 };
 use swagger_tk::model::OpenAPIObject;
+
+use super::output_lock::lock_output_root;
 
 /// Common options for @aptx codegen commands
 #[derive(Debug, Clone, Parser)]
@@ -109,10 +111,7 @@ fn process_manifest_and_barrel(
 ) {
   let mut tracker = ManifestTracker::new(generator_id);
   for file in &execution_plan.planned_files {
-    let name = Path::new(&file.path)
-      .file_stem()
-      .and_then(|s| s.to_str())
-      .unwrap_or(&file.path);
+    let name = manifest_entry_name(&file.path);
     tracker.track(name, file.path.clone());
   }
 
@@ -125,13 +124,7 @@ fn process_manifest_and_barrel(
   }
 
   if !dry_run {
-    if let Err(e) = update_manifest(
-      &manifest_path,
-      generator_id.to_string(),
-      entries,
-      "",
-      "",
-    ) {
+    if let Err(e) = update_manifest(&manifest_path, generator_id.to_string(), entries, "", "") {
       eprintln!("Warning: Failed to update manifest: {}", e);
     }
   }
@@ -148,6 +141,14 @@ fn process_manifest_and_barrel(
   }
 }
 
+fn manifest_entry_name(path: &str) -> String {
+  let normalized = path.replace('\\', "/");
+  Path::new(&normalized)
+    .with_extension("")
+    .to_string_lossy()
+    .replace('\\', "/")
+}
+
 fn run_aptx_codegen(
   args: &[String],
   open_api: &OpenAPIObject,
@@ -162,6 +163,7 @@ fn run_aptx_codegen(
       AptxCodegenOps::try_parse_from(args).map_err(|e| format!("Invalid arguments: {e}"))?;
 
     let output = Path::new(&options.output);
+    let _output_lock = lock_output_root(output)?;
 
     let client_import = build_client_import_config(
       options.client_mode.as_deref(),
@@ -169,10 +171,8 @@ fn run_aptx_codegen(
       options.client_package.as_deref(),
       options.client_import_name.as_deref(),
     );
-    let model_import = build_model_import_config(
-      options.model_mode.as_deref(),
-      options.model_path.as_deref(),
-    );
+    let model_import =
+      build_model_import_config(options.model_mode.as_deref(), options.model_path.as_deref());
 
     let pipeline = CodegenPipeline::default()
       .with_transform(Box::new(AptxQueryMutationPass))
@@ -204,27 +204,42 @@ fn run_aptx_codegen(
 
 /// Run aptx:functions command
 pub fn run_aptx_functions(args: &[String], open_api: &OpenAPIObject) {
-  run_aptx_codegen(args, open_api, "aptx:functions", Box::new(AptxFunctionsRenderer));
+  run_aptx_codegen(
+    args,
+    open_api,
+    "aptx:functions",
+    Box::new(AptxFunctionsRenderer),
+  );
 }
 
 /// Run aptx:react-query command
 pub fn run_aptx_react_query(args: &[String], open_api: &OpenAPIObject) {
-  run_aptx_codegen(args, open_api, "aptx:react-query", Box::new(AptxReactQueryRenderer));
+  run_aptx_codegen(
+    args,
+    open_api,
+    "aptx:react-query",
+    Box::new(AptxReactQueryRenderer),
+  );
 }
 
 /// Run aptx:vue-query command
 pub fn run_aptx_vue_query(args: &[String], open_api: &OpenAPIObject) {
-  run_aptx_codegen(args, open_api, "aptx:vue-query", Box::new(AptxVueQueryRenderer));
+  run_aptx_codegen(
+    args,
+    open_api,
+    "aptx:vue-query",
+    Box::new(AptxVueQueryRenderer),
+  );
 }
 
 #[cfg(test)]
 mod tests {
-  use super::build_model_import_config;
+  use super::{build_model_import_config, manifest_entry_name};
 
   #[test]
   fn test_build_model_import_config_defaults_to_relative_when_only_model_path_is_provided() {
-    let config = build_model_import_config(None, Some("./src/api/models"))
-      .expect("default relative config");
+    let config =
+      build_model_import_config(None, Some("./src/api/models")).expect("default relative config");
 
     assert_eq!(config.import_type, "relative");
     assert_eq!(config.original_path.as_deref(), Some("./src/api/models"));
@@ -243,11 +258,23 @@ mod tests {
 
   #[test]
   fn test_build_model_import_config_package() {
-    let config = build_model_import_config(Some("package"), Some("@my-org/models"))
-      .expect("package config");
+    let config =
+      build_model_import_config(Some("package"), Some("@my-org/models")).expect("package config");
 
     assert_eq!(config.import_type, "package");
     assert_eq!(config.package_path.as_deref(), Some("@my-org/models"));
     assert_eq!(config.original_path.as_deref(), Some("@my-org/models"));
+  }
+
+  #[test]
+  fn test_manifest_entry_name_keeps_directory_context() {
+    assert_eq!(
+      manifest_entry_name("spec/action_authority/add.ts"),
+      "spec/action_authority/add"
+    );
+    assert_eq!(
+      manifest_entry_name("functions/action_authority/index.ts"),
+      "functions/action_authority/index"
+    );
   }
 }

@@ -32,10 +32,9 @@ pub fn run_cli(options: RunCliOptions) -> napi::Result<()> {
     } else {
       current_dir().unwrap().join(input_path)
     };
-    let text = std::fs::read_to_string(&abs_path)
-      .map_err(|err| Error::from_reason(err.to_string()))?;
-    OpenAPIObject::from_str(&text)
-      .map_err(|err| Error::from_reason(err.to_string()))?
+    let text =
+      std::fs::read_to_string(&abs_path).map_err(|err| Error::from_reason(err.to_string()))?;
+    OpenAPIObject::from_str(&text).map_err(|err| Error::from_reason(err.to_string()))?
   } else {
     // Create a minimal valid OpenAPIObject for commands that don't need it
     OpenAPIObject {
@@ -64,19 +63,19 @@ pub fn run_cli(options: RunCliOptions) -> napi::Result<()> {
 
 #[napi]
 pub fn get_ir(input_path: String) -> napi::Result<serde_json::Value> {
-    let path = Path::new(&input_path);
-    let abs_path = if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        current_dir().unwrap().join(input_path)
-    };
-    let text = std::fs::read_to_string(&abs_path)
-        .map_err(|err| Error::from_reason(format!("Failed to read OpenAPI file: {}", err)))?;
-    let open_api = OpenAPIObject::from_str(&text)
-        .map_err(|err| Error::from_reason(format!("OpenAPI parse error: {}", err)))?;
-    let json_str = swagger_gen::pipeline::build_ir_snapshot_json(&open_api)
-        .map_err(|err| Error::from_reason(err))?;
-    let value: serde_json::Value = serde_json::from_str(&json_str)
-        .map_err(|err| Error::from_reason(format!("JSON deserialization error: {}", err)))?;
-    Ok(value)
+  let path = Path::new(&input_path);
+  let abs_path = if path.is_absolute() {
+    path.to_path_buf()
+  } else {
+    current_dir().unwrap().join(input_path)
+  };
+  let text = std::fs::read_to_string(&abs_path)
+    .map_err(|err| Error::from_reason(format!("Failed to read OpenAPI file: {}", err)))?;
+  let open_api = OpenAPIObject::from_str(&text)
+    .map_err(|err| Error::from_reason(format!("OpenAPI parse error: {}", err)))?;
+  let json_str = swagger_gen::pipeline::build_ir_snapshot_json(&open_api)
+    .map_err(|err| Error::from_reason(err))?;
+  let value: serde_json::Value = serde_json::from_str(&json_str)
+    .map_err(|err| Error::from_reason(format!("JSON deserialization error: {}", err)))?;
+  Ok(value)
 }

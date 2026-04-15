@@ -6,6 +6,7 @@ pub mod model_enum_apply;
 pub mod model_enum_plan;
 pub mod model_gen;
 pub mod model_ir;
+pub mod output_lock;
 pub mod python_commands;
 
 /// 注册内置的命令

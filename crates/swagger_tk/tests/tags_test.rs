@@ -1,6 +1,6 @@
+use std::str::FromStr;
 use swagger_tk::getter::{get_tags_from_path_item, get_tags_from_paths};
 use swagger_tk::model::OpenAPIObject;
-use std::str::FromStr;
 
 /// Mock OpenAPI spec with pet path for testing
 const MOCK_OPENAPI: &str = r###"

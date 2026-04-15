@@ -1,0 +1,94 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "name-collision-codegen",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/AuthorityAPI/AccountCategory/Add": {
+      "post": {
+        "tags": ["account_category"],
+        "operationId": "PostMainAPIAccountCategoryAdd",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAccountCategoryRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AuthorityAPI/ActionAuthority/Add": {
+      "post": {
+        "tags": ["action_authority"],
+        "operationId": "PostMainAPIActionAuthorityAdd",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddActionAuthorityRequestModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuidResultModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddAccountCategoryRequestModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "AddActionAuthorityRequestModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "GuidResultModel": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  }
+}

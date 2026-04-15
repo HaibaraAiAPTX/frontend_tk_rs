@@ -1,8 +1,6 @@
 //! ModelType -> Python type string mapping and import collection.
 
-use swagger_gen::model_pipeline::{
-    ModelLiteral, ModelType, NumberFormat, NumberSpec, ScalarType,
-};
+use swagger_gen::model_pipeline::{ModelLiteral, ModelType, NumberFormat, NumberSpec, ScalarType};
 
 /// Render a ModelType to a Python type string.
 pub fn render_python_type(model_type: &ModelType) -> String {
@@ -91,8 +89,10 @@ fn collect_imports_recursive(model_type: &ModelType, imports: &mut Vec<String>) 
         }
         ModelType::Literal { value } => {
             collect_imports_for_literal(model_type, imports);
-            if matches!(value, ModelLiteral::String { .. } | ModelLiteral::Integer { .. })
-                && !imports.contains(&"from typing import Literal".to_string())
+            if matches!(
+                value,
+                ModelLiteral::String { .. } | ModelLiteral::Integer { .. }
+            ) && !imports.contains(&"from typing import Literal".to_string())
             {
                 imports.push("from typing import Literal".to_string());
             }
@@ -115,10 +115,11 @@ fn collect_imports_for_scalar(scalar: &ScalarType, imports: &mut Vec<String>) {
 
 fn collect_imports_for_literal(model_type: &ModelType, imports: &mut Vec<String>) {
     if let ModelType::Literal {
-        value: ModelLiteral::Number {
-            format: NumberFormat::Decimal,
-            ..
-        },
+        value:
+            ModelLiteral::Number {
+                format: NumberFormat::Decimal,
+                ..
+            },
     } = model_type
     {
         if !imports.contains(&"from decimal import Decimal".to_string()) {
@@ -167,11 +168,9 @@ mod tests {
     #[test]
     fn test_scalar_number_float_type() {
         assert_eq!(
-            render_python_type(&ModelType::Scalar(ScalarType::Number(
-                NumberSpec {
-                    format: NumberFormat::Float,
-                },
-            ))),
+            render_python_type(&ModelType::Scalar(ScalarType::Number(NumberSpec {
+                format: NumberFormat::Float,
+            },))),
             "float"
         );
     }
@@ -179,11 +178,9 @@ mod tests {
     #[test]
     fn test_scalar_number_decimal_type() {
         assert_eq!(
-            render_python_type(&ModelType::Scalar(ScalarType::Number(
-                NumberSpec {
-                    format: NumberFormat::Decimal,
-                },
-            ))),
+            render_python_type(&ModelType::Scalar(ScalarType::Number(NumberSpec {
+                format: NumberFormat::Decimal,
+            },))),
             "Decimal"
         );
     }
@@ -222,10 +219,7 @@ mod tests {
     fn test_union_type() {
         assert_eq!(
             render_python_type(&ModelType::Union {
-                variants: vec![
-                    ModelType::String,
-                    ModelType::Number,
-                ]
+                variants: vec![ModelType::String, ModelType::Number,]
             }),
             "str | float"
         );
@@ -312,11 +306,9 @@ mod tests {
 
     #[test]
     fn test_imports_decimal_scalar() {
-        let imports = collect_python_imports(&ModelType::Scalar(ScalarType::Number(
-            NumberSpec {
-                format: NumberFormat::Decimal,
-            },
-        )));
+        let imports = collect_python_imports(&ModelType::Scalar(ScalarType::Number(NumberSpec {
+            format: NumberFormat::Decimal,
+        })));
         assert!(imports.contains(&"from decimal import Decimal".to_string()));
     }
 

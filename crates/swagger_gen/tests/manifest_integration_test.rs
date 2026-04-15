@@ -3,11 +3,9 @@
 //! These tests verify the complete workflow of the manifest tracking system,
 //! including tracker, reporter, and barrel file updates.
 
-use swagger_gen::manifest::{
-    generate_reports, update_manifest, Manifest, ManifestTracker,
-};
-use swagger_gen::pipeline::{force_update_barrel, update_barrel_with_parents};
 use std::fs;
+use swagger_gen::manifest::{Manifest, ManifestTracker, generate_reports, update_manifest};
+use swagger_gen::pipeline::{force_update_barrel, update_barrel_with_parents};
 use tempfile::TempDir;
 
 // ==================== Complete Workflow Tests ====================
@@ -63,14 +61,7 @@ fn manifest_persists_across_runs() {
     let diff1 = tracker1.finish(&manifest_path);
     assert_eq!(diff1.added.len(), 2); // Both should be new
 
-    update_manifest(
-        &manifest_path,
-        "models".to_string(),
-        entries1,
-        "",
-        "",
-    )
-    .unwrap();
+    update_manifest(&manifest_path, "models".to_string(), entries1, "", "").unwrap();
 
     // Second run: Load existing manifest and verify persistence
     let mut tracker2 = ManifestTracker::new("models");
@@ -85,14 +76,7 @@ fn manifest_persists_across_runs() {
     assert_eq!(diff2.unchanged.len(), 2); // User and Post are unchanged
     assert_eq!(diff2.deleted.len(), 0);
 
-    update_manifest(
-        &manifest_path,
-        "models".to_string(),
-        entries2,
-        "",
-        "",
-    )
-    .unwrap();
+    update_manifest(&manifest_path, "models".to_string(), entries2, "", "").unwrap();
 
     // Verify manifest contains all three entries
     let manifest = Manifest::load(&manifest_path).unwrap();
@@ -110,14 +94,7 @@ fn multiple_generators_coexist() {
     models_tracker.track("User", "User.ts");
     let models_entries = models_tracker.entries().clone();
     models_tracker.finish(&manifest_path);
-    update_manifest(
-        &manifest_path,
-        "models".to_string(),
-        models_entries,
-        "",
-        "",
-    )
-    .unwrap();
+    update_manifest(&manifest_path, "models".to_string(), models_entries, "", "").unwrap();
 
     // Run functions generator
     let mut functions_tracker = ManifestTracker::new("functions");

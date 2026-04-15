@@ -143,8 +143,12 @@ pub enum ModelType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ModelLiteral {
-    String { value: String },
-    Integer { value: String },
+    String {
+        value: String,
+    },
+    Integer {
+        value: String,
+    },
     Number {
         value: String,
         #[serde(default)]

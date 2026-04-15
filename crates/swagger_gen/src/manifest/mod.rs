@@ -1,7 +1,7 @@
+mod reporter;
 mod schema;
 mod tracker;
-mod reporter;
 
+pub use reporter::*;
 pub use schema::*;
 pub use tracker::*;
-pub use reporter::*;

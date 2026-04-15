@@ -7,10 +7,10 @@ use std::{
 };
 
 use swagger_gen::model_pipeline::{
-    build_model_enum_plan_json, build_model_enum_plan_json_with_existing, build_model_ir_snapshot_json,
-    generate_model_files, generate_model_files_with_enum_patch, generate_model_files_with_existing,
-    parse_openapi_to_model_ir, EnumConflictPolicy, EnumPatch, EnumPatchMember, ExistingEnumMember,
-    ModelRenderStyle,
+    EnumConflictPolicy, EnumPatch, EnumPatchMember, ExistingEnumMember, ModelRenderStyle,
+    build_model_enum_plan_json, build_model_enum_plan_json_with_existing,
+    build_model_ir_snapshot_json, generate_model_files, generate_model_files_with_enum_patch,
+    generate_model_files_with_existing, parse_openapi_to_model_ir,
 };
 use swagger_tk::model::OpenAPIObject;
 

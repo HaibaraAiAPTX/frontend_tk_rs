@@ -40,10 +40,9 @@ impl Manifest {
         if !path.exists() {
             return Err("Manifest file not found".to_string());
         }
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read manifest: {}", e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse manifest: {}", e))
+        let content =
+            std::fs::read_to_string(path).map_err(|e| format!("Failed to read manifest: {}", e))?;
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse manifest: {}", e))
     }
 
     /// 保存到文件
@@ -54,8 +53,7 @@ impl Manifest {
         }
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize manifest: {}", e))?;
-        std::fs::write(path, content)
-            .map_err(|e| format!("Failed to write manifest: {}", e))
+        std::fs::write(path, content).map_err(|e| format!("Failed to write manifest: {}", e))
     }
 
     /// 获取指定生成器的条目
@@ -136,7 +134,11 @@ mod tests {
     #[test]
     fn manifest_save_creates_file() {
         let temp_dir = TempDir::new().unwrap();
-        let nested_path = temp_dir.path().join("nested").join("dir").join("manifest.json");
+        let nested_path = temp_dir
+            .path()
+            .join("nested")
+            .join("dir")
+            .join("manifest.json");
 
         let manifest = Manifest::default();
         let result = manifest.save(&nested_path);
@@ -240,9 +242,7 @@ mod tests {
     #[test]
     fn manifest_update_generator_inserts_new() {
         let mut manifest = Manifest::default();
-        let entries = HashMap::from([
-            ("Model1".to_string(), "model1.ts".to_string()),
-        ]);
+        let entries = HashMap::from([("Model1".to_string(), "model1.ts".to_string())]);
 
         manifest.update_generator("models".to_string(), entries);
 
@@ -254,14 +254,10 @@ mod tests {
     fn manifest_update_generator_replaces_existing() {
         let mut manifest = Manifest::default();
 
-        let entries1 = HashMap::from([
-            ("Model1".to_string(), "model1.ts".to_string()),
-        ]);
+        let entries1 = HashMap::from([("Model1".to_string(), "model1.ts".to_string())]);
         manifest.update_generator("models".to_string(), entries1);
 
-        let entries2 = HashMap::from([
-            ("Model2".to_string(), "model2.ts".to_string()),
-        ]);
+        let entries2 = HashMap::from([("Model2".to_string(), "model2.ts".to_string())]);
         manifest.update_generator("models".to_string(), entries2);
 
         assert_eq!(manifest.generators.len(), 1);

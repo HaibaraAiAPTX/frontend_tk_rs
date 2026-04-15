@@ -1,5 +1,5 @@
-use swagger_tk::model::OpenAPIObject;
 use std::str::FromStr;
+use swagger_tk::model::OpenAPIObject;
 
 /// Mock OpenAPI spec for model parsing test
 const MOCK_OPENAPI: &str = r###"
