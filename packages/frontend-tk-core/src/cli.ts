@@ -1,6 +1,7 @@
 import { Command, Option } from 'commander';
 import * as path from 'path';
 import * as url from 'url';
+import { readFileSync } from 'node:fs';
 import * as binding from '@aptx-js/frontend-tk-binding';
 import type {
   Plugin,
@@ -9,6 +10,22 @@ import type {
   RendererDescriptor,
 } from './types';
 import type { GeneratorInput } from './types';
+
+/**
+ * Read the CLI version from this package's own package.json.
+ *
+ * 不要在这里写死版本号：写死会让 `--version` 永远报旧版本，
+ * 与 npm 上的实际版本脱节，且每次发版都会漏改。
+ */
+function readPackageVersion(): string {
+  try {
+    // dist/cli.js -> ../package.json
+    const pkgPath = path.join(__dirname, '..', 'package.json');
+    return (JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string }).version;
+  } catch {
+    return '0.0.0';
+  }
+}
 
 /**
  * Core CLI interface
@@ -94,7 +111,7 @@ class CliImpl implements Cli {
     this.state.program
       .name('aptx-ft')
       .description('Frontend toolkit CLI for OpenAPI code generation.')
-      .version('0.1.0')
+      .version(readPackageVersion())
       .exitOverride()
       .allowUnknownOption(true)
       .addOption(new Option('-i, --input <path>', 'Override input OpenAPI path/url'))
