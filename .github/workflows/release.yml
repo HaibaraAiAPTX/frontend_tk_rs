@@ -70,6 +70,11 @@ jobs:
           echo "value=${tag}" >> "$GITHUB_OUTPUT"
           echo "release tag: ${tag}"
 
+      # 手动重跑时初始 checkout 落在默认分支上，必须切到 tag，
+      # 否则后续闸门和发布会用到分支内容而不是已打 tag 的内容。
+      - name: Checkout release tag
+        run: git checkout --force "${{ steps.tag.outputs.value }}"
+
       # 闸门 1：tag 与所有 package.json 版本一致
       - name: Verify tag matches package versions
         run: node scripts/verify-version.mjs "${{ steps.tag.outputs.value }}"
@@ -123,6 +128,8 @@ jobs:
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.release_tag }}
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -184,6 +191,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.release_tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -212,18 +221,28 @@ jobs:
 
       # 把 9 个平台的 .node 收进 npm/<target>/ 与根目录。
       # 必须在闸门之前：闸门读的就是它写出来的布局。
+      #
+      # 注意：`napi artifacts --output-dir` 只接受相对路径，传绝对路径会被
+      # 拼到 cwd 下，报 ENOENT: .../crates/node_binding/tmp/napi-artifacts。
+      # 这里用 ../../.napi-artifacts 指向仓库根，避免产物落进包目录被一起打包。
       - name: Collect artifacts into npm packages
         working-directory: crates/node_binding
         run: |
           set -euo pipefail
-          mkdir -p /tmp/napi-artifacts
+          rm -rf ../../.napi-artifacts
+          mkdir -p ../../.napi-artifacts
           for dir in ../../artifacts/bindings-*; do
             [ -d "$dir" ] || continue
-            cp "$dir"/*.node /tmp/napi-artifacts/ 2>/dev/null || true
+            cp "$dir"/*.node ../../.napi-artifacts/ 2>/dev/null || true
           done
           echo "collected:"
-          ls -la /tmp/napi-artifacts/
-          npx napi artifacts --output-dir /tmp/napi-artifacts
+          ls -la ../../.napi-artifacts/
+          count=$(ls ../../.napi-artifacts/*.node 2>/dev/null | wc -l)
+          if [ "${count}" -ne 9 ]; then
+            echo "ERROR: 期望收集到 9 个 .node，实际 ${count} 个"
+            exit 1
+          fi
+          npx napi artifacts --output-dir ../../.napi-artifacts
 
       # 把 9 个平台包的 version 同步到根包版本。
       # `napi prepublish` 内部也会做这一步，但闸门在它之前跑，必须先同步，
@@ -285,13 +304,17 @@ jobs:
 
   publish-packages:
     name: Publish TS packages
-    needs: publish-bindings
+    # 直接依赖 preflight：needs 上下文只包含直接依赖，
+    # 少了它就拿不到 release_tag 用来 checkout。
+    needs: [preflight, publish-bindings]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.release_tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -363,6 +386,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.release_tag }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
