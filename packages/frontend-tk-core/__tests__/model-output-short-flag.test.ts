@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@aptx/frontend-tk-binding', () => ({
+vi.mock('@aptx-js/frontend-tk-binding', () => ({
   runCli: vi.fn(),
   getIr: vi.fn(),
 }));
 
-import * as binding from '@aptx/frontend-tk-binding';
+import * as binding from '@aptx-js/frontend-tk-binding';
 import { createCli } from '../src/cli';
 import modelPlugin from '../../frontend-tk-plugin-model/src/index';
 

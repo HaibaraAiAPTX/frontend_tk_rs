@@ -1,5 +1,5 @@
 /**
- * @aptx/frontend-tk-plugin-aptx
+ * @aptx-js/frontend-tk-plugin-aptx
  *
  * Aptx namespace commands for the frontend toolkit CLI.
  * Provides commands like aptx:functions, aptx:react-query, aptx:vue-query, barrel:gen.
@@ -8,7 +8,7 @@
 import type {
   Plugin,
   RendererDescriptor,
-} from '@aptx/frontend-tk-core';
+} from '@aptx-js/frontend-tk-core';
 import { barrelCommand } from './barrel';
 import { functionsCommand } from './functions';
 import { reactQueryCommand } from './react-query';
@@ -19,7 +19,7 @@ import { vueQueryCommand } from './vue-query';
  */
 const aptxPlugin: Plugin = {
   descriptor: {
-    name: '@aptx/frontend-tk-plugin-aptx',
+    name: '@aptx-js/frontend-tk-plugin-aptx',
     version: '0.1.0',
     namespaceDescription: '@aptx ecosystem (functions, react-query, vue-query)',
   },

@@ -1,6 +1,6 @@
-//! Functions renderer for @aptx/api-client
+//! Functions renderer for @aptx-js/api-client
 //!
-//! Generates TypeScript function calls that use @aptx/api-client for API execution.
+//! Generates TypeScript function calls that use @aptx-js/api-client for API execution.
 
 use crate::META_SKIP_AUTH_REFRESH;
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 
 use swagger_gen::pipeline::{EndpointItem, GeneratorInput, PlannedFile, RenderOutput, Renderer};
 
-/// Functions renderer for @aptx/api-client
+/// Functions renderer for @aptx-js/api-client
 ///
 /// Generates:
 /// - Spec files in `spec/{namespace}/{operation}.ts`
@@ -157,11 +157,11 @@ fn render_spec_file(
     // Add RequestSpec import (and SKIP_AUTH_REFRESH_META_KEY if needed)
     if has_skip_auth_refresh {
         imports.push(
-            "import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx/api-plugin-auth\";".to_string(),
+            "import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx-js/api-plugin-auth\";".to_string(),
         );
-        imports.push("import type { RequestSpec } from \"@aptx/api-client\";".to_string());
+        imports.push("import type { RequestSpec } from \"@aptx-js/api-client\";".to_string());
     } else {
-        imports.push("import type { RequestSpec } from \"@aptx/api-client\";".to_string());
+        imports.push("import type { RequestSpec } from \"@aptx-js/api-client\";".to_string());
     }
 
     let prefix = if imports.is_empty() {
@@ -429,7 +429,7 @@ mod tests {
         // Should import SKIP_AUTH_REFRESH_META_KEY
         assert!(
             content
-                .contains("import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx/api-plugin-auth\";")
+                .contains("import { SKIP_AUTH_REFRESH_META_KEY } from \"@aptx-js/api-plugin-auth\";")
         );
 
         // Should include meta field with computed key

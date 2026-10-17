@@ -1,5 +1,5 @@
 {
-  "name": "@aptx/frontend-tk-plugin-python",
+  "name": "@aptx-js/frontend-tk-plugin-python",
   "version": "0.1.20",
   "description": "Python codegen commands for frontend toolkit CLI",
   "keywords": [
@@ -23,8 +23,8 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@aptx/frontend-tk-core": "workspace:*",
-    "@aptx/frontend-tk-binding": "workspace:*"
+    "@aptx-js/frontend-tk-core": "workspace:*",
+    "@aptx-js/frontend-tk-binding": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

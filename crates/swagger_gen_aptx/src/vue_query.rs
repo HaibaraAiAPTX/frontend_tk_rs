@@ -1,12 +1,12 @@
-//! Vue Query renderer for @aptx/vue-query
+//! Vue Query renderer for @aptx-js/vue-query
 //!
-//! Generates Vue Query composables using @aptx/vue-query package.
+//! Generates Vue Query composables using @aptx-js/vue-query package.
 
 use crate::query_base;
 
 use swagger_gen::pipeline::{GeneratorInput, RenderOutput, Renderer};
 
-/// Vue Query renderer for @aptx/vue-query
+/// Vue Query renderer for @aptx-js/vue-query
 ///
 /// Generates:
 /// - Query files in `vue-query/{namespace}/{operation}.query.ts`

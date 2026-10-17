@@ -1,5 +1,5 @@
 /**
- * @aptx/frontend-tk-core
+ * @aptx-js/frontend-tk-core
  *
  * Core infrastructure for the frontend toolkit CLI plugin system.
  * Provides plugin loading, command registration, and routing infrastructure.

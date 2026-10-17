@@ -1,5 +1,5 @@
 {
-  "name": "@aptx/frontend-tk-core",
+  "name": "@aptx-js/frontend-tk-core",
   "version": "0.1.20",
   "description": "Core infrastructure for frontend toolkit CLI plugin system",
   "keywords": [
@@ -22,7 +22,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@aptx/frontend-tk-binding": "workspace:*",
+    "@aptx-js/frontend-tk-binding": "workspace:*",
     "commander": "^13.1.0"
   },
   "devDependencies": {

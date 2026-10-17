@@ -17,7 +17,7 @@ export interface PluginDescriptor {
  */
 export interface PluginContext {
   /** Access to the native Rust binding */
-  binding: typeof import('@aptx/frontend-tk-binding');
+  binding: typeof import('@aptx-js/frontend-tk-binding');
   /** Logging function for output */
   log: (msg: string) => void;
   getIr(inputPath: string): GeneratorInput;

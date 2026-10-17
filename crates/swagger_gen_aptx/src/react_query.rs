@@ -1,12 +1,12 @@
-//! React Query renderer for @aptx/react-query
+//! React Query renderer for @aptx-js/react-query
 //!
-//! Generates React Query hooks using @aptx/react-query package.
+//! Generates React Query hooks using @aptx-js/react-query package.
 
 use crate::query_base;
 
 use swagger_gen::pipeline::{GeneratorInput, RenderOutput, Renderer};
 
-/// React Query renderer for @aptx/react-query
+/// React Query renderer for @aptx-js/react-query
 ///
 /// Generates:
 /// - Query files in `react-query/{namespace}/{operation}.query.ts`

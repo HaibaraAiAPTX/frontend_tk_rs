@@ -194,21 +194,21 @@ pub fn should_use_package_import(model_import: &Option<ModelImportConfig>) -> bo
 /// Generates client import statements based on configuration.
 ///
 /// # Modes
-/// - `global`: Import from @aptx/api-client (default)
+/// - `global`: Import from @aptx-js/api-client (default)
 /// - `local`: Import from a local client path
 /// - `package`: Import from a custom package
 pub fn get_client_import_lines(client_import: &Option<ClientImportConfig>) -> String {
     match client_import {
         None => {
             // Default: global mode
-            "import type { PerCallOptions } from \"@aptx/api-client\";\nimport { getApiClient } from \"@aptx/api-client\";".to_string()
+            "import type { PerCallOptions } from \"@aptx-js/api-client\";\nimport { getApiClient } from \"@aptx-js/api-client\";".to_string()
         }
         Some(config) => {
             let import_name = config.import_name.as_deref().unwrap_or("getApiClient");
             match config.mode.as_str() {
                 "global" => {
                     format!(
-                        "import type {{ PerCallOptions }} from \"@aptx/api-client\";\nimport {{ {} }} from \"@aptx/api-client\";",
+                        "import type {{ PerCallOptions }} from \"@aptx-js/api-client\";\nimport {{ {} }} from \"@aptx-js/api-client\";",
                         import_name
                     )
                 }
@@ -231,7 +231,7 @@ pub fn get_client_import_lines(client_import: &Option<ClientImportConfig>) -> St
                 }
                 _ => {
                     // Fallback to global
-                    "import type { PerCallOptions } from \"@aptx/api-client\";\nimport { getApiClient } from \"@aptx/api-client\";".to_string()
+                    "import type { PerCallOptions } from \"@aptx-js/api-client\";\nimport { getApiClient } from \"@aptx-js/api-client\";".to_string()
                 }
             }
         }
@@ -371,7 +371,7 @@ mod tests {
     #[test]
     fn test_get_client_import_lines_default() {
         let result = get_client_import_lines(&None);
-        assert!(result.contains("@aptx/api-client"));
+        assert!(result.contains("@aptx-js/api-client"));
         assert!(result.contains("getApiClient"));
     }
 

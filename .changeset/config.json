@@ -2,10 +2,21 @@
   "$schema": "https://unpkg.com/@changesets/config@3.1.2/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@aptx-js/frontend-tk-cli",
+      "@aptx-js/frontend-tk-core",
+      "@aptx-js/frontend-tk-plugin-aptx",
+      "@aptx-js/frontend-tk-plugin-input",
+      "@aptx-js/frontend-tk-plugin-materal",
+      "@aptx-js/frontend-tk-plugin-model",
+      "@aptx-js/frontend-tk-plugin-python",
+      "@aptx-js/frontend-tk-binding"
+    ]
+  ],
   "linked": [],
-  "access": "restricted",
-  "baseBranch": "main",
+  "access": "public",
+  "baseBranch": "master",
   "updateInternalDependencies": "patch",
   "ignore": []
 }

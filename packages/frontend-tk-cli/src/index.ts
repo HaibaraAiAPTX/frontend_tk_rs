@@ -1,16 +1,16 @@
 /**
- * @aptx/frontend-tk-cli
+ * @aptx-js/frontend-tk-cli
  *
  * Frontend toolkit CLI entry point.
  * This file assembles the core infrastructure with built-in plugins.
  */
 
-import { createCli } from "@aptx/frontend-tk-core";
-import aptxPlugin from "@aptx/frontend-tk-plugin-aptx";
-import modelPlugin from "@aptx/frontend-tk-plugin-model";
-import materalPlugin from "@aptx/frontend-tk-plugin-materal";
-import inputPlugin from "@aptx/frontend-tk-plugin-input";
-import pythonPlugin from "@aptx/frontend-tk-plugin-python";
+import { createCli } from "@aptx-js/frontend-tk-core";
+import aptxPlugin from "@aptx-js/frontend-tk-plugin-aptx";
+import modelPlugin from "@aptx-js/frontend-tk-plugin-model";
+import materalPlugin from "@aptx-js/frontend-tk-plugin-materal";
+import inputPlugin from "@aptx-js/frontend-tk-plugin-input";
+import pythonPlugin from "@aptx-js/frontend-tk-plugin-python";
 
 // Create CLI instance
 const cli = createCli();

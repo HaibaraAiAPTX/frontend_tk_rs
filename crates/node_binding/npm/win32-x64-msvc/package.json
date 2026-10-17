@@ -1,5 +1,5 @@
 {
-  "name": "@aptx/frontend-tk-binding-win32-x64-msvc",
+  "name": "@aptx-js/frontend-tk-binding-win32-x64-msvc",
   "version": "0.1.20",
   "os": [
     "win32"

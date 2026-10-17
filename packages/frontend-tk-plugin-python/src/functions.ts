@@ -1,4 +1,4 @@
-import { CommandDescriptor, PluginContext } from '@aptx/frontend-tk-core';
+import { CommandDescriptor, PluginContext } from '@aptx-js/frontend-tk-core';
 
 /**
  * python:functions command - Generate Python functions module code

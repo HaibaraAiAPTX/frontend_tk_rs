@@ -1,7 +1,7 @@
 import { Command, Option } from 'commander';
 import * as path from 'path';
 import * as url from 'url';
-import * as binding from '@aptx/frontend-tk-binding';
+import * as binding from '@aptx-js/frontend-tk-binding';
 import type {
   Plugin,
   PluginContext,

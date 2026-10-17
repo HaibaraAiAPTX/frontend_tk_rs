@@ -17,7 +17,10 @@ build/
 coverage/
 .npm/
 .yarn/
+# 忽略所有 .npmrc（可能含 token），但根目录的 .npmrc 只声明 registry、
+# 不含凭据，必须入库——否则 CI 里依赖解析的 registry 配置不一致。
 .npmrc
+!/.npmrc
 
 # Universal
 .DS_Store

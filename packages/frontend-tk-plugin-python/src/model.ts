@@ -1,4 +1,4 @@
-import { CommandDescriptor, PluginContext } from '@aptx/frontend-tk-core';
+import { CommandDescriptor, PluginContext } from '@aptx-js/frontend-tk-core';
 
 /**
  * python:model command - Generate Python Pydantic models from OpenAPI specification

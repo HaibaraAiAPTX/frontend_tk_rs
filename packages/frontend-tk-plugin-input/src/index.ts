@@ -4,14 +4,14 @@ import type {
   CommandDescriptor,
   CommandHandler,
   OptionDescriptor,
-} from "@aptx/frontend-tk-core";
+} from "@aptx-js/frontend-tk-core";
 import { runInputDownload } from "./download";
 
 /**
  * Plugin descriptor
  */
 const descriptor: PluginDescriptor = {
-  name: "@aptx/frontend-tk-plugin-input",
+  name: "@aptx-js/frontend-tk-plugin-input",
   version: "0.1.0",
   namespaceDescription: "Input handling (download)",
 };

@@ -38,7 +38,7 @@ flowchart TB
 职责：
 - 命令解析与参数透传
 - URL 输入下载（`input download`）
-- 调用 `@aptx/frontend-tk-binding`
+- 调用 `@aptx-js/frontend-tk-binding`
 
 当前入口：
 - `packages/frontend-tk-cli/bin/aptx.js`

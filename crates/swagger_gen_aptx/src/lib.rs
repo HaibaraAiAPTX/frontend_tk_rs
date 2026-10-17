@@ -1,9 +1,9 @@
 //! @aptx specific renderers for swagger_gen
 //!
 //! This crate provides code generation renderers that integrate with @aptx packages:
-//! - `AptxFunctionsRenderer`: Generates function-style API calls using @aptx/api-client
-//! - `AptxReactQueryRenderer`: Generates React Query hooks using @aptx/react-query
-//! - `AptxVueQueryRenderer`: Generates Vue Query composables using @aptx/vue-query
+//! - `AptxFunctionsRenderer`: Generates function-style API calls using @aptx-js/api-client
+//! - `AptxReactQueryRenderer`: Generates React Query hooks using @aptx-js/react-query
+//! - `AptxVueQueryRenderer`: Generates Vue Query composables using @aptx-js/vue-query
 //! - `AptxQueryMutationPass`: Custom query/mutation classification for @aptx APIs
 //! - `AptxMetaPass`: Meta field configuration (e.g., skipAuthRefresh for refresh token endpoints)
 

@@ -11,7 +11,7 @@
 安装：
 
 ```bash
-pnpm add -D @aptx/frontend-tk-cli
+pnpm add -D @aptx-js/frontend-tk-cli
 ```
 
 下载 OpenAPI（可选）：

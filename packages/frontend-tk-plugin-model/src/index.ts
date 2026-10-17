@@ -1,5 +1,5 @@
 /**
- * @aptx/frontend-tk-plugin-model
+ * @aptx-js/frontend-tk-plugin-model
  *
  * Model generation commands for the frontend toolkit CLI.
  * Provides commands like model:gen, model:ir, model:enum-plan, model:enum-apply.
@@ -10,7 +10,7 @@ import type {
   PluginContext,
   CommandDescriptor,
   OptionDescriptor,
-} from '@aptx/frontend-tk-core';
+} from '@aptx-js/frontend-tk-core';
 
 /**
  * Common model command options
@@ -226,7 +226,7 @@ function createModelCommands(): CommandDescriptor[] {
  */
 const modelPlugin: Plugin = {
   descriptor: {
-    name: '@aptx/frontend-tk-plugin-model',
+    name: '@aptx-js/frontend-tk-plugin-model',
     version: '0.1.0',
     namespaceDescription: 'Model generation',
   },

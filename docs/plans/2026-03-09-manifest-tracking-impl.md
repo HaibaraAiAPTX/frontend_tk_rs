@@ -888,7 +888,7 @@ git commit -m "feat(terminal): integrate manifest tracking into terminal:codegen
 
 **Step 2: 验证 TypeScript 编译**
 
-Run: `cd f:/Project/aptx-root/frontend_tk_rs && pnpm -F @aptx/frontend-tk-plugin-model build`
+Run: `cd f:/Project/aptx-root/frontend_tk_rs && pnpm -F @aptx-js/frontend-tk-plugin-model build`
 Expected: 编译成功
 
 **Step 3: Commit**
@@ -952,7 +952,7 @@ if (args.dryRun) options.push('--dry-run');
 
 **Step 3: 验证 TypeScript 编译**
 
-Run: `cd f:/Project/aptx-root/frontend_tk_rs && pnpm -F @aptx/frontend-tk-plugin-aptx build`
+Run: `cd f:/Project/aptx-root/frontend_tk_rs && pnpm -F @aptx-js/frontend-tk-plugin-aptx build`
 Expected: 编译成功
 
 **Step 4: Commit**

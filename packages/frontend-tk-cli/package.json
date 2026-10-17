@@ -1,5 +1,5 @@
 {
-  "name": "@aptx/frontend-tk-cli",
+  "name": "@aptx-js/frontend-tk-cli",
   "version": "0.1.20",
   "description": "Frontend toolkit CLI - assembles core with built-in plugins",
   "keywords": [
@@ -24,13 +24,13 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@aptx/frontend-tk-core": "workspace:*",
-    "@aptx/frontend-tk-plugin-aptx": "workspace:*",
-    "@aptx/frontend-tk-plugin-model": "workspace:*",
-    "@aptx/frontend-tk-plugin-materal": "workspace:*",
-    "@aptx/frontend-tk-plugin-input": "workspace:*",
-    "@aptx/frontend-tk-plugin-python": "workspace:*",
-    "@aptx/frontend-tk-binding": "workspace:*",
+    "@aptx-js/frontend-tk-core": "workspace:*",
+    "@aptx-js/frontend-tk-plugin-aptx": "workspace:*",
+    "@aptx-js/frontend-tk-plugin-model": "workspace:*",
+    "@aptx-js/frontend-tk-plugin-materal": "workspace:*",
+    "@aptx-js/frontend-tk-plugin-input": "workspace:*",
+    "@aptx-js/frontend-tk-plugin-python": "workspace:*",
+    "@aptx-js/frontend-tk-binding": "workspace:*",
     "chalk": "^5.4.1",
     "commander": "^13.1.0"
   },

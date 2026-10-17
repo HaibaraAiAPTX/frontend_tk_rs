@@ -349,7 +349,7 @@ In the `PluginContext` interface, add after `log`:
 The updated `PluginContext`:
 ```typescript
 export interface PluginContext {
-  binding: typeof import('@aptx/frontend-tk-binding');
+  binding: typeof import('@aptx-js/frontend-tk-binding');
   log: (msg: string) => void;
   getIr(inputPath: string): GeneratorInput;
 }
@@ -548,7 +548,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PluginContext } from '../src/types';
 
 // Mock the binding module
-vi.mock('@aptx/frontend-tk-binding', () => ({
+vi.mock('@aptx-js/frontend-tk-binding', () => ({
   getIr: vi.fn(),
   runCli: vi.fn(),
 }));
@@ -557,7 +557,7 @@ describe('PluginContext.getIr', () => {
   let ctx: PluginContext;
 
   beforeEach(() => {
-    const binding = vi.importMock('@aptx/frontend-tk-binding') as any;
+    const binding = vi.importMock('@aptx-js/frontend-tk-binding') as any;
     ctx = {
       binding,
       log: vi.fn(),

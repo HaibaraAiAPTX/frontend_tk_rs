@@ -9,6 +9,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # 全部包发布到公共 npmjs。@aptx-js 是免费组织计划下的 scoped public 包。
+  NPM_REGISTRY: https://registry.npmjs.org/
+
 jobs:
   publish:
     name: Publish TypeScript Packages
@@ -29,123 +33,57 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Configure npm registry
+      - name: Configure npm auth
         run: |
-          echo "strict-ssl=false" >> ~/.npmrc
-          echo "//winserver.devserver.ink:14873/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
         env:
-          NPM_TOKEN: ${{ secrets.WINSERVER_NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Build and publish TypeScript packages
-      - name: Install root dependencies
-        run: pnpm install --no-frozen-lockfile
+      # 平台包 @aptx-js/frontend-tk-binding-* 由 release.yml 在同一个 tag 上发布。
+      # 它必须在任何依赖 binding 的包之前完成，否则会发出指向不存在版本的包。
+      - name: Wait for platform bindings
+        run: |
+          set -uo pipefail
+          version=$(node -p "require('./crates/node_binding/package.json').version")
+          echo "==> Waiting for @aptx-js/frontend-tk-binding@${version}"
+          for i in $(seq 1 60); do
+            if pnpm view "@aptx-js/frontend-tk-binding@${version}" version --registry="${NPM_REGISTRY}" >/dev/null 2>&1; then
+              echo "OK: binding ${version} is published"
+              exit 0
+            fi
+            echo "  attempt ${i}/60: not yet, retrying in 20s"
+            sleep 20
+          done
+          echo "ERROR: @aptx-js/frontend-tk-binding@${version} was not published within 20 minutes."
+          echo "The binding is published by release.yml. Check that its build matrix succeeded."
+          exit 1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build TypeScript packages
         run: pnpm -r --filter './packages/*' run build
 
-      - name: Publish @aptx/frontend-tk-core
-        working-directory: packages/frontend-tk-core
+      - name: Publish workspace packages
         shell: bash
         run: |
           set -uo pipefail
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          echo "==> Publishing ${name}@${version}"
-          if pnpm view "${name}@${version}" --registry=https://winserver.devserver.ink:14873/ version >/dev/null 2>&1; then
-            echo "SKIP: already exists: ${name}@${version}"
-          else
-            pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
-            echo "PUBLISHED: ${name}@${version}"
-          fi
-
-      - name: Publish @aptx/frontend-tk-plugin-aptx
-        working-directory: packages/frontend-tk-plugin-aptx
-        shell: bash
-        run: |
-          set -uo pipefail
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          echo "==> Publishing ${name}@${version}"
-          if pnpm view "${name}@${version}" --registry=https://winserver.devserver.ink:14873/ version >/dev/null 2>&1; then
-            echo "SKIP: already exists: ${name}@${version}"
-          else
-            pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
-            echo "PUBLISHED: ${name}@${version}"
-          fi
-
-      - name: Publish @aptx/frontend-tk-plugin-input
-        working-directory: packages/frontend-tk-plugin-input
-        shell: bash
-        run: |
-          set -uo pipefail
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          echo "==> Publishing ${name}@${version}"
-          if pnpm view "${name}@${version}" --registry=https://winserver.devserver.ink:14873/ version >/dev/null 2>&1; then
-            echo "SKIP: already exists: ${name}@${version}"
-          else
-            pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
-            echo "PUBLISHED: ${name}@${version}"
-          fi
-
-      - name: Publish @aptx/frontend-tk-plugin-materal
-        working-directory: packages/frontend-tk-plugin-materal
-        shell: bash
-        run: |
-          set -uo pipefail
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          echo "==> Publishing ${name}@${version}"
-          if pnpm view "${name}@${version}" --registry=https://winserver.devserver.ink:14873/ version >/dev/null 2>&1; then
-            echo "SKIP: already exists: ${name}@${version}"
-          else
-            pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
-            echo "PUBLISHED: ${name}@${version}"
-          fi
-
-      - name: Publish @aptx/frontend-tk-plugin-model
-        working-directory: packages/frontend-tk-plugin-model
-        shell: bash
-        run: |
-          set -uo pipefail
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          echo "==> Publishing ${name}@${version}"
-          if pnpm view "${name}@${version}" --registry=https://winserver.devserver.ink:14873/ version >/dev/null 2>&1; then
-            echo "SKIP: already exists: ${name}@${version}"
-          else
-            pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
-            echo "PUBLISHED: ${name}@${version}"
-          fi
-
-      - name: Publish @aptx/frontend-tk-plugin-python
-        working-directory: packages/frontend-tk-plugin-python
-        shell: bash
-        run: |
-          set -uo pipefail
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          echo "==> Publishing ${name}@${version}"
-          if pnpm view "${name}@${version}" --registry=https://winserver.devserver.ink:14873/ version >/dev/null 2>&1; then
-            echo "SKIP: already exists: ${name}@${version}"
-          else
-            pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
-            echo "PUBLISHED: ${name}@${version}"
-          fi
-
-      - name: Publish @aptx/frontend-tk-cli
-        working-directory: packages/frontend-tk-cli
-        shell: bash
-        run: |
-          set -uo pipefail
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          echo "==> Publishing ${name}@${version}"
-          if pnpm view "${name}@${version}" --registry=https://winserver.devserver.ink:14873/ version >/dev/null 2>&1; then
-            echo "SKIP: already exists: ${name}@${version}"
-          else
-            pnpm publish --ignore-scripts --no-git-checks --registry=https://winserver.devserver.ink:14873/
-            echo "PUBLISHED: ${name}@${version}"
-          fi
+          failed=0
+          for dir in packages/*/; do
+            [ -f "${dir}package.json" ] || continue
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            echo "==> ${name}@${version}"
+            if pnpm view "${name}@${version}" --registry="${NPM_REGISTRY}" version >/dev/null 2>&1; then
+              echo "SKIP: already exists: ${name}@${version}"
+            # scoped public 包必须显式 --access public，否则默认按 private 处理会被拒。
+            elif pnpm publish --dir "${dir}" --access public --ignore-scripts --no-git-checks --registry="${NPM_REGISTRY}"; then
+              echo "PUBLISHED: ${name}@${version}"
+            else
+              echo "FAILED: ${name}@${version}"
+              failed=1
+            fi
+          done
+          exit "${failed}"
         env:
           GITHUB_TOKEN: ${{ github.token }}

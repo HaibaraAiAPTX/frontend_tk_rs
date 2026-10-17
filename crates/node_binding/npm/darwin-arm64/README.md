@@ -1,3 +1,3 @@
-# `@aptx/frontend-tk-binding-darwin-arm64`
+# `@aptx-js/frontend-tk-binding-darwin-arm64`
 
-This is the **aarch64-apple-darwin** binary for `@aptx/frontend-tk-binding`
+This is the **aarch64-apple-darwin** binary for `@aptx-js/frontend-tk-binding`

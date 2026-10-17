@@ -1,5 +1,5 @@
-import { PluginContext, CommandHandler } from "@aptx/frontend-tk-core";
-import { runCli } from "@aptx/frontend-tk-binding";
+import { PluginContext, CommandHandler } from "@aptx-js/frontend-tk-core";
+import { runCli } from "@aptx-js/frontend-tk-binding";
 import { ensureAbsolutePath } from "./utils";
 
 export interface ModelIrOptions {

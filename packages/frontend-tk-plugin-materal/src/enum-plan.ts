@@ -1,5 +1,5 @@
 import path from "path";
-import type { PluginContext, CommandHandler } from "@aptx/frontend-tk-core";
+import type { PluginContext, CommandHandler } from "@aptx-js/frontend-tk-core";
 
 /**
  * Run materal:enum-plan command

@@ -1,3 +1,3 @@
-# `@aptx/frontend-tk-binding-linux-x64-gnu`
+# `@aptx-js/frontend-tk-binding-linux-x64-gnu`
 
-This is the **x86_64-unknown-linux-gnu** binary for `@aptx/frontend-tk-binding`
+This is the **x86_64-unknown-linux-gnu** binary for `@aptx-js/frontend-tk-binding`

@@ -1,4 +1,4 @@
-import { CommandDescriptor, PluginContext } from '@aptx/frontend-tk-core';
+import { CommandDescriptor, PluginContext } from '@aptx-js/frontend-tk-core';
 
 /**
  * aptx:functions command - Generate functions module code
