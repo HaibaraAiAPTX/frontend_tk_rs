@@ -32,10 +32,21 @@ impl<'de> Deserialize<'de> for SchemaEnum {
 
         // `type` 缺失在 OpenAPI 3.0 / 3.1 里是合法写法（例如 `additionalProperties: {}`），
         // 此时按结构关键字推断；没有任何线索才落成自由 object。
-        // `type: null` 与 3.1 的 `type: [...]` 也走推断，避免整份 spec 解析失败。
-        let r#type = match v.get("type").and_then(|t| t.as_str()) {
-            Some(name) => SchemaTypeEnum::deserialize(Value::String(name.to_string()))
+        //
+        // 非字符串的 `type`（3.1 的联合数组、显式 `null`）不参与推断：本 crate 的
+        // `SchemaTypeEnum` 是单值枚举，把联合类型硬塞进单一变体只会得到错误的模型，
+        // 所以这里给出可定位的明确错误，而不是静默降级。
+        let r#type = match v.get("type") {
+            Some(Value::String(name)) => SchemaTypeEnum::deserialize(Value::String(name.clone()))
                 .map_err(de::Error::custom)?,
+            Some(other) => {
+                return Err(de::Error::custom(format!(
+                    "`type` {other} is neither a string nor absent; this crate maps a schema to a \
+                     single `SchemaTypeEnum`, so OpenAPI 3.1 type unions (`type: [...]`) and an \
+                     explicit `type: null` must be normalized, or the schema declared with one \
+                     concrete `type`"
+                )));
+            }
             None => infer_type_from_shape(&v).map_err(de::Error::custom)?,
         };
 
@@ -85,7 +96,8 @@ fn deserialize_with_type<T, F>(
 where
     F: FnOnce(Value) -> Result<T, serde_json::Error>,
 {
-    if !value.get("type").is_some_and(Value::is_string) {
+    // 显式字符串 `type` 已在调用方校验过，这里只需处理「缺失」这一种情况。
+    if value.get("type").is_none() {
         let object = value.as_object_mut().ok_or_else(|| {
             serde::de::Error::custom(format!(
                 "schema with inferred `type` {} must be a JSON object",
@@ -125,12 +137,32 @@ fn infer_type_from_shape(value: &Value) -> Result<SchemaTypeEnum, String> {
     Ok(SchemaTypeEnum::Object)
 }
 
-/// 由 `enum` 成员推断类型；空数组与全 `null` 视为 string。
+/// 由 `enum` 成员推断类型。
+///
+/// 拒绝空数组与含 `null` 的成员：本 crate 的标量变体把 `enum` 存成 `Vec<String>` /
+/// `Vec<i32>` / `Vec<f32>`，既表达不了空枚举，也表达不了可空成员。与其推断成功、随后在
+/// 变体反序列化时抛出「invalid type: null」这种与推断无关的错误，不如在这里一次说清。
 fn infer_enum_type(members: &[Value]) -> Result<SchemaTypeEnum, String> {
+    if members.is_empty() {
+        return Err(
+            "`type` is missing and `enum` is empty; declare `type` explicitly (an empty `enum` \
+             cannot be represented by this crate's scalar variants)"
+                .to_string(),
+        );
+    }
+
     let Some(first) = members.iter().find(|member| !member.is_null()) else {
-        // `enum: []` 没有约束力，落到 string，与显式 `type: string` 的既有行为一致。
-        return Ok(SchemaTypeEnum::String);
+        return Err(format!(
+            "`type` is missing and `enum` {members:?} contains only `null`; this crate's scalar \
+             variants cannot hold `null` members, declare `type` explicitly or drop the `null`"
+        ));
     };
+    if members.iter().any(Value::is_null) {
+        return Err(format!(
+            "`type` is missing and `enum` {members:?} contains `null`; this crate's scalar \
+             variants cannot hold `null` members, declare `type` explicitly or drop the `null`"
+        ));
+    }
 
     let inferred = match first {
         Value::String(_) => SchemaTypeEnum::String,
@@ -143,7 +175,7 @@ fn infer_enum_type(members: &[Value]) -> Result<SchemaTypeEnum, String> {
                  number / boolean"
             ));
         }
-        Value::Null => unreachable!("null members are skipped by `find`"),
+        Value::Null => unreachable!("null members are rejected above"),
     };
 
     if !members
@@ -178,9 +210,9 @@ fn is_integer_number(number: &serde_json::Number) -> bool {
 }
 
 fn describe_json_types(members: &[Value]) -> String {
-    let mut names = members
-        .iter()
-        .map(|member| match member {
+    let mut names = Vec::new();
+    for member in members {
+        let name = match member {
             Value::Null => "null",
             Value::Bool(_) => "boolean",
             Value::Number(number) if is_integer_number(number) => "integer",
@@ -188,9 +220,13 @@ fn describe_json_types(members: &[Value]) -> String {
             Value::String(_) => "string",
             Value::Array(_) => "array",
             Value::Object(_) => "object",
-        })
-        .collect::<Vec<_>>();
-    names.dedup();
+        };
+        // 去重要跨位置生效：`["a", 1, "b"]` 应打印 `string / integer`，
+        // 只去相邻重复会漏掉这种交替出现的形态。
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
     names.join(" / ")
 }
 

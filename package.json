@@ -11,6 +11,7 @@
     "benchmark:rust": "cargo bench -p swagger_gen --bench codegen_pipeline",
     "benchmark": "pnpm benchmark:codegen && pnpm benchmark:rust",
     "publish:bindings": "node scripts/publish-binding.mjs",
+    "verify:artifacts": "node scripts/compare-artifacts.mjs",
     "check": "pnpm --filter=./packages/* check"
   },
   "devDependencies": {

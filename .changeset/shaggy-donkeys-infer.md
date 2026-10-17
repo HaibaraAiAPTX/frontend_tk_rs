@@ -8,10 +8,13 @@
 `type`，导致 `SchemaObjectAdditionalProperties` 的 untagged 分支全部失配，整份 spec 直接报
 `ERR: data did not match any variant of untagged enum SchemaObjectAdditionalProperties`。
 
-现在 `type` 缺失、`type: null`、以及 3.1 的 `type: [...]` 联合数组都会按结构关键字推断类型：
-`items` → array、`properties` / `additionalProperties` → object、`enum` → 按首个非 `null` 成员、
-其余（含 `{}`）→ 自由 object。显式 `type` 永远优先。`enum` 混用多种 JSON 类型时给出带成员列表
-的明确错误，不再静默降级。
+现在 `type` **缺失**时会按结构关键字推断类型：`items` / `uniqueItems` / `minItems` / `maxItems`
+→ array、`properties` / `additionalProperties` → object、`enum` → 按首个成员、其余（含 `{}`）
+→ 自由 object。显式 `type` 永远优先。
+
+不会静默降级的形态（`SchemaTypeEnum` 是单值枚举，猜错比报错更糟）：`type` 不是字符串
+（3.1 的 `type: [...]`、显式 `type: null`）、`enum` 混用多种 JSON 类型、`enum` 成员是
+object / array、`enum` 为空或含 `null`，都会抛出带原始内容的明确错误。
 
 同时修掉两处同层缺陷：
 

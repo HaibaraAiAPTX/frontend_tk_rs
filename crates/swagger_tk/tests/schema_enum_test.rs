@@ -30,6 +30,16 @@ fn schema_of(schema: &str) -> SchemaEnum {
         .clone()
 }
 
+/// 直接反序列化单段 schema，用来固定错误路径的文案。
+///
+/// 不能走 [`schema_of`]：`OpenAPIObject::from_str` 是整体反序列化，schema 出错会让外壳
+/// 一起失败，拿不到内层错误。
+fn schema_error(schema: &str) -> String {
+    serde_json::from_str::<SchemaEnum>(schema)
+        .expect_err(&format!("schema {schema} should fail to deserialize"))
+        .to_string()
+}
+
 /// 断言 schema 落到期望的 `SchemaEnum` 变体，且变体内记录的 `type` 与之一致。
 fn assert_variant(schema: &SchemaEnum, expected: SchemaTypeEnum) {
     let actual = match schema {
@@ -218,4 +228,86 @@ fn keeps_typeless_schema_nullable_flag() {
         panic!("expected object, got {schema:?}");
     };
     assert_eq!(object.nullable, Some(true));
+}
+
+/// 非字符串 `type`（3.1 联合数组 / 显式 `null`）必须给出可定位的明确错误。
+///
+/// 本 crate 的 `SchemaTypeEnum` 是单值枚举，`type: ["string","null"]` 无法无歧义地映射到
+/// 单一变体。选择明确报错而不是「按线索猜」：猜出来的模型可能悄悄错，而报错把决定权交回
+/// 调用方。`additionalProperties: {}` 这类**缺失** `type` 的写法仍然正常推断。
+#[test]
+fn rejects_type_that_is_not_a_string() {
+    for json in [
+        r#"{ "type": ["string", "null"] }"#,
+        r#"{ "type": ["object", "null"], "properties": { "x": { "type": "string" } } }"#,
+        r#"{ "type": null }"#,
+    ] {
+        let err = schema_error(json);
+        let message = err
+            .rsplit_once(" at line ")
+            .map(|(message, _)| message)
+            .unwrap_or(&err);
+        assert!(
+            message.contains("is neither a string nor absent"),
+            "schema {json} should be rejected with a locatable error, got: {err}"
+        );
+        assert!(message.contains("type: [...]"), "got: {err}");
+    }
+}
+
+/// 推断表列出的其余 array 线索同样生效（`items` 仍是 `SchemaArray` 的必填字段）。
+#[test]
+fn infers_array_from_other_array_hints() {
+    for json in [
+        r#"{ "items": { "type": "string" }, "uniqueItems": true }"#,
+        r#"{ "items": { "type": "string" }, "minItems": 1 }"#,
+        r#"{ "items": { "type": "string" }, "maxItems": 10 }"#,
+    ] {
+        assert_variant(&schema_of(json), SchemaTypeEnum::Array);
+    }
+}
+
+/// `enum` 没有可用成员时必须明确报错：本 crate 的标量变体存不下空枚举，也存不下 `null`。
+///
+/// 若在这里「推断成功」，失败会推迟到变体反序列化，抛出与推断无关的
+/// `invalid type: null, expected a string`，调用方看不出真正原因。
+#[test]
+fn rejects_enum_without_usable_members() {
+    let err = schema_error(r#"{ "enum": [] }"#);
+    assert!(err.contains("`enum` is empty"), "got: {err}");
+
+    for json in [r#"{ "enum": [null, null] }"#, r#"{ "enum": ["a", null] }"#] {
+        let err = schema_error(json);
+        assert!(
+            err.contains("cannot hold `null` members"),
+            "schema {json} got: {err}"
+        );
+    }
+}
+
+/// `enum` 混用多种 JSON 类型时必须报错并列出实际出现的类型，不得静默降级。
+#[test]
+fn rejects_enum_mixing_multiple_json_types() {
+    let err = schema_error(r#"{ "enum": ["a", 1, "b"] }"#);
+    assert!(err.contains("`type` is missing"), "got: {err}");
+    assert!(err.contains("string / integer"), "got: {err}");
+    // 交替出现的类型不应被重复列出（去重必须跨位置生效）。
+    // serde 的错误后缀会回显整段 JSON，所以只看 ` at line ` 之前的正文。
+    let message = err
+        .rsplit_once(" at line ")
+        .map(|(message, _)| message)
+        .unwrap_or(&err);
+    assert_eq!(message.matches("integer").count(), 1, "got: {err}");
+}
+
+/// `enum` 成员本身是 object / array 时无法映射到任何标量变体，必须给出明确错误。
+#[test]
+fn rejects_enum_with_structured_members() {
+    for json in [r#"{ "enum": [{ "a": 1 }] }"#, r#"{ "enum": [[1]] }"#] {
+        let err = schema_error(json);
+        assert!(
+            err.contains("is neither string / integer / number / boolean"),
+            "schema {json} got: {err}"
+        );
+    }
 }
