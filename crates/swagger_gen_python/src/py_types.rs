@@ -1,6 +1,8 @@
 //! ModelType -> Python type string mapping and import collection.
 
-use swagger_gen::model_pipeline::{ModelLiteral, ModelType, NumberFormat, NumberSpec, ScalarType};
+use swagger_gen::model_pipeline::{
+    ModelLiteral, ModelType, NullableType, NumberFormat, NumberSpec, ScalarType,
+};
 
 /// Render a ModelType to a Python type string.
 pub fn render_python_type(model_type: &ModelType) -> String {
@@ -34,8 +36,20 @@ pub fn render_python_type(model_type: &ModelType) -> String {
             } => "Decimal".to_string(),
             ModelLiteral::Number { value, .. } => format!("Literal[{value}]"),
         },
+        ModelType::Dictionary { value } => {
+            let inner = render_python_slot(value);
+            format!("dict[str, {inner}]")
+        }
+        // 内联固定键对象没有对应的 Pydantic 模型文件，Python 侧无法用单行类型字符串表达
+        // 键集合；沿用历史行为渲染为 `dict[str, Any]`，保证 Python 产物零变化。
+        ModelType::InlineObject { .. } => "dict[str, Any]".to_string(),
     };
     base
+}
+
+/// Render a type slot (type + its own nullability).
+fn render_python_slot(slot: &NullableType) -> String {
+    render_python_type_nullable(&slot.r#type, slot.nullable)
 }
 
 fn render_python_scalar_type(scalar: &ScalarType) -> String {
@@ -85,6 +99,26 @@ fn collect_imports_recursive(model_type: &ModelType, imports: &mut Vec<String>) 
         ModelType::Union { variants } => {
             for v in variants {
                 collect_imports_recursive(v, imports);
+            }
+        }
+        // 字典值可能含 `Decimal` / `Literal` / `Any` / `$ref`，必须递归进去，
+        // 否则 `dict[str, Decimal]` 会漏掉 `from decimal import Decimal`。
+        ModelType::Dictionary { value } => {
+            collect_imports_recursive(&value.r#type, imports);
+        }
+        ModelType::InlineObject {
+            properties,
+            additional_properties,
+        } => {
+            // 渲染结果是 `dict[str, Any]`，因此必须补 `Any`。
+            if !imports.contains(&"from typing import Any".to_string()) {
+                imports.push("from typing import Any".to_string());
+            }
+            for property in properties {
+                collect_imports_recursive(&property.r#type, imports);
+            }
+            if let Some(index) = additional_properties {
+                collect_imports_recursive(&index.r#type, imports);
             }
         }
         ModelType::Literal { value } => {
@@ -340,6 +374,95 @@ mod tests {
             item: Box::new(ModelType::Object),
         });
         assert!(imports.contains(&"from typing import Any".to_string()));
+    }
+
+    fn slot(r#type: ModelType, nullable: bool) -> NullableType {
+        NullableType {
+            r#type: Box::new(r#type),
+            nullable,
+        }
+    }
+
+    #[test]
+    fn test_dictionary_renders_as_dict_of_value_type() {
+        assert_eq!(
+            render_python_type(&ModelType::Dictionary {
+                value: slot(ModelType::Scalar(ScalarType::String), false),
+            }),
+            "dict[str, str]"
+        );
+        assert_eq!(
+            render_python_type(&ModelType::Dictionary {
+                value: slot(ModelType::Scalar(ScalarType::String), true),
+            }),
+            "dict[str, str | None]"
+        );
+        assert_eq!(
+            render_python_type(&ModelType::Dictionary {
+                value: slot(ModelType::Scalar(ScalarType::Boolean), false),
+            }),
+            "dict[str, bool]"
+        );
+        assert_eq!(
+            render_python_type(&ModelType::Dictionary {
+                value: slot(
+                    ModelType::Ref {
+                        name: "Other".to_string()
+                    },
+                    false
+                ),
+            }),
+            "dict[str, Other]"
+        );
+        assert_eq!(
+            render_python_type(&ModelType::Dictionary {
+                value: slot(
+                    ModelType::Array {
+                        item: Box::new(ModelType::Ref {
+                            name: "Other".to_string()
+                        })
+                    },
+                    true
+                ),
+            }),
+            "dict[str, list[Other] | None]"
+        );
+    }
+
+    #[test]
+    fn test_dictionary_decimal_value_collects_decimal_import() {
+        let imports = collect_python_imports(&ModelType::Dictionary {
+            value: slot(
+                ModelType::Scalar(ScalarType::Number(NumberSpec {
+                    format: NumberFormat::Decimal,
+                })),
+                false,
+            ),
+        });
+        assert!(
+            imports.contains(&"from decimal import Decimal".to_string()),
+            "dictionary value must recurse into import collection, got: {imports:?}"
+        );
+    }
+
+    #[test]
+    fn test_inline_object_keeps_legacy_dict_any_rendering() {
+        let inline = ModelType::InlineObject {
+            properties: vec![swagger_gen::model_pipeline::ModelProperty {
+                name: "count".to_string(),
+                description: None,
+                required: true,
+                nullable: false,
+                r#type: ModelType::Scalar(ScalarType::Integer(
+                    swagger_gen::model_pipeline::IntegerSpec {
+                        format: swagger_gen::model_pipeline::IntegerFormat::Unknown,
+                    },
+                )),
+            }],
+            additional_properties: None,
+        };
+        assert_eq!(render_python_type(&inline), "dict[str, Any]");
+        assert!(collect_python_imports(&inline).contains(&"from typing import Any".to_string()));
     }
 
     #[test]

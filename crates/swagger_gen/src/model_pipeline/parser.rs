@@ -1,13 +1,13 @@
 use swagger_tk::{
     getter::get_all_schema,
-    model::{OpenAPIObject, SchemaEnum},
+    model::{OpenAPIObject, SchemaEnum, SchemaObject, SchemaObjectAdditionalProperties},
 };
 
 use crate::utils::{ReferenceObjectExtension, SchemaEnumExtension};
 
 use super::model::{
     IntegerFormat, IntegerSpec, ModelEnumMember, ModelIr, ModelKind, ModelLiteral, ModelNode,
-    ModelProperty, ModelType, NumberFormat, NumberSpec, ScalarType,
+    ModelProperty, ModelType, NullableType, NumberFormat, NumberSpec, ScalarType,
 };
 
 pub fn build_model_ir(open_api: &OpenAPIObject) -> Result<ModelIr, String> {
@@ -31,29 +31,20 @@ fn schema_to_model_node(name: &str, schema: &SchemaEnum, open_api: &OpenAPIObjec
         description: schema.get_description().cloned(),
         kind: match schema {
             SchemaEnum::Object(v) => {
-                let required = v.required.as_ref();
-                let mut properties = v
-                    .properties
-                    .as_ref()
-                    .map(|p| {
-                        let mut keys = p.keys().collect::<Vec<_>>();
-                        keys.sort();
-                        keys.into_iter()
-                            .map(|key| {
-                                let child = p.get(key).expect("schema key must exist");
-                                ModelProperty {
-                                    name: key.to_string(),
-                                    description: child.get_description().cloned(),
-                                    required: required.is_some_and(|items| items.contains(key)),
-                                    nullable: child.can_be_null(open_api),
-                                    r#type: schema_to_model_type(child, open_api),
-                                }
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .unwrap_or_default();
-                properties.sort_by(|a, b| a.name.cmp(&b.name));
-                ModelKind::Interface { properties }
+                let properties = object_properties(v, open_api);
+                if properties.is_empty() {
+                    // 顶层纯字典：`{ type: object, additionalProperties: <schema> }`。
+                    // 不能退化成空 interface，否则键值类型被静默吞掉。
+                    match dictionary_value_type(v, open_api) {
+                        Some(value) => ModelKind::Alias {
+                            target: ModelType::Dictionary { value },
+                            nullable: v.nullable.unwrap_or(false),
+                        },
+                        None => ModelKind::Interface { properties },
+                    }
+                } else {
+                    ModelKind::Interface { properties }
+                }
             }
             SchemaEnum::String(v) => {
                 if let Some(items) = v.r#enum.as_ref() {
@@ -114,7 +105,7 @@ fn schema_to_model_type(schema: &SchemaEnum, open_api: &OpenAPIObject) -> ModelT
         SchemaEnum::Ref(reference) => ModelType::Ref {
             name: reference.get_type_name(),
         },
-        SchemaEnum::Object(_) => ModelType::Object,
+        SchemaEnum::Object(v) => object_model_type(v, open_api),
         SchemaEnum::String(v) => v
             .r#enum
             .as_ref()
@@ -152,6 +143,66 @@ fn schema_to_model_type(schema: &SchemaEnum, open_api: &OpenAPIObject) -> ModelT
         SchemaEnum::Array(v) => ModelType::Array {
             item: Box::new(schema_to_model_type(&v.items, open_api)),
         },
+    }
+}
+
+/// `type: object` 的类型映射：
+///
+/// - 有 `properties` → `InlineObject`（保留键、required、nullable、描述）
+/// - 无 `properties` 且有 `additionalProperties: <schema>` → `Dictionary`
+/// - 其余（`additionalProperties: true` / 省略）→ `Object`（自由对象，行为与旧版一致）
+fn object_model_type(schema: &SchemaObject, open_api: &OpenAPIObject) -> ModelType {
+    let properties = object_properties(schema, open_api);
+    let additional_properties = dictionary_value_type(schema, open_api);
+
+    if !properties.is_empty() {
+        return ModelType::InlineObject {
+            properties,
+            additional_properties,
+        };
+    }
+
+    match additional_properties {
+        Some(value) => ModelType::Dictionary { value },
+        None => ModelType::Object,
+    }
+}
+
+/// 解析 `properties` 为按名称排序的 `ModelProperty` 列表（空 `properties` 视同缺失）。
+fn object_properties(schema: &SchemaObject, open_api: &OpenAPIObject) -> Vec<ModelProperty> {
+    let required = schema.required.as_ref();
+    let mut properties = schema
+        .properties
+        .as_ref()
+        .map(|p| {
+            let mut keys = p.keys().collect::<Vec<_>>();
+            keys.sort();
+            keys.into_iter()
+                .map(|key| {
+                    let child = p.get(key).expect("schema key must exist");
+                    ModelProperty {
+                        name: key.to_string(),
+                        description: child.get_description().cloned(),
+                        required: required.is_some_and(|items| items.contains(key)),
+                        nullable: child.can_be_null(open_api),
+                        r#type: schema_to_model_type(child, open_api),
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    properties.sort_by(|a, b| a.name.cmp(&b.name));
+    properties
+}
+
+/// 从 `additionalProperties` 提取字典值类型；`true` / `false` / 缺失一律返回 `None`。
+fn dictionary_value_type(schema: &SchemaObject, open_api: &OpenAPIObject) -> Option<NullableType> {
+    match schema.additional_properties.as_ref()? {
+        SchemaObjectAdditionalProperties::Boolean(_) => None,
+        SchemaObjectAdditionalProperties::Schema(value) => Some(NullableType {
+            r#type: Box::new(schema_to_model_type(value, open_api)),
+            nullable: value.can_be_null(open_api),
+        }),
     }
 }
 
@@ -541,5 +592,246 @@ mod tests {
                         )
                 )
         ));
+    }
+
+    fn find_property<'a>(ir: &'a ModelIr, model: &str, property: &str) -> &'a ModelProperty {
+        let node = ir
+            .models
+            .iter()
+            .find(|item| item.name == model)
+            .unwrap_or_else(|| panic!("{model} model should exist"));
+        let ModelKind::Interface { properties } = &node.kind else {
+            panic!("{model} should be an interface");
+        };
+        properties
+            .iter()
+            .find(|item| item.name == property)
+            .unwrap_or_else(|| panic!("{model}.{property} should exist"))
+    }
+
+    fn parse_models(schemas: &str) -> ModelIr {
+        let open_api = OpenAPIObject::from_str(&format!(
+            r#"{{"openapi":"3.1.0","info":{{"title":"dict-test","version":"1.0.0"}},"paths":{{}},"components":{{"schemas":{schemas}}}}}"#
+        ))
+        .expect("parse openapi object fail");
+        build_model_ir(&open_api).expect("build model ir fail")
+    }
+
+    #[test]
+    fn parses_additional_properties_into_dictionary_kind() {
+        let ir = parse_models(
+            r##"{
+              "Holder": {
+                "type": "object",
+                "properties": {
+                  "textMap": { "type": "object", "additionalProperties": { "type": "string" } },
+                  "nullableValueMap": {
+                    "type": "object",
+                    "additionalProperties": { "type": "string", "nullable": true }
+                  },
+                  "refMap": {
+                    "type": "object",
+                    "additionalProperties": { "$ref": "#/components/schemas/Other" }
+                  },
+                  "refArrayMap": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Other" }
+                    }
+                  }
+                }
+              },
+              "Other": { "type": "object", "properties": { "id": { "type": "string" } } }
+            }"##,
+        );
+
+        assert!(matches!(
+            &find_property(&ir, "Holder", "textMap").r#type,
+            ModelType::Dictionary { value }
+                if !value.nullable
+                    && matches!(
+                        value.r#type.as_ref(),
+                        ModelType::Scalar(ScalarType::String)
+                    )
+        ));
+
+        assert!(matches!(
+            &find_property(&ir, "Holder", "nullableValueMap").r#type,
+            ModelType::Dictionary { value }
+                if value.nullable
+                    && matches!(
+                        value.r#type.as_ref(),
+                        ModelType::Scalar(ScalarType::String)
+                    )
+        ));
+
+        assert!(matches!(
+            &find_property(&ir, "Holder", "refMap").r#type,
+            ModelType::Dictionary { value }
+                if !value.nullable
+                    && matches!(
+                        value.r#type.as_ref(),
+                        ModelType::Ref { name } if name == "Other"
+                    )
+        ));
+
+        assert!(matches!(
+            &find_property(&ir, "Holder", "refArrayMap").r#type,
+            ModelType::Dictionary { value }
+                if matches!(
+                    value.r#type.as_ref(),
+                    ModelType::Array { item }
+                        if matches!(
+                            item.as_ref(),
+                            ModelType::Ref { name } if name == "Other"
+                        )
+                )
+        ));
+    }
+
+    #[test]
+    fn parses_nested_object_properties_into_inline_object() {
+        let ir = parse_models(
+            r##"{
+              "Holder": {
+                "type": "object",
+                "properties": {
+                  "fixed": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "count": { "type": "integer", "format": "int32" },
+                      "label": { "type": "string", "nullable": true }
+                    },
+                    "required": ["count"]
+                  }
+                }
+              }
+            }"##,
+        );
+
+        let ModelType::InlineObject {
+            properties,
+            additional_properties,
+        } = &find_property(&ir, "Holder", "fixed").r#type
+        else {
+            panic!("fixed should parse as InlineObject");
+        };
+        assert!(additional_properties.is_none());
+        assert_eq!(properties.len(), 2);
+
+        let count = properties
+            .iter()
+            .find(|item| item.name == "count")
+            .expect("count should exist");
+        assert!(count.required);
+        assert!(!count.nullable);
+        assert!(matches!(
+            count.r#type,
+            ModelType::Scalar(ScalarType::Integer(IntegerSpec {
+                format: IntegerFormat::Int32
+            }))
+        ));
+
+        let label = properties
+            .iter()
+            .find(|item| item.name == "label")
+            .expect("label should exist");
+        assert!(!label.required);
+        assert!(label.nullable);
+    }
+
+    #[test]
+    fn parses_properties_plus_additional_properties_as_mixed_inline_object() {
+        let ir = parse_models(
+            r##"{
+              "Holder": {
+                "type": "object",
+                "properties": {
+                  "mixed": {
+                    "type": "object",
+                    "properties": { "count": { "type": "integer" } },
+                    "additionalProperties": { "type": "string" }
+                  }
+                }
+              }
+            }"##,
+        );
+
+        let ModelType::InlineObject {
+            properties,
+            additional_properties,
+        } = &find_property(&ir, "Holder", "mixed").r#type
+        else {
+            panic!("mixed should parse as InlineObject");
+        };
+        assert_eq!(properties.len(), 1);
+        let index = additional_properties
+            .as_ref()
+            .expect("index signature should be preserved");
+        assert!(!index.nullable);
+        assert!(matches!(
+            index.r#type.as_ref(),
+            ModelType::Scalar(ScalarType::String)
+        ));
+    }
+
+    #[test]
+    fn parses_free_form_object_as_object_kind() {
+        let ir = parse_models(
+            r##"{
+              "Holder": {
+                "type": "object",
+                "properties": {
+                  "closed": { "type": "object", "additionalProperties": false },
+                  "open": { "type": "object", "additionalProperties": true },
+                  "bare": { "type": "object" }
+                }
+              }
+            }"##,
+        );
+
+        for name in ["closed", "open", "bare"] {
+            assert!(
+                matches!(
+                    &find_property(&ir, "Holder", name).r#type,
+                    ModelType::Object
+                ),
+                "`{name}` should stay ModelType::Object"
+            );
+        }
+    }
+
+    #[test]
+    fn parses_top_level_dictionary_schema_as_alias() {
+        let ir = parse_models(
+            r##"{
+              "StringMap": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            }"##,
+        );
+
+        let model = ir
+            .models
+            .iter()
+            .find(|item| item.name == "StringMap")
+            .expect("StringMap model should exist");
+        assert!(
+            matches!(
+                &model.kind,
+                ModelKind::Alias {
+                    target: ModelType::Dictionary { value },
+                    nullable: false
+                } if matches!(
+                    value.r#type.as_ref(),
+                    ModelType::Scalar(ScalarType::String)
+                )
+            ),
+            "top-level dictionary must not degrade into an empty interface, got: {:?}",
+            model.kind
+        );
     }
 }

@@ -221,6 +221,19 @@ fn collect_model_refs_recursive(model_type: &ModelType, refs: &mut Vec<String>) 
                 collect_model_refs_recursive(variant, refs);
             }
         }
+        // 字典值 / 内联对象属性里的 `$ref` 同样需要生成 `from .X import X`。
+        ModelType::Dictionary { value } => collect_model_refs_recursive(&value.r#type, refs),
+        ModelType::InlineObject {
+            properties,
+            additional_properties,
+        } => {
+            for property in properties {
+                collect_model_refs_recursive(&property.r#type, refs);
+            }
+            if let Some(index) = additional_properties {
+                collect_model_refs_recursive(&index.r#type, refs);
+            }
+        }
         ModelType::Scalar(ScalarType::String)
         | ModelType::Scalar(ScalarType::Boolean)
         | ModelType::Scalar(ScalarType::Integer(_))

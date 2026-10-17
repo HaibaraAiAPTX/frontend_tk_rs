@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use crate::utils::format_ts_code;
 
-use super::model::{ModelIr, ModelKind, ModelLiteral, ModelRenderStyle, ModelType, ScalarType};
+use super::model::{
+    ModelIr, ModelKind, ModelLiteral, ModelProperty, ModelRenderStyle, ModelType, NullableType,
+    ScalarType,
+};
 
 pub fn render_model_files(
     ir: &ModelIr,
@@ -30,21 +33,7 @@ pub fn render_model_files(
 
         let source = match &model.kind {
             ModelKind::Interface { properties } => {
-                let rows = properties
-                    .iter()
-                    .map(|property| {
-                        let description = property
-                            .description
-                            .as_ref()
-                            .map(|text| format!("\n/** {text} */\n"))
-                            .unwrap_or_default();
-                        let optional_symbol = if property.required { ":" } else { "?:" };
-                        let ts_type =
-                            render_type(&property.r#type, style, &model.name, property.nullable);
-                        format!("{description}{}{optional_symbol}{ts_type}", property.name)
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                let rows = render_property_rows(properties, style, &model.name);
                 let description = model
                     .description
                     .as_ref()
@@ -118,6 +107,38 @@ pub fn render_model_files(
     Ok(files)
 }
 
+/// 渲染一组对象属性（接口体 / 内联对象体共用）。
+fn render_property_rows(
+    properties: &[ModelProperty],
+    style: ModelRenderStyle,
+    current_model_name: &str,
+) -> String {
+    properties
+        .iter()
+        .map(|property| {
+            let description = property
+                .description
+                .as_ref()
+                .map(|text| format!("\n/** {text} */\n"))
+                .unwrap_or_default();
+            let optional_symbol = if property.required { ":" } else { "?:" };
+            let ts_type = render_type(
+                &property.r#type,
+                style,
+                current_model_name,
+                property.nullable,
+            );
+            format!("{description}{}{optional_symbol}{ts_type}", property.name)
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// 渲染一个类型槽位（类型本体 + 自身可空）。
+fn render_slot(slot: &NullableType, style: ModelRenderStyle, current_model_name: &str) -> String {
+    render_type(&slot.r#type, style, current_model_name, slot.nullable)
+}
+
 fn render_type(
     model_type: &ModelType,
     style: ModelRenderStyle,
@@ -158,6 +179,26 @@ fn render_type(
             ModelLiteral::Integer { value } => value.to_string(),
             ModelLiteral::Number { value, .. } => value.to_string(),
         },
+        ModelType::Dictionary { value } => {
+            let child = render_slot(value, style, current_model_name);
+            format!("Record<string, {child}>")
+        }
+        ModelType::InlineObject {
+            properties,
+            additional_properties,
+        } => {
+            let rows = render_property_rows(properties, style, current_model_name);
+            let literal = format!("{{ {rows} }}");
+            match additional_properties {
+                // `properties` + `additionalProperties: <schema>` 无法用单一声明表达，
+                // 交叉类型是唯一保留两侧信息的写法。
+                Some(index) => {
+                    let index_type = render_slot(index, style, current_model_name);
+                    format!("{literal} & Record<string, {index_type}>")
+                }
+                None => literal,
+            }
+        }
     };
 
     if nullable {
@@ -283,5 +324,256 @@ mod tests {
 
         assert!(rendered.contains("IntLiteral = 42"));
         assert!(rendered.contains("NumLiteral = 3.14"));
+    }
+
+    fn prop(name: &str, r#type: ModelType, required: bool, nullable: bool) -> ModelProperty {
+        ModelProperty {
+            name: name.to_string(),
+            description: None,
+            required,
+            nullable,
+            r#type,
+        }
+    }
+
+    fn slot(r#type: ModelType, nullable: bool) -> NullableType {
+        NullableType {
+            r#type: Box::new(r#type),
+            nullable,
+        }
+    }
+
+    fn render_interface(properties: Vec<ModelProperty>) -> String {
+        render_single_model(ModelNode {
+            name: "Sample".to_string(),
+            description: None,
+            kind: ModelKind::Interface { properties },
+        })
+    }
+
+    /// 字典值 = 原始类型 / $ref / 数组 × 值可空 × 属性 required / 属性可空 的组合矩阵。
+    #[test]
+    fn renders_dictionary_value_type_matrix() {
+        let cases = [
+            (
+                "stringRequired",
+                slot(ModelType::Scalar(ScalarType::String), false),
+                true,
+                false,
+                "stringRequired: Record<string, string>",
+            ),
+            (
+                "stringOptional",
+                slot(ModelType::Scalar(ScalarType::String), false),
+                false,
+                false,
+                "stringOptional?: Record<string, string>",
+            ),
+            (
+                "stringValueNullable",
+                slot(ModelType::Scalar(ScalarType::String), true),
+                false,
+                false,
+                "stringValueNullable?: Record<string, string | null>",
+            ),
+            (
+                "integerValue",
+                slot(
+                    ModelType::Scalar(ScalarType::Integer(IntegerSpec {
+                        format: Default::default(),
+                    })),
+                    false,
+                ),
+                true,
+                false,
+                "integerValue: Record<string, number>",
+            ),
+            (
+                "numberValue",
+                slot(
+                    ModelType::Scalar(ScalarType::Number(NumberSpec {
+                        format: Default::default(),
+                    })),
+                    false,
+                ),
+                true,
+                false,
+                "numberValue: Record<string, number>",
+            ),
+            (
+                "booleanValue",
+                slot(ModelType::Scalar(ScalarType::Boolean), false),
+                true,
+                false,
+                "booleanValue: Record<string, boolean>",
+            ),
+            (
+                "refValue",
+                slot(
+                    ModelType::Ref {
+                        name: "Other".to_string(),
+                    },
+                    false,
+                ),
+                true,
+                false,
+                "refValue: Record<string, import(\"./Other\").Other>",
+            ),
+            (
+                "arrayOfScalar",
+                slot(
+                    ModelType::Array {
+                        item: Box::new(ModelType::Scalar(ScalarType::String)),
+                    },
+                    false,
+                ),
+                true,
+                false,
+                "arrayOfScalar: Record<string, Array<string>>",
+            ),
+            (
+                "arrayOfRefNullable",
+                slot(
+                    ModelType::Array {
+                        item: Box::new(ModelType::Ref {
+                            name: "Other".to_string(),
+                        }),
+                    },
+                    true,
+                ),
+                true,
+                false,
+                "arrayOfRefNullable: Record<string, Array<import(\"./Other\").Other> | null>",
+            ),
+            (
+                "selfRefValue",
+                slot(
+                    ModelType::Ref {
+                        name: "Sample".to_string(),
+                    },
+                    false,
+                ),
+                true,
+                false,
+                // 自引用必须输出裸名，不能写成 import("./Sample").Sample
+                "selfRefValue: Record<string, Sample>",
+            ),
+        ];
+
+        for (name, value, required, nullable, expected) in cases {
+            let rendered = render_interface(vec![prop(
+                name,
+                ModelType::Dictionary { value },
+                required,
+                nullable,
+            )]);
+            assert!(
+                rendered.contains(expected),
+                "`{name}` should render as `{expected}`, got:\n{rendered}"
+            );
+        }
+    }
+
+    #[test]
+    fn renders_dictionary_property_nullable_as_trailing_null() {
+        let rendered = render_interface(vec![prop(
+            "Data",
+            ModelType::Dictionary {
+                value: slot(ModelType::Scalar(ScalarType::String), true),
+            },
+            false,
+            true,
+        )]);
+
+        assert!(
+            rendered.contains("Data?: Record<string, string | null> | null"),
+            "got:\n{rendered}"
+        );
+    }
+
+    /// 回归护栏：`Object` 仍是自由对象，不得被字典改造波及。
+    #[test]
+    fn renders_free_form_object_as_bare_object() {
+        let rendered = render_interface(vec![prop("freeForm", ModelType::Object, true, false)]);
+
+        assert!(rendered.contains("freeForm: object"), "got:\n{rendered}");
+    }
+
+    #[test]
+    fn renders_inline_object_with_optional_and_required_keys() {
+        let rendered = render_interface(vec![prop(
+            "fixed",
+            ModelType::InlineObject {
+                properties: vec![
+                    prop(
+                        "count",
+                        ModelType::Scalar(ScalarType::Integer(IntegerSpec {
+                            format: Default::default(),
+                        })),
+                        true,
+                        false,
+                    ),
+                    prop("label", ModelType::Scalar(ScalarType::String), false, true),
+                ],
+                additional_properties: None,
+            },
+            false,
+            true,
+        )]);
+
+        assert!(rendered.contains("fixed?:"), "got:\n{rendered}");
+        assert!(rendered.contains("count: number"), "got:\n{rendered}");
+        assert!(
+            rendered.contains("label?: string | null"),
+            "got:\n{rendered}"
+        );
+        assert!(!rendered.contains("object"), "got:\n{rendered}");
+    }
+
+    /// `properties` + `additionalProperties: <schema>` 的混合形态：交叉类型保留两侧信息。
+    #[test]
+    fn renders_mixed_object_as_intersection_with_record() {
+        let rendered = render_interface(vec![prop(
+            "mixed",
+            ModelType::InlineObject {
+                properties: vec![prop(
+                    "count",
+                    ModelType::Scalar(ScalarType::Integer(IntegerSpec {
+                        format: Default::default(),
+                    })),
+                    true,
+                    false,
+                )],
+                additional_properties: Some(slot(ModelType::Scalar(ScalarType::String), false)),
+            },
+            true,
+            false,
+        )]);
+
+        assert!(rendered.contains("count: number"), "got:\n{rendered}");
+        assert!(
+            rendered.contains("Record<string, string>"),
+            "got:\n{rendered}"
+        );
+        assert!(rendered.contains('&'), "got:\n{rendered}");
+    }
+
+    #[test]
+    fn renders_top_level_dictionary_alias_as_record() {
+        let rendered = render_single_model(ModelNode {
+            name: "StringMap".to_string(),
+            description: None,
+            kind: ModelKind::Alias {
+                target: ModelType::Dictionary {
+                    value: slot(ModelType::Scalar(ScalarType::String), false),
+                },
+                nullable: false,
+            },
+        });
+
+        assert!(
+            rendered.contains("export type StringMap = Record<string, string>"),
+            "got:\n{rendered}"
+        );
     }
 }

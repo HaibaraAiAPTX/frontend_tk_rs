@@ -126,6 +126,17 @@ pub enum ScalarType {
     Number(NumberSpec),
 }
 
+/// 类型槽位：类型本体 + 该槽位自身是否可空。
+///
+/// 字典值、索引签名这类位置需要「嵌套类型独立携带 nullable」。`render_type` 已用独立参数
+/// 表达可空，所以这里不引入 `Nullable` 包装变体，避免与既有调用约定重复。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NullableType {
+    pub r#type: Box<ModelType>,
+    #[serde(default)]
+    pub nullable: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ModelType {
@@ -133,11 +144,35 @@ pub enum ModelType {
     String,
     Number,
     Boolean,
+    /// 无键值信息的自由对象：`additionalProperties: true` 或完全未声明。
+    /// 仍渲染为裸 `object` / `dict[str, Any]`，不得用来承载字典语义。
     Object,
-    Ref { name: String },
-    Array { item: Box<ModelType> },
-    Union { variants: Vec<ModelType> },
-    Literal { value: ModelLiteral },
+    Ref {
+        name: String,
+    },
+    Array {
+        item: Box<ModelType>,
+    },
+    Union {
+        variants: Vec<ModelType>,
+    },
+    Literal {
+        value: ModelLiteral,
+    },
+    /// 字典：`type: object` + `additionalProperties: <schema>`，键恒为 `string`。
+    /// TS 渲染为 `Record<string, V>`，Python 渲染为 `dict[str, V]`。
+    Dictionary {
+        value: NullableType,
+    },
+    /// 内联固定键对象（`properties` 非空）。
+    ///
+    /// `additional_properties` 为 `Some` 时表示 `properties` + `additionalProperties: <schema>`
+    /// 的混合形态，TS 渲染为交叉类型 `{ ... } & Record<string, V>`。
+    InlineObject {
+        properties: Vec<ModelProperty>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        additional_properties: Option<NullableType>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

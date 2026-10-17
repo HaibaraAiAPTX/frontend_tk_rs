@@ -1,0 +1,1089 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "model-dictionary-acceptance",
+    "version": "1.0.0",
+    "description": "Vendored subset of the real consumer OpenAPI specs covering additionalProperties dictionary rendering. Source: aptx-root/swagger/*.json"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "AddPayrollRecordRequestModel": {
+        "required": [
+          "BaseSalaryValue",
+          "CapitalAccountID",
+          "EmployeeID",
+          "PayrollGroupID",
+          "PositionSalaryValue",
+          "UseMainCreditedType"
+        ],
+        "type": "object",
+        "properties": {
+          "EmployeeID": {
+            "type": "string",
+            "description": "人员唯一标识",
+            "format": "uuid"
+          },
+          "SchoolHourSchemeID": {
+            "type": "string",
+            "description": "课时方案唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "SchoolHour": {
+            "type": "number",
+            "description": "课时数",
+            "format": "double",
+            "nullable": true
+          },
+          "CapitalAccountID": {
+            "type": "string",
+            "description": "付款账户唯一标识",
+            "format": "uuid"
+          },
+          "UseMainCreditedType": {
+            "type": "boolean",
+            "description": "使用主要收款方式"
+          },
+          "PayrollGroupID": {
+            "type": "string",
+            "description": "薪资发放组唯一标识",
+            "format": "uuid"
+          },
+          "AttendanceDay": {
+            "type": "number",
+            "description": "出勤天数",
+            "format": "double",
+            "nullable": true
+          },
+          "ScheduleAttendanceDay": {
+            "type": "number",
+            "description": "应出勤天数",
+            "format": "double",
+            "nullable": true
+          },
+          "BaseSalaryValue": {
+            "type": "number",
+            "description": "基本薪资值",
+            "format": "double"
+          },
+          "PositionSalaryValue": {
+            "type": "number",
+            "description": "岗位薪资值",
+            "format": "double"
+          },
+          "SalaryItems": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "format": "double"
+            },
+            "description": "薪资项",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "薪资发放记录添加请求模型"
+      },
+      "ClassCategoryRuleEnum": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "description": "班级类型规则枚举",
+        "format": "int32"
+      },
+      "ClassScheduleListDTO": {
+        "required": [
+          "ClassCategoryID",
+          "ClassCategoryName",
+          "ClassCategoryOnline",
+          "ClassCategoryRule",
+          "ClassID",
+          "ClassName",
+          "ClassSponsorID",
+          "ClassSponsorInfo",
+          "CreateTime",
+          "EndTime",
+          "ID",
+          "StartTime",
+          "Status",
+          "TeacherID",
+          "TeacherInfo"
+        ],
+        "type": "object",
+        "properties": {
+          "TeacherInfo": {
+            "$ref": "#/components/schemas/EmployeeListDTO"
+          },
+          "ClassSponsorInfo": {
+            "$ref": "#/components/schemas/EmployeeListDTO"
+          },
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "StartTime": {
+            "type": "string",
+            "description": "上课时间",
+            "format": "date-time"
+          },
+          "EndTime": {
+            "type": "string",
+            "description": "下课时间",
+            "format": "date-time"
+          },
+          "ClassID": {
+            "type": "string",
+            "description": "班级标识",
+            "format": "uuid"
+          },
+          "ClassName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "班级名称"
+          },
+          "ClassCategoryID": {
+            "type": "string",
+            "description": "班级类型唯一标识",
+            "format": "uuid"
+          },
+          "ClassCategoryName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "班级类型名称"
+          },
+          "ClassCategoryOnline": {
+            "type": "boolean",
+            "description": "班级类型是否为线上"
+          },
+          "ClassCategoryRule": {
+            "$ref": "#/components/schemas/ClassCategoryRuleEnum"
+          },
+          "ClassCategoryRuleText": {
+            "type": "string",
+            "description": "班级类型规则文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "ClassCategorySchoolHourCoefficient": {
+            "type": "number",
+            "description": "班级类型课时系数",
+            "format": "double",
+            "nullable": true
+          },
+          "ClassSponsorID": {
+            "type": "string",
+            "description": "班主任唯一标识",
+            "format": "uuid"
+          },
+          "TeacherID": {
+            "type": "string",
+            "description": "教师标识",
+            "format": "uuid"
+          },
+          "ClassroomID": {
+            "type": "string",
+            "description": "教室标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "ClassroomName": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "description": "教室名称",
+            "nullable": true
+          },
+          "Place": {
+            "type": "string",
+            "description": "地点",
+            "nullable": true
+          },
+          "Status": {
+            "$ref": "#/components/schemas/ClassScheduleStatusEnum"
+          },
+          "StatusText": {
+            "type": "string",
+            "description": "状态文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "CancelDescription": {
+            "type": "string",
+            "description": "取消描述",
+            "nullable": true
+          },
+          "ClassScheduleFeekbackDetailID": {
+            "type": "string",
+            "description": "课表反馈明细标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "SchoolHour": {
+            "type": "number",
+            "description": "上报课时",
+            "format": "double",
+            "nullable": true
+          },
+          "ReporteSchoolHourCoefficient": {
+            "type": "number",
+            "description": "上报课时系数",
+            "format": "double",
+            "nullable": true
+          },
+          "ReporteTime": {
+            "type": "string",
+            "description": "上报时间",
+            "format": "date-time",
+            "nullable": true
+          },
+          "ActualSchoolHour": {
+            "type": "number",
+            "description": "实际获得的课时",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "课表列表数据传输模型"
+      },
+      "ClassScheduleStatusEnum": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "description": "课表状态枚举",
+        "format": "int32"
+      },
+      "DifficultyEnum": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "description": "难度枚举",
+        "format": "int32"
+      },
+      "DistrictListDTO": {
+        "required": [
+          "CreateTime",
+          "ID",
+          "Name"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 20,
+            "minLength": 0,
+            "type": "string",
+            "description": "名称"
+          }
+        },
+        "additionalProperties": false,
+        "description": "地区列表数据传输模型"
+      },
+      "EmployeeListDTO": {
+        "required": [
+          "Account",
+          "CreateTime",
+          "Enable",
+          "ID",
+          "Name",
+          "Sex"
+        ],
+        "type": "object",
+        "properties": {
+          "Age": {
+            "type": "integer",
+            "description": "年龄",
+            "format": "int32",
+            "nullable": true,
+            "readOnly": true
+          },
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Account": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/SexEnum"
+          },
+          "SexText": {
+            "type": "string",
+            "description": "性别文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Birthday": {
+            "type": "string",
+            "description": "生日",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IDCardNumber": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          },
+          "PhoneNumber": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "description": "电话号码",
+            "nullable": true
+          },
+          "Address": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "description": "地址",
+            "nullable": true
+          },
+          "Wechat": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "微信号",
+            "nullable": true
+          },
+          "Enable": {
+            "type": "boolean",
+            "description": "启用标识"
+          },
+          "DepartmentID": {
+            "type": "string",
+            "description": "部门唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "DepartmentName": {
+            "type": "string",
+            "description": "部门名称",
+            "nullable": true
+          },
+          "DepartmentCode": {
+            "type": "string",
+            "description": "部门代码",
+            "nullable": true
+          },
+          "PositionID": {
+            "type": "string",
+            "description": "岗位唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "PositionName": {
+            "type": "string",
+            "description": "岗位名称",
+            "nullable": true
+          },
+          "PositionCode": {
+            "type": "string",
+            "description": "岗位代码",
+            "nullable": true
+          },
+          "JoinDate": {
+            "type": "string",
+            "description": "入职日期",
+            "format": "date-time",
+            "nullable": true
+          },
+          "BankCardNumber": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "银行卡卡号",
+            "nullable": true
+          },
+          "Cardholder": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "持卡人",
+            "nullable": true
+          },
+          "DepositBank": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "开户行名称",
+            "nullable": true
+          },
+          "BankCardScanningCopyID": {
+            "type": "string",
+            "description": "银行卡扫描件唯一标识",
+            "format": "uuid",
+            "nullable": true
+          },
+          "OtherCreditedType": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "其他收款类型",
+            "nullable": true
+          },
+          "OtherCreditedAccount": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "其他收款账户",
+            "nullable": true
+          },
+          "OtherCreditedTrueName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "其他收款真实姓名",
+            "nullable": true
+          },
+          "OtherCreditedFileID": {
+            "type": "string",
+            "description": "其他收款文件唯一标识",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "员工列表数据传输模型"
+      },
+      "GuidStringDictionaryResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultType"
+          },
+          "Data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "KnowledgePointSimpleDTO": {
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "Name": {
+            "type": "string",
+            "description": "名称",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "知识点列表简单传输模型"
+      },
+      "MatchingQuestionDTO": {
+        "required": [
+          "AddUserID",
+          "AddUserInfo",
+          "CitationPerPaper",
+          "CollectionCount",
+          "CreateTime",
+          "Data",
+          "Difficulty",
+          "DistrictID",
+          "ID",
+          "IsPastExamQuestion",
+          "Keywords",
+          "KnowledgePoints",
+          "KnowledgePointText",
+          "LastUpdateTime",
+          "QuestionType",
+          "SourceID",
+          "SourceName",
+          "Topic",
+          "Year"
+        ],
+        "type": "object",
+        "properties": {
+          "AddUserInfo": {
+            "$ref": "#/components/schemas/UserListDTO"
+          },
+          "Keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "关键字"
+          },
+          "KnowledgePointText": {
+            "minLength": 1,
+            "type": "string",
+            "description": "所属知识点文本",
+            "readOnly": true
+          },
+          "KnowledgePoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgePointSimpleDTO"
+            },
+            "description": "所属知识点"
+          },
+          "DistrictInfo": {
+            "$ref": "#/components/schemas/DistrictListDTO"
+          },
+          "UpdateTime": {
+            "type": "string",
+            "description": "修改时间",
+            "format": "date-time"
+          },
+          "LastUpdateTime": {
+            "type": "string",
+            "description": "最后更新时间",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "IsCollection": {
+            "type": "boolean",
+            "description": "已收藏标记"
+          },
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "QuestionType": {
+            "$ref": "#/components/schemas/QuestionTypeEnum"
+          },
+          "QuestionTypeText": {
+            "type": "string",
+            "description": "题目类型文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "AddUserID": {
+            "type": "string",
+            "description": "添加用户唯一标识",
+            "format": "uuid"
+          },
+          "IsPastExamQuestion": {
+            "type": "boolean",
+            "description": "真题标识"
+          },
+          "SpecificSource": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "题目具体来源",
+            "nullable": true
+          },
+          "Pool": {
+            "$ref": "#/components/schemas/QuestionPoolTypeEnum"
+          },
+          "PoolText": {
+            "type": "string",
+            "description": "题库池文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "SourceID": {
+            "type": "string",
+            "description": "题目来源唯一标识",
+            "format": "uuid"
+          },
+          "SourceName": {
+            "minLength": 1,
+            "type": "string",
+            "description": "题目来源名称"
+          },
+          "Difficulty": {
+            "$ref": "#/components/schemas/DifficultyEnum"
+          },
+          "DifficultyText": {
+            "type": "string",
+            "description": "难度文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Year": {
+            "type": "integer",
+            "description": "年份",
+            "format": "int32"
+          },
+          "DistrictID": {
+            "type": "string",
+            "description": "地区唯一标识",
+            "format": "uuid"
+          },
+          "CitationPerPaper": {
+            "type": "integer",
+            "description": "被引用次数",
+            "format": "int32"
+          },
+          "CollectionCount": {
+            "type": "integer",
+            "description": "收藏数",
+            "format": "int32"
+          },
+          "Topic": {
+            "minLength": 1,
+            "type": "string",
+            "description": "题目"
+          },
+          "LeftData": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "左边数据",
+            "nullable": true
+          },
+          "RightData": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "右边数据",
+            "nullable": true
+          },
+          "Analysis": {
+            "type": "string",
+            "description": "解析",
+            "nullable": true
+          },
+          "Data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "答案"
+          }
+        },
+        "additionalProperties": false,
+        "description": "连线题数据传输模型"
+      },
+      "PaperAnalysisDTO": {
+        "type": "object",
+        "properties": {
+          "QuestionTypeNumbers": {
+            "type": "object",
+            "properties": {
+              "SingleChoice": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "MultipleChoice": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "TrueOrFlase": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "Listening": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "Word": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "GapFilling": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "Translation": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "ReadingComprehension": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "Essays": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "Matching": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            "additionalProperties": false,
+            "description": "问题类型数量",
+            "nullable": true
+          },
+          "DifficultyNumbers": {
+            "type": "object",
+            "properties": {
+              "Easy": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "QuiteEasy": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "Moderate": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "QuiteHard": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "Hard": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            "additionalProperties": false,
+            "description": "问题难度数量",
+            "nullable": true
+          },
+          "KnowledgePointIncludeQuestions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "description": "知识点包含的问题",
+            "nullable": true
+          },
+          "QuestionIncludeKnowledgePoints": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "description": "问题包含的知识点",
+            "nullable": true
+          },
+          "KnowledgePoints": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/KnowledgePointSimpleDTO"
+            },
+            "description": "知识点",
+            "nullable": true
+          },
+          "Questions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PaperQuestionSimpleDTO"
+            },
+            "description": "题目",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "试卷分析数据传输模型"
+      },
+      "PaperQuestionSimpleDTO": {
+        "required": [
+          "AnswerRows",
+          "Difficulty",
+          "ID",
+          "Index",
+          "QuestionType",
+          "QuestionTypeText",
+          "Score",
+          "Topic"
+        ],
+        "type": "object",
+        "properties": {
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "Score": {
+            "type": "integer",
+            "description": "分值",
+            "format": "int32"
+          },
+          "AnswerRows": {
+            "type": "integer",
+            "description": "作答区行数",
+            "format": "int32"
+          },
+          "Index": {
+            "type": "integer",
+            "description": "索引",
+            "format": "int32"
+          },
+          "QuestionID": {
+            "type": "string",
+            "description": "题目唯一标识",
+            "format": "uuid"
+          },
+          "Topic": {
+            "minLength": 1,
+            "type": "string",
+            "description": "题目"
+          },
+          "QuestionType": {
+            "$ref": "#/components/schemas/QuestionTypeEnum"
+          },
+          "QuestionTypeText": {
+            "minLength": 1,
+            "type": "string",
+            "description": "题目类型文本",
+            "readOnly": true
+          },
+          "Difficulty": {
+            "$ref": "#/components/schemas/DifficultyEnum"
+          },
+          "DifficultyText": {
+            "type": "string",
+            "description": "题目难度文本",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "问题简单数据传输模型"
+      },
+      "QuestionPoolTypeEnum": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "description": "问题池类型枚举",
+        "format": "int32"
+      },
+      "QuestionTypeEnum": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "type": "integer",
+        "description": "题目类型",
+        "format": "int32"
+      },
+      "ResultType": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "SexEnum": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "description": "性别",
+        "format": "int32"
+      },
+      "StringClassScheduleListDTOListDictionaryResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultType"
+          },
+          "Data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ClassScheduleListDTO"
+              },
+              "nullable": true
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StringDecimalDictionaryResultModel": {
+        "type": "object",
+        "properties": {
+          "Message": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResultType": {
+            "$ref": "#/components/schemas/ResultType"
+          },
+          "Data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "format": "double"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserListDTO": {
+        "required": [
+          "Account",
+          "CreateTime",
+          "Enable",
+          "ID",
+          "Name",
+          "Sex"
+        ],
+        "type": "object",
+        "properties": {
+          "Age": {
+            "type": "integer",
+            "description": "年龄",
+            "format": "int32",
+            "nullable": true,
+            "readOnly": true
+          },
+          "ID": {
+            "type": "string",
+            "description": "唯一标识",
+            "format": "uuid"
+          },
+          "CreateTime": {
+            "type": "string",
+            "description": "创建时间",
+            "format": "date-time"
+          },
+          "Name": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "姓名"
+          },
+          "Account": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "description": "账号"
+          },
+          "Sex": {
+            "$ref": "#/components/schemas/SexEnum"
+          },
+          "SexText": {
+            "type": "string",
+            "description": "性别文本",
+            "nullable": true,
+            "readOnly": true
+          },
+          "Birthday": {
+            "type": "string",
+            "description": "生日",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IDCardNumber": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "身份证号",
+            "nullable": true
+          },
+          "PhoneNumber": {
+            "maxLength": 18,
+            "minLength": 0,
+            "type": "string",
+            "description": "电话号码",
+            "nullable": true
+          },
+          "Address": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string",
+            "description": "地址",
+            "nullable": true
+          },
+          "Wechat": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string",
+            "description": "微信号",
+            "nullable": true
+          },
+          "Enable": {
+            "type": "boolean",
+            "description": "启用标识"
+          }
+        },
+        "additionalProperties": false,
+        "description": "用户数据传输模型"
+      }
+    }
+  }
+}
