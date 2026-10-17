@@ -11,6 +11,11 @@
   "files": [
     "frontend-tk-binding.win32-arm64-msvc.node"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaibaraAiAPTX/frontend_tk_rs.git",
+    "directory": "crates/node_binding"
+  },
   "license": "MIT",
   "engines": {
     "node": ">= 10"
