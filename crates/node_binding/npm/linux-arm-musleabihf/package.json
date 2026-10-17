@@ -1,6 +1,6 @@
 {
   "name": "@aptx-js/frontend-tk-binding-linux-arm-musleabihf",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "os": [
     "linux"
   ],

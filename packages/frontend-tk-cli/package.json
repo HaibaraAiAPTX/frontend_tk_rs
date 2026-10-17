@@ -1,6 +1,6 @@
 {
   "name": "@aptx-js/frontend-tk-cli",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Frontend toolkit CLI - assembles core with built-in plugins",
   "keywords": [
     "frontend",

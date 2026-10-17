@@ -225,6 +225,13 @@ jobs:
           ls -la /tmp/napi-artifacts/
           npx napi artifacts --output-dir /tmp/napi-artifacts
 
+      # 把 9 个平台包的 version 同步到根包版本。
+      # `napi prepublish` 内部也会做这一步，但闸门在它之前跑，必须先同步，
+      # 否则闸门会看到"根包 0.1.21、平台包 0.1.20"这种半更新状态。
+      - name: Sync platform package versions
+        working-directory: crates/node_binding
+        run: npx napi version
+
       # 闸门：napi prepublish 对缺失的 target 只警告不报错，缺一个平台
       # 仍会把残缺的根包发出去，而 npm 版本不可覆盖。
       - name: Verify all platform artifacts

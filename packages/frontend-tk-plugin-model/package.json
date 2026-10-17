@@ -1,6 +1,6 @@
 {
   "name": "@aptx-js/frontend-tk-plugin-model",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Model generation commands for frontend toolkit CLI",
   "keywords": [
     "frontend",

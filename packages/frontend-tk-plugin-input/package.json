@@ -1,6 +1,6 @@
 {
   "name": "@aptx-js/frontend-tk-plugin-input",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Input plugin for frontend toolkit - provides input:download command",
   "keywords": [
     "frontend",
