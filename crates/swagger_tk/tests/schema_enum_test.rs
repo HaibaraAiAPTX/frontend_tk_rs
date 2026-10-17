@@ -1,0 +1,221 @@
+//! `SchemaEnum` 反序列化契约：`type` 缺失时的推断规则。
+//!
+//! OpenAPI 3.0 / 3.1 允许 schema 省略 `type`（`additionalProperties: {}` 就是合法写法）。
+//! 历史上 `SchemaEnum::deserialize` 强制要求 `type`，导致一份 spec 只要出现
+//! `{}` / 无 `type` 的 schema，整份 spec 都解析失败，且错误信息不指向具体位置。
+//!
+//! 这里固定「无 `type` 时」的推断规则，并确认既有显式 `type` 的分支没有被改动。
+
+use std::str::FromStr;
+
+use swagger_tk::model::{
+    OpenAPIObject, SchemaEnum, SchemaObjectAdditionalProperties, SchemaTypeEnum,
+};
+
+fn parse(text: &str) -> OpenAPIObject {
+    OpenAPIObject::from_str(text).unwrap_or_else(|err| panic!("parse fail: {err}"))
+}
+
+/// 把一段 schema JSON 包进最小 spec 的 `components.schemas`。
+fn schema_of(schema: &str) -> SchemaEnum {
+    let open_api = parse(&format!(
+        r#"{{"openapi":"3.1.0","info":{{"title":"t","version":"1.0.0"}},"paths":{{}},"components":{{"schemas":{{"A":{schema}}}}}}}"#
+    ));
+    open_api
+        .components
+        .as_ref()
+        .and_then(|components| components.schemas.as_ref())
+        .and_then(|schemas| schemas.get("A"))
+        .expect("schema A should be parsed")
+        .clone()
+}
+
+/// 断言 schema 落到期望的 `SchemaEnum` 变体，且变体内记录的 `type` 与之一致。
+fn assert_variant(schema: &SchemaEnum, expected: SchemaTypeEnum) {
+    let actual = match schema {
+        SchemaEnum::Ref(v) => panic!("expected {expected:?}, got Ref({v:?})"),
+        SchemaEnum::Object(v) => v.r#type.clone(),
+        SchemaEnum::String(v) => v.r#type.clone(),
+        SchemaEnum::Integer(v) => v.r#type.clone(),
+        SchemaEnum::Number(v) => v.r#type.clone(),
+        SchemaEnum::Boolean(v) => v.r#type.clone(),
+        SchemaEnum::Array(v) => v.r#type.clone(),
+    };
+    assert_eq!(actual, expected, "unexpected variant: {schema:?}");
+    let variant_matches = matches!(
+        (schema, &expected),
+        (SchemaEnum::Object(_), SchemaTypeEnum::Object)
+            | (SchemaEnum::String(_), SchemaTypeEnum::String)
+            | (SchemaEnum::Integer(_), SchemaTypeEnum::Integer)
+            | (SchemaEnum::Number(_), SchemaTypeEnum::Number)
+            | (SchemaEnum::Boolean(_), SchemaTypeEnum::Boolean)
+            | (SchemaEnum::Array(_), SchemaTypeEnum::Array)
+    );
+    assert!(variant_matches, "enum variant mismatch: {schema:?}");
+}
+
+/// issue #2 的三种失败形态必须都能解析。
+#[test]
+fn parses_additional_properties_empty_schema() {
+    let open_api = parse(
+        r#"{
+          "openapi": "3.1.0",
+          "info": { "title": "t", "version": "1.0.0" },
+          "paths": {},
+          "components": { "schemas": { "A": { "type": "object", "additionalProperties": {} } } }
+        }"#,
+    );
+    let schema = open_api
+        .components
+        .expect("components")
+        .schemas
+        .expect("schemas")
+        .remove("A")
+        .expect("schema A");
+    let SchemaEnum::Object(object) = schema else {
+        panic!("A should be an object schema");
+    };
+    let value = object
+        .additional_properties
+        .expect("additionalProperties should be present");
+    // `additionalProperties: {}` 语义等价于 `additionalProperties: true`（任意值）。
+    let SchemaObjectAdditionalProperties::Schema(schema) = value else {
+        panic!("expected an inferred schema, got {value:?}");
+    };
+    let SchemaEnum::Object(any) = &*schema else {
+        panic!("`{{}}` should be inferred as object, got {schema:?}");
+    };
+    assert!(matches!(
+        any.additional_properties,
+        Some(SchemaObjectAdditionalProperties::Boolean(true))
+    ));
+}
+
+#[test]
+fn parses_typeless_schema_with_nullable() {
+    let schema = schema_of(r#"{ "nullable": true }"#);
+    let SchemaEnum::Object(object) = &schema else {
+        panic!("typeless schema should be inferred as object, got {schema:?}");
+    };
+    assert_eq!(object.nullable, Some(true));
+    assert!(object.properties.is_none());
+}
+
+#[test]
+fn parses_typeless_schema_with_properties() {
+    let schema = schema_of(r#"{ "properties": { "x": { "type": "string" } } }"#);
+    let SchemaEnum::Object(object) = &schema else {
+        panic!("typeless schema with properties should be inferred as object, got {schema:?}");
+    };
+    let properties = object.properties.as_ref().expect("properties");
+    assert_eq!(properties.len(), 1);
+    assert!(matches!(properties.get("x"), Some(SchemaEnum::String(_))));
+}
+
+#[test]
+fn parses_empty_schema_as_free_form_object() {
+    let schema = schema_of("{}");
+    let SchemaEnum::Object(object) = &schema else {
+        panic!("empty schema should be inferred as object, got {schema:?}");
+    };
+    assert!(object.properties.is_none());
+    // 空 schema 等价于 `additionalProperties: true`，显式记录以免被读成封闭对象。
+    assert!(matches!(
+        object.additional_properties,
+        Some(SchemaObjectAdditionalProperties::Boolean(true))
+    ));
+    // 描述为空是合法输入，不应触发 `description` 相关错误。
+    assert!(schema.get_description().is_none());
+}
+
+/// 推断表的其它行：array / string enum / 数值 enum。
+#[test]
+fn infers_array_from_items() {
+    let schema = schema_of(r#"{ "items": { "type": "string" } }"#);
+    let SchemaEnum::Array(array) = &schema else {
+        panic!("typeless schema with items should be inferred as array, got {schema:?}");
+    };
+    assert!(matches!(array.items.as_ref(), SchemaEnum::String(_)));
+}
+
+#[test]
+fn infers_string_enum_from_enum_values() {
+    let schema = schema_of(r#"{ "enum": ["a", "b"] }"#);
+    assert_variant(&schema, SchemaTypeEnum::String);
+    let SchemaEnum::String(string) = &schema else {
+        unreachable!("checked above")
+    };
+    assert_eq!(
+        string.r#enum.as_deref(),
+        Some(&["a".to_string(), "b".to_string()][..])
+    );
+}
+
+#[test]
+fn infers_integer_enum_from_integer_values() {
+    let schema = schema_of(r#"{ "enum": [1, 2] }"#);
+    assert_variant(&schema, SchemaTypeEnum::Integer);
+    let SchemaEnum::Integer(integer) = &schema else {
+        unreachable!("checked above")
+    };
+    assert_eq!(integer.r#enum.as_deref(), Some(&[1, 2][..]));
+}
+
+#[test]
+fn infers_number_enum_from_decimal_values() {
+    let schema = schema_of(r#"{ "enum": [1.5, 2.5] }"#);
+    assert_variant(&schema, SchemaTypeEnum::Number);
+    let SchemaEnum::Number(number) = &schema else {
+        unreachable!("checked above")
+    };
+    assert_eq!(number.r#enum.as_deref(), Some(&[1.5_f32, 2.5][..]));
+}
+
+/// 显式 `type` 的分支不得受推断影响（回归护栏）。
+#[test]
+fn keeps_explicit_type_branches_unchanged() {
+    for (json, expected) in [
+        (r#"{ "type": "string" }"#, SchemaTypeEnum::String),
+        (r#"{ "type": "object" }"#, SchemaTypeEnum::Object),
+        (r#"{ "type": "integer" }"#, SchemaTypeEnum::Integer),
+        (r#"{ "type": "number" }"#, SchemaTypeEnum::Number),
+        (r#"{ "type": "boolean" }"#, SchemaTypeEnum::Boolean),
+        (
+            r#"{ "type": "array", "items": { "type": "string" } }"#,
+            SchemaTypeEnum::Array,
+        ),
+    ] {
+        assert_variant(&schema_of(json), expected);
+    }
+}
+
+/// 显式 `type` 优先于推断线索（`type: string` + `items` 仍当 string）。
+#[test]
+fn explicit_type_wins_over_shape_hints() {
+    let schema = schema_of(r#"{ "type": "string", "items": { "type": "string" } }"#);
+    assert_variant(&schema, SchemaTypeEnum::String);
+}
+
+#[test]
+fn keeps_ref_branch_unchanged() {
+    let schema = schema_of(r##"{ "$ref": "#/components/schemas/Other" }"##);
+    assert!(matches!(schema, SchemaEnum::Ref(_)), "{schema:?}");
+}
+
+/// `SchemaEnum::Boolean` 也应当能给出描述（`SchemaBool` 原先没有该字段）。
+#[test]
+fn reads_description_from_boolean_schema() {
+    let schema = schema_of(r#"{ "type": "boolean", "description": "flag" }"#);
+    assert_eq!(schema.get_description(), Some(&"flag".to_string()));
+}
+
+/// 无 `type` 但 `nullable` 的取值不应被丢弃。
+#[test]
+fn keeps_typeless_schema_nullable_flag() {
+    let schema = schema_of(r#"{ "nullable": true, "description": "anything" }"#);
+    assert_eq!(schema.get_description(), Some(&"anything".to_string()));
+    let SchemaEnum::Object(object) = &schema else {
+        panic!("expected object, got {schema:?}");
+    };
+    assert_eq!(object.nullable, Some(true));
+}

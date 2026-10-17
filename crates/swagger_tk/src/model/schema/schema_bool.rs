@@ -8,4 +8,6 @@ use super::SchemaTypeEnum;
 pub struct SchemaBool {
     #[serde(rename = "type")]
     pub r#type: SchemaTypeEnum,
+
+    pub description: Option<String>,
 }

@@ -33,14 +33,26 @@ fn schema_to_model_node(name: &str, schema: &SchemaEnum, open_api: &OpenAPIObjec
             SchemaEnum::Object(v) => {
                 let properties = object_properties(v, open_api);
                 if properties.is_empty() {
-                    // 顶层纯字典：`{ type: object, additionalProperties: <schema> }`。
-                    // 不能退化成空 interface，否则键值类型被静默吞掉。
+                    // 顶层无 `properties`：要么是纯字典 `{ type: object, additionalProperties: <schema> }`，
+                    // 要么是「任意值」`{}` / `additionalProperties: true`。
+                    // 两者都不能退化成空 interface——空 interface 既丢掉了键值类型，
+                    // 也把「任意值」误读成「封闭且没有任何键」。
                     match dictionary_value_type(v, open_api) {
                         Some(value) => ModelKind::Alias {
                             target: ModelType::Dictionary { value },
                             nullable: v.nullable.unwrap_or(false),
                         },
-                        None => ModelKind::Interface { properties },
+                        None => match v.additional_properties.as_ref() {
+                            // `additionalProperties: false` = 确实不允许任何键，空 interface 才是正解。
+                            Some(SchemaObjectAdditionalProperties::Boolean(false)) => {
+                                ModelKind::Interface { properties }
+                            }
+                            // 无 `additionalProperties` 或 `additionalProperties: true` = 任意值。
+                            _ => ModelKind::Alias {
+                                target: ModelType::Object,
+                                nullable: v.nullable.unwrap_or(false),
+                            },
+                        },
                     }
                 } else {
                     ModelKind::Interface { properties }
