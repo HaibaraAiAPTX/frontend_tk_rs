@@ -258,14 +258,25 @@ jobs:
         run: node ../../scripts/verify-artifacts.mjs --verbose
 
       # 版本同步 + optionalDependencies 回写 + 9 个平台包发布。
-      # 幂等：已存在的版本会被 npm 拒绝，napi 会跳过它们并继续。
+      #
+      # napi prepublish 只识别 npm 标准的"重复版本"错误；npm 对新建包名
+      # 还有 staged publishing，重跑时会返回 409 "previously staged version"
+      # 并让整步失败。补发场景下这是预期行为，所以这里吞掉非零退出——
+      # 真正的成败由后面带退避重试的校验决定，不会放过真正缺失的包。
       - name: Publish platform packages
         working-directory: crates/node_binding
         env:
           NPM_CONFIG_REGISTRY: ${{ env.NPM_REGISTRY }}
           NPM_CONFIG_ACCESS: public
           NPM_CONFIG_PROVENANCE: 'true'
-        run: npx napi prepublish -t npm --no-gh-release
+        run: |
+          set -uo pipefail
+          if npx napi prepublish -t npm --no-gh-release; then
+            echo "prepublish 完成"
+          else
+            echo "WARN: prepublish 非零退出，通常是版本已存在（含 staged）；"
+            echo "      由后续 Verify published packages 确认实际状态。"
+          fi
 
       # 根包最后发：客户端一旦能解析到它就会立刻去拉所有平台包。
       - name: Publish root package
@@ -358,8 +369,9 @@ jobs:
                    --registry "${{ env.NPM_REGISTRY }}"; then
               echo "PUBLISHED: ${name}@${version}"
             else
-              echo "FAILED: ${name}@${version}"
-              failed=1
+              # 不解定为失败：可能是 staged version（重跑补发场景），
+              # 也可能只是 registry 传播延迟。交给后面的校验判定。
+              echo "WARN: ${name}@${version} 发布返回非零，可能是已存在（含 staged）"
             fi
           done
           exit "${failed}"
