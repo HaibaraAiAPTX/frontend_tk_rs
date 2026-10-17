@@ -127,6 +127,7 @@ const SINGLE_LINE_COMMENT = /^\s*\/\*\*[\s\S]*\*\/\s*$/;
 /** 块的开头 / 结尾 / 中间续行。 */
 const BLOCK_OPEN = /^\s*\/\*\*/;
 const BLOCK_CLOSE = /\*\/\s*$/;
+/** 多行注释块内部的续行（` * 说明`）；块内不是这个形状的行一律不放行。 */
 const BLOCK_CONTINUATION = /^\s*\*/;
 
 /**
@@ -145,6 +146,9 @@ const SEMANTIC_COMMENT = /[@"'`]/;
  */
 function classifyAddedLine(line, state) {
   if (state.inBlock) {
+    // 块内只接受 ` * …` 续行与闭合行。块开了一半却混进代码（说明块被截断或产物本身
+    // 就是坏的）时，这里必须拒绝而不是把整块都当作注释放行。
+    if (!BLOCK_CONTINUATION.test(line)) return false;
     if (SEMANTIC_COMMENT.test(line)) state.rejected = true;
     if (BLOCK_CLOSE.test(line)) state.inBlock = false;
     return !state.rejected;

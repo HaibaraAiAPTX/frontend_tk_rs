@@ -54,31 +54,32 @@ impl<'de> Deserialize<'de> for SchemaEnum {
 
         // 完全空 schema（`{}`）语义等价于「任意值」，即 `additionalProperties: true`；
         // 显式记下来，避免下游把 `additional_properties == None` 读成「封闭对象」。
-        let is_any = v.as_object().is_some_and(Map::is_empty);
+        // 注意这个标志的含义是「输入就是空对象」，不是「推断结果是任意类型」。
+        let is_empty_schema = v.as_object().is_some_and(Map::is_empty);
 
         match r#type {
             SchemaTypeEnum::String => Ok(SchemaEnum::String(
-                deserialize_with_type(v, &r#type, is_any, SchemaString::deserialize)
+                deserialize_with_type(v, &r#type, is_empty_schema, SchemaString::deserialize)
                     .map_err(de::Error::custom)?,
             )),
             SchemaTypeEnum::Object => Ok(SchemaEnum::Object(
-                deserialize_with_type(v, &r#type, is_any, SchemaObject::deserialize)
+                deserialize_with_type(v, &r#type, is_empty_schema, SchemaObject::deserialize)
                     .map_err(de::Error::custom)?,
             )),
             SchemaTypeEnum::Number => Ok(SchemaEnum::Number(
-                deserialize_with_type(v, &r#type, is_any, SchemaNumber::deserialize)
+                deserialize_with_type(v, &r#type, is_empty_schema, SchemaNumber::deserialize)
                     .map_err(de::Error::custom)?,
             )),
             SchemaTypeEnum::Integer => Ok(SchemaEnum::Integer(
-                deserialize_with_type(v, &r#type, is_any, SchemaInteger::deserialize)
+                deserialize_with_type(v, &r#type, is_empty_schema, SchemaInteger::deserialize)
                     .map_err(de::Error::custom)?,
             )),
             SchemaTypeEnum::Boolean => Ok(SchemaEnum::Boolean(
-                deserialize_with_type(v, &r#type, is_any, SchemaBool::deserialize)
+                deserialize_with_type(v, &r#type, is_empty_schema, SchemaBool::deserialize)
                     .map_err(de::Error::custom)?,
             )),
             SchemaTypeEnum::Array => Ok(SchemaEnum::Array(
-                deserialize_with_type(v, &r#type, is_any, SchemaArray::deserialize)
+                deserialize_with_type(v, &r#type, is_empty_schema, SchemaArray::deserialize)
                     .map_err(de::Error::custom)?,
             )),
         }
@@ -89,10 +90,13 @@ impl<'de> Deserialize<'de> for SchemaEnum {
 ///
 /// 只在 `type` 缺失时补写，因此显式 `type` 分支的行为与改造前完全一致；变体内记录的
 /// `type` 也始终来自输入或推断结果，不依赖 serde 默认值。
+///
+/// `is_empty_schema` 表示输入是空对象 `{}`（语义为「任意值」），只有它为真时才额外补写
+/// `additionalProperties: true`。
 fn deserialize_with_type<T, F>(
     mut value: Value,
     r#type: &SchemaTypeEnum,
-    is_any: bool,
+    is_empty_schema: bool,
     deserialize: F,
 ) -> Result<T, serde_json::Error>
 where
@@ -117,7 +121,7 @@ where
             ))
         })?;
         object.insert("type".to_string(), Value::String(r#type.to_string()));
-        if is_any {
+        if is_empty_schema {
             object.insert("additionalProperties".to_string(), Value::Bool(true));
         }
     }

@@ -16,6 +16,13 @@ fn parse(text: &str) -> OpenAPIObject {
     OpenAPIObject::from_str(text).unwrap_or_else(|err| panic!("parse fail: {err}"))
 }
 
+/// 整份 spec 解析失败时的报错文案（用于钉住「缓冲层会吞掉内层诊断」这一限制）。
+fn parse_error(text: &str) -> String {
+    OpenAPIObject::from_str(text)
+        .expect_err("spec should fail to parse")
+        .to_string()
+}
+
 /// 把一段 schema JSON 包进最小 spec 的 `components.schemas`。
 fn schema_of(schema: &str) -> SchemaEnum {
     let open_api = parse(&format!(
@@ -193,7 +200,7 @@ fn rejects_boolean_schema_with_enum() {
         "got: {err}"
     );
 
-    // 推断路径同样拦得住（虽然当前推断不会把 enum 判成 boolean，这里锁定契约）。
+    // 显式布尔类型 + `enum` 同样拦得住（上面那条只证明显式分支，这条证明带描述也不例外）。
     let err =
         schema_error(r#"{ "type": "boolean", "description": "开关", "enum": [true, false] }"#);
     assert!(
@@ -201,9 +208,62 @@ fn rejects_boolean_schema_with_enum() {
         "got: {err}"
     );
 
+    // **推断**路径：无 `type` 时 `enum` 的第一个成员是布尔 → 推断成 boolean → 同样必须报错。
+    // 这条才是「推断不会放过不可表达形态」的真正护栏；`{"enum":[true]}` 在真实 spec 里
+    // 等价于「只允许 true 的布尔」，静默丢掉 `enum` 就是静默改变了契约。
+    for json in [
+        r#"{ "enum": [true] }"#,
+        r#"{ "enum": [true, false] }"#,
+        r#"{ "nullable": true, "enum": [false] }"#,
+    ] {
+        let err = schema_error(json);
+        assert!(
+            err.contains("`SchemaBool` has no `enum` field"),
+            "{json} 应被拒绝，got: {err}"
+        );
+    }
+
     // 没有 `enum` 的布尔 schema 不受影响。
     let schema = schema_of(r#"{ "type": "boolean", "description": "开关" }"#);
     assert!(matches!(schema.get_description(), Some(description) if description == "开关"));
+
+    // 无 `type` 且无 `enum` 的布尔形态无法从结构推断出来，只能靠显式 `type`——
+    // 这也说明上面那组拒绝结论来自 `infer_enum_type`，不是别的线索。
+    assert_variant(
+        &schema_of(r#"{ "type": "boolean" }"#),
+        SchemaTypeEnum::Boolean,
+    );
+}
+
+/// **已知限制（已实测，不是猜测）**：`additionalProperties` 里的 schema 报错会丢文案。
+///
+/// `SchemaObjectAdditionalProperties` 是 `#[serde(untagged)]`，serde 缓冲成 `Content` 时
+/// 不保留内层 `D::Error`，所以 `SchemaEnum` 写的诊断在整份 spec 路径上不可见，只剩
+/// `data did not match any variant of untagged enum……`。这里把现状钉住：**能失败**（不会静默
+/// 放过非法 schema），**但文案不可定位**。哪天改成带 `components.schemas.X` 路径的报错，
+/// 这条测试会失败并提示同时更新本注释与 `schema_object_additional_properties.rs` 的说明。
+#[test]
+fn documents_error_text_loss_on_buffered_path() {
+    let err = parse_error(
+        r#"{"openapi":"3.1.0","info":{"title":"t","version":"1.0.0"},"paths":{},
+            "components":{"schemas":{"A":{"type":"object","additionalProperties":{"type":["string","null"]}}}}}"#,
+    );
+    assert!(
+        err.contains("untagged enum SchemaObjectAdditionalProperties"),
+        "缓冲路径的报错形态已变，请同步更新本测试的注释：{err}"
+    );
+    assert!(
+        !err.contains("neither a string nor absent"),
+        "内层诊断已能透传，可以删掉这条限制说明了：{err}"
+    );
+
+    // 对照组：同一个 schema 直接反序列化时，文案是完整、可定位的。
+    // 说明「诊断写对了」，丢的只是缓冲层。
+    let direct = schema_error(r#"{ "type": ["string", "null"] }"#);
+    assert!(
+        direct.contains("neither a string nor absent"),
+        "got: {direct}"
+    );
 }
 
 /// 显式 `type` 的分支不得受推断影响（回归护栏）。

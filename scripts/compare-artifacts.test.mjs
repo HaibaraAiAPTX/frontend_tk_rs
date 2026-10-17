@@ -130,6 +130,25 @@ test("语义化注释混在多行块里同样被拒绝", () => {
   assert.equal(code, 1);
 });
 
+test("块开了一半却混进代码：不放行", () => {
+  // 只加了 `/**` 开头，闭合缺失，后面直接跟代码。若把「块内」当成
+  // 「一律是注释」，这些代码行就会被静默放行——正是闸门最不能有的漏报。
+  const before = makeTree({ "a/Foo.ts": BASE_FILE });
+  const after = makeTree({
+    "a/Foo.ts": [
+      "export interface Foo {",
+      "  /**",
+      "  id?: string",
+      "  extra?: number",
+      "}",
+      "",
+    ].join("\n"),
+  });
+  const { code, stderr } = runGate([before, after, "--allow-doc-comments"]);
+  assert.equal(code, 1);
+  assert.match(stderr, /不是允许的文档注释/);
+});
+
 test("文件缺失或多出都失败", () => {
   const before = makeTree({ "a/Foo.ts": BASE_FILE });
   const after = makeTree({ "a/Foo.ts": BASE_FILE, "a/Extra.ts": BASE_FILE });
