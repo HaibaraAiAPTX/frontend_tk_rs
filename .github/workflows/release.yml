@@ -365,8 +365,10 @@ jobs:
             version=$(node -p "require('./${dir}package.json').version")
             if pnpm view "${name}@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
               echo "SKIP: ${name}@${version} 已存在"
-            elif pnpm publish --dir "${dir}" --access public --provenance --no-git-checks --ignore-scripts \
-                   --registry "${{ env.NPM_REGISTRY }}"; then
+            # 注意：pnpm publish 不接受 --dir（那是 npm 的参数，会被透传成
+            # EUSAGE 直接失败），必须 cd 进包目录再发布。
+            elif (cd "${dir}" && pnpm publish --access public --provenance --no-git-checks --ignore-scripts \
+                   --registry "${{ env.NPM_REGISTRY }}"); then
               echo "PUBLISHED: ${name}@${version}"
             else
               # 不解定为失败：可能是 staged version（重跑补发场景），
