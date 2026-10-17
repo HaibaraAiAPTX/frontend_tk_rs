@@ -280,19 +280,24 @@ jobs:
               --registry "${{ env.NPM_REGISTRY }}"
           fi
 
-      # 事后确认：发布命令成功不代表 registry 真的收下了。
+      # 事后确认：发布命令成功不代表 registry 立刻可查。
+      # 新包名首次发布时 npm 会返回 "being processed and may take a few
+      # minutes to become available"，紧接着查询必然 404，所以必须退避重试。
       - name: Verify published packages
         run: |
           set -uo pipefail
           version=$(node -p "require('./crates/node_binding/package.json').version")
           failed=0
           check() {
-            if pnpm view "$1@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
-              echo "  OK   $1@${version}"
-            else
-              echo "  MISS $1@${version}"
-              failed=1
-            fi
+            for i in $(seq 1 20); do
+              if pnpm view "$1@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
+                echo "  OK   $1@${version}  (第 ${i} 次确认)"
+                return 0
+              fi
+              [ "${i}" -lt 20 ] && sleep 15
+            done
+            echo "  MISS $1@${version}  (等待 5 分钟仍未出现)"
+            failed=1
           }
           check '@aptx-js/frontend-tk-binding'
           deps=$(node -e '
@@ -367,10 +372,18 @@ jobs:
             [ -f "${dir}package.json" ] || continue
             name=$(node -p "require('./${dir}package.json').name")
             version=$(node -p "require('./${dir}package.json').version")
-            if pnpm view "${name}@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
-              echo "  OK   ${name}@${version}"
-            else
-              echo "  MISS ${name}@${version}"
+            # 同样要退避：首次发布的包名在 registry 上不会立刻可查
+            ok=0
+            for i in $(seq 1 20); do
+              if pnpm view "${name}@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
+                echo "  OK   ${name}@${version}  (第 ${i} 次确认)"
+                ok=1
+                break
+              fi
+              [ "${i}" -lt 20 ] && sleep 15
+            done
+            if [ "${ok}" -eq 0 ]; then
+              echo "  MISS ${name}@${version}  (等待 5 分钟仍未出现)"
               failed=1
             fi
           done
