@@ -12,6 +12,7 @@
     "benchmark": "pnpm benchmark:codegen && pnpm benchmark:rust",
     "publish:bindings": "node scripts/publish-binding.mjs",
     "verify:artifacts": "node scripts/compare-artifacts.mjs",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "check": "pnpm --filter=./packages/* check"
   },
   "devDependencies": {

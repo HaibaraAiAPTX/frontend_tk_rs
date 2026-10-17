@@ -37,6 +37,8 @@ impl<'de> Deserialize<'de> for SchemaEnum {
         // `SchemaTypeEnum` 是单值枚举，把联合类型硬塞进单一变体只会得到错误的模型，
         // 所以这里给出可定位的明确错误，而不是静默降级。
         let r#type = match v.get("type") {
+            // `SchemaTypeEnum::deserialize` 吃的是 `Value`，错误类型是 `serde_json::Error`，
+            // 需要转成 `D::Error`（不是冗余 map_err）。
             Some(Value::String(name)) => SchemaTypeEnum::deserialize(Value::String(name.clone()))
                 .map_err(de::Error::custom)?,
             Some(other) => {
@@ -96,6 +98,16 @@ fn deserialize_with_type<T, F>(
 where
     F: FnOnce(Value) -> Result<T, serde_json::Error>,
 {
+    // `SchemaBool` 没有 `enum` 字段（`SchemaString` / `SchemaInteger` / `SchemaNumber` 才有），
+    // 布尔 enum 会被静默丢掉成员取值。这与本模块其它「不静默降级」的取舍一致：宁可报错。
+    if *r#type == SchemaTypeEnum::Boolean && value.get("enum").is_some() {
+        return Err(serde::de::Error::custom(
+            "boolean schema with `enum` cannot be represented: this crate's `SchemaBool` has no \
+             `enum` field, so the allowed values would be dropped silently; drop the `enum` or \
+             model the flag as a string / integer enum",
+        ));
+    }
+
     // 显式字符串 `type` 已在调用方校验过，这里只需处理「缺失」这一种情况。
     if value.get("type").is_none() {
         let object = value.as_object_mut().ok_or_else(|| {
@@ -112,19 +124,31 @@ where
     deserialize(value)
 }
 
+/// 无 `type` 时判定为 array 的结构线索。只有 `items`：`uniqueItems` / `minItems` /
+/// `maxItems` 是约束而不是结构，单独出现时判成 array 只会撞上 `SchemaArray` 必填的 `items`。
+const ARRAY_HINTS: [&str; 1] = ["items"];
+
+/// 无 `type` 时判定为 object 的结构线索。
+const OBJECT_HINTS: [&str; 2] = ["properties", "additionalProperties"];
+
 /// 无 `type` 时的推断规则（按顺序取第一条命中的线索）：
 ///
-/// 1. `items` / `uniqueItems` / `minItems` / `maxItems` → array
+/// 1. `items` → array
 /// 2. `properties` / `additionalProperties` → object
-/// 3. `enum` → 按首个非 `null` 成员推断
+/// 3. `enum` → 由第一个成员决定，其余成员必须与之一致
 /// 4. 其余（含空 schema `{}`）→ object（自由对象，等价于 `additionalProperties: true`）
 ///
-/// 刻意不纳入 `format` / `maxLength` / `minimum` 这类跨类型通用关键字：它们无法唯一
-/// 决定类型，纳入只会让推断结果变得不可预期。
+/// 1 与 2 同时命中时取 array（`items` 是强得多的线索，且 `SchemaArray` 不把
+/// `properties` 表达出来，取 object 会把数组语义整个丢掉）。
+///
+/// 显式字符串 `type` 永远优先于以上全部。
+///
+/// 刻意不纳入三类关键字：
+///
+/// - `uniqueItems` / `minItems` / `maxItems`：见 [`ARRAY_HINTS`] 的说明；
+/// - `format` / `maxLength` / `minimum` 这类跨类型通用关键字：无法唯一决定类型；
+/// - `required`：在 object 与自由 object 之间没有区分度。
 fn infer_type_from_shape(value: &Value) -> Result<SchemaTypeEnum, String> {
-    const ARRAY_HINTS: [&str; 4] = ["items", "uniqueItems", "minItems", "maxItems"];
-    const OBJECT_HINTS: [&str; 2] = ["properties", "additionalProperties"];
-
     if ARRAY_HINTS.iter().any(|key| value.get(key).is_some()) {
         return Ok(SchemaTypeEnum::Array);
     }
@@ -137,7 +161,7 @@ fn infer_type_from_shape(value: &Value) -> Result<SchemaTypeEnum, String> {
     Ok(SchemaTypeEnum::Object)
 }
 
-/// 由 `enum` 成员推断类型。
+/// 由 `enum` 成员推断类型：**由第一个成员决定**，其余成员必须与之一致。
 ///
 /// 拒绝空数组与含 `null` 的成员：本 crate 的标量变体把 `enum` 存成 `Vec<String>` /
 /// `Vec<i32>` / `Vec<f32>`，既表达不了空枚举，也表达不了可空成员。与其推断成功、随后在
@@ -150,13 +174,6 @@ fn infer_enum_type(members: &[Value]) -> Result<SchemaTypeEnum, String> {
                 .to_string(),
         );
     }
-
-    let Some(first) = members.iter().find(|member| !member.is_null()) else {
-        return Err(format!(
-            "`type` is missing and `enum` {members:?} contains only `null`; this crate's scalar \
-             variants cannot hold `null` members, declare `type` explicitly or drop the `null`"
-        ));
-    };
     if members.iter().any(Value::is_null) {
         return Err(format!(
             "`type` is missing and `enum` {members:?} contains `null`; this crate's scalar \
@@ -164,6 +181,8 @@ fn infer_enum_type(members: &[Value]) -> Result<SchemaTypeEnum, String> {
         ));
     }
 
+    // 走到这里每个成员都不是 `null`，所以第一个成员必然存在。
+    let first = members.first().expect("non-empty checked above");
     let inferred = match first {
         Value::String(_) => SchemaTypeEnum::String,
         Value::Number(number) if is_integer_number(number) => SchemaTypeEnum::Integer,
@@ -190,10 +209,11 @@ fn infer_enum_type(members: &[Value]) -> Result<SchemaTypeEnum, String> {
     Ok(inferred)
 }
 
-/// `enum` 成员是否与推断出的类型相容（`null` 视为可空，一并接受）。
+/// `enum` 成员是否与推断出的类型相容。
+///
+/// `null` 不会走到这里（[`infer_enum_type`] 已先行拒绝），因此不做处理。
 fn matches_enum_type(member: &Value, r#type: &SchemaTypeEnum) -> bool {
     match member {
-        Value::Null => true,
         Value::String(_) => *r#type == SchemaTypeEnum::String,
         Value::Bool(_) => *r#type == SchemaTypeEnum::Boolean,
         Value::Number(number) => match r#type {
@@ -201,7 +221,7 @@ fn matches_enum_type(member: &Value, r#type: &SchemaTypeEnum) -> bool {
             SchemaTypeEnum::Number => true,
             _ => false,
         },
-        Value::Array(_) | Value::Object(_) => false,
+        Value::Null | Value::Array(_) | Value::Object(_) => false,
     }
 }
 
@@ -209,17 +229,20 @@ fn is_integer_number(number: &serde_json::Number) -> bool {
     number.is_i64() || number.is_u64()
 }
 
+/// 列出 `enum` 成员出现的 JSON 类型，供「混用多种类型」的错误信息使用。
+///
+/// `null` 不会走到这里（[`infer_enum_type`] 已先行拒绝）。
 fn describe_json_types(members: &[Value]) -> String {
     let mut names = Vec::new();
     for member in members {
         let name = match member {
-            Value::Null => "null",
             Value::Bool(_) => "boolean",
             Value::Number(number) if is_integer_number(number) => "integer",
             Value::Number(_) => "number",
             Value::String(_) => "string",
             Value::Array(_) => "array",
             Value::Object(_) => "object",
+            Value::Null => "null",
         };
         // 去重要跨位置生效：`["a", 1, "b"]` 应打印 `string / integer`，
         // 只去相邻重复会漏掉这种交替出现的形态。

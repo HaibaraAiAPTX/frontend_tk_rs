@@ -181,6 +181,31 @@ fn infers_number_enum_from_decimal_values() {
     assert_eq!(number.r#enum.as_deref(), Some(&[1.5_f32, 2.5][..]));
 }
 
+/// 布尔 schema 带 `enum` 时必须明确报错。
+///
+/// `SchemaBool` 没有 `enum` 字段（只有 `SchemaString` / `SchemaInteger` / `SchemaNumber` 有），
+/// 静默接受会让 `{"type":"boolean","enum":[true]}` 这样的约束凭空消失。
+#[test]
+fn rejects_boolean_schema_with_enum() {
+    let err = schema_error(r#"{ "type": "boolean", "enum": [true] }"#);
+    assert!(
+        err.contains("`SchemaBool` has no `enum` field"),
+        "got: {err}"
+    );
+
+    // 推断路径同样拦得住（虽然当前推断不会把 enum 判成 boolean，这里锁定契约）。
+    let err =
+        schema_error(r#"{ "type": "boolean", "description": "开关", "enum": [true, false] }"#);
+    assert!(
+        err.contains("`SchemaBool` has no `enum` field"),
+        "got: {err}"
+    );
+
+    // 没有 `enum` 的布尔 schema 不受影响。
+    let schema = schema_of(r#"{ "type": "boolean", "description": "开关" }"#);
+    assert!(matches!(schema.get_description(), Some(description) if description == "开关"));
+}
+
 /// 显式 `type` 的分支不得受推断影响（回归护栏）。
 #[test]
 fn keeps_explicit_type_branches_unchanged() {
@@ -255,16 +280,47 @@ fn rejects_type_that_is_not_a_string() {
     }
 }
 
-/// 推断表列出的其余 array 线索同样生效（`items` 仍是 `SchemaArray` 的必填字段）。
+/// array 线索与 object 线索同时命中时取 array。
 #[test]
 fn infers_array_from_other_array_hints() {
+    // `SchemaArray` 不表达 `properties`，取 object 会把数组语义整个丢掉。
+    assert_variant(
+        &schema_of(
+            r#"{ "items": { "type": "string" }, "properties": { "a": { "type": "string" } } }"#,
+        ),
+        SchemaTypeEnum::Array,
+    );
+}
+
+/// 只有 `items` 是 array 的推断线索；`uniqueItems` / `minItems` / `maxItems` 都不是。
+///
+/// 这三个关键字是约束而不是结构：单独出现时若判成 array，唯一可能的结局是撞上
+/// `SchemaArray` 必填的 `items`，抛出 `missing field \`items\`` —— 一个完全不提
+/// `uniqueItems` / `minItems`、把调用方指向错误方向的错误，而且会让整份 spec
+/// 反序列化失败。JSON Schema 里它们本来就只是断言，对非数组是无害空操作，
+/// 因此落成自由 object 更接近原意。
+#[test]
+fn ignores_constraint_keywords_when_inferring() {
     for json in [
-        r#"{ "items": { "type": "string" }, "uniqueItems": true }"#,
-        r#"{ "items": { "type": "string" }, "minItems": 1 }"#,
-        r#"{ "items": { "type": "string" }, "maxItems": 10 }"#,
+        r#"{ "uniqueItems": true }"#,
+        r#"{ "minItems": 1 }"#,
+        r#"{ "maxItems": 10 }"#,
+        r#"{ "minItems": 1, "maxItems": 10 }"#,
+        r#"{ "uniqueItems": true, "minItems": 1 }"#,
     ] {
-        assert_variant(&schema_of(json), SchemaTypeEnum::Array);
+        assert_variant(&schema_of(json), SchemaTypeEnum::Object);
     }
+
+    // 与 `items` 共存时不影响结论。
+    assert_variant(
+        &schema_of(r#"{ "items": { "type": "string" }, "uniqueItems": true, "minItems": 1 }"#),
+        SchemaTypeEnum::Array,
+    );
+    // 显式 `type` 始终最高优先级。
+    assert_variant(
+        &schema_of(r#"{ "type": "array", "items": { "type": "string" }, "minItems": 1 }"#),
+        SchemaTypeEnum::Array,
+    );
 }
 
 /// `enum` 没有可用成员时必须明确报错：本 crate 的标量变体存不下空枚举，也存不下 `null`。
