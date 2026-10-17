@@ -10,6 +10,11 @@
     "codegen"
   ],
   "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaibaraAiAPTX/frontend_tk_rs.git",
+    "directory": "packages/frontend-tk-cli"
+  },
   "license": "ISC",
   "bin": {
     "aptx-ft": "./bin/aptx.js"

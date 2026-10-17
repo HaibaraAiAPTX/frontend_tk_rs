@@ -9,6 +9,11 @@
     "plugin"
   ],
   "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaibaraAiAPTX/frontend_tk_rs.git",
+    "directory": "packages/frontend-tk-core"
+  },
   "license": "ISC",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

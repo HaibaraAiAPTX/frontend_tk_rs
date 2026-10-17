@@ -1,24 +1,94 @@
-name: Build & Release
+name: Release
+
+# 一次 tag 推送完成全部发布：9 个平台二进制 → 10 个 npm 包 → GitHub Release。
+#
+# 为什么是单 workflow：原来 build.yml 和 release.yml 在同一个 tag 上并行触发，
+# 靠轮询等 binding 就绪。合并后用 `needs` 表达顺序，失败即停，不会出现
+# "TS 包发出去了但 binding 没发" 的半成品状态。
+#
+# 发布不可回滚（npm 版本不可覆盖）。所有 publish 步骤都是幂等的：已存在的
+# 版本会被跳过，所以对同一个 tag 重跑可以补发，但不能修正已发布的版本。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # 手动重跑，用于补发失败的部分
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的 tag（如 v0.1.20），必须是已存在的 tag'
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   DEBUG: napi:*
   APP_NAME: frontend-tk-binding
   MACOSX_DEPLOYMENT_TARGET: '10.13'
   CARGO_INCREMENTAL: '1'
-  # 全部包发布到公共 npmjs。@aptx-js 是免费组织计划下的 scoped public 包。
   NPM_REGISTRY: https://registry.npmjs.org/
 
-on:
-  push:
-    tags:
-      - 'v*'
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
+  # 在花掉 9 个平台的构建时间之前，先把三类"注定失败"的情况挡掉。
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+          if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "ERROR: tag ${tag} 不存在"
+            exit 1
+          fi
+          echo "value=${tag}" >> "$GITHUB_OUTPUT"
+          echo "release tag: ${tag}"
+
+      # 闸门 1：tag 与所有 package.json 版本一致
+      - name: Verify tag matches package versions
+        run: node scripts/verify-version.mjs "${{ steps.tag.outputs.value }}"
+
+      # 闸门 2：锁文件与 package.json 一致，否则 CI 装出来的依赖与仓库不一致
+      - name: Verify lockfile is up to date
+        run: pnpm install --frozen-lockfile --lockfile-only
+
+      # 闸门 3：token 真的能发布。等构建完再发现没权限就太晚了。
+      - name: Verify npm auth
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+          pnpm whoami
+
   build:
+    name: ${{ matrix.settings.target }}
+    needs: preflight
     strategy:
       fail-fast: false
       matrix:
@@ -50,8 +120,6 @@ jobs:
           - host: ubuntu-latest
             target: armv7-unknown-linux-musleabihf
             build: pnpm run build --target armv7-unknown-linux-musleabihf -x
-
-    name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4
@@ -64,7 +132,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - name: Install
+      - name: Setup rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
@@ -91,10 +159,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           tool: cargo-zigbuild
-      - name: Setup toolchain
-        run: ${{ matrix.settings.setup }}
-        if: ${{ matrix.settings.setup }}
-        shell: bash
       - name: Install dependencies
         working-directory: crates/node_binding
         run: pnpm install --frozen-lockfile
@@ -106,17 +170,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
-          path: |
-            crates/node_binding/frontend-tk-binding.*.node
+          path: crates/node_binding/frontend-tk-binding.*.node
           if-no-files-found: error
 
-  release:
+  # binding 必须先发：所有 TS 包都依赖它，而且客户端解析到根包后会立刻
+  # 去拉 9 个平台包，平台包没就位就是坏链。
+  publish-bindings:
     name: Publish bindings
+    needs: [preflight, build]
     runs-on: ubuntu-latest
-    needs:
-      - build
     permissions:
-      contents: write
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -136,8 +201,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Configure npm auth
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -146,11 +210,12 @@ jobs:
         with:
           path: artifacts
 
-      # 把 9 个平台的 .node 收进 npm/<target>/ 和根目录。
-      # 这一步必须在校验之前，校验读的就是它写出来的布局。
+      # 把 9 个平台的 .node 收进 npm/<target>/ 与根目录。
+      # 必须在闸门之前：闸门读的就是它写出来的布局。
       - name: Collect artifacts into npm packages
         working-directory: crates/node_binding
         run: |
+          set -euo pipefail
           mkdir -p /tmp/napi-artifacts
           for dir in ../../artifacts/bindings-*; do
             [ -d "$dir" ] || continue
@@ -160,26 +225,168 @@ jobs:
           ls -la /tmp/napi-artifacts/
           npx napi artifacts --output-dir /tmp/napi-artifacts
 
-      # 闸门：9 个平台少一个、版本不一致、或有陈旧 optionalDependencies，
-      # 都在这里硬失败，避免 napi prepublish 的"只警告不报错"漏过残缺发布。
+      # 闸门：napi prepublish 对缺失的 target 只警告不报错，缺一个平台
+      # 仍会把残缺的根包发出去，而 npm 版本不可覆盖。
       - name: Verify all platform artifacts
         working-directory: crates/node_binding
         run: node ../../scripts/verify-artifacts.mjs --verbose
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/**/*.node
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 版本同步 + optionalDependencies 回写 + 9 个平台包发布，一步到位。
-      # 根包最后发，因为客户端一旦能解析到根包就会立刻去拉所有平台包。
-      - name: Publish platform packages and root package
+      # 版本同步 + optionalDependencies 回写 + 9 个平台包发布。
+      # 幂等：已存在的版本会被 npm 拒绝，napi 会跳过它们并继续。
+      - name: Publish platform packages
         working-directory: crates/node_binding
-        run: node ../../scripts/publish-binding.mjs
+        env:
+          NPM_CONFIG_REGISTRY: ${{ env.NPM_REGISTRY }}
+          NPM_CONFIG_ACCESS: public
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: npx napi prepublish -t npm --no-gh-release
+
+      # 根包最后发：客户端一旦能解析到它就会立刻去拉所有平台包。
+      - name: Publish root package
+        working-directory: crates/node_binding
+        run: |
+          set -uo pipefail
+          version=$(node -p "require('./package.json').version")
+          if pnpm view "@aptx-js/frontend-tk-binding@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
+            echo "SKIP: @aptx-js/frontend-tk-binding@${version} 已存在"
+          else
+            pnpm publish --access public --provenance --no-git-checks --ignore-scripts \
+              --registry "${{ env.NPM_REGISTRY }}"
+          fi
+
+      # 事后确认：发布命令成功不代表 registry 真的收下了。
+      - name: Verify published packages
+        run: |
+          set -uo pipefail
+          version=$(node -p "require('./crates/node_binding/package.json').version")
+          failed=0
+          check() {
+            if pnpm view "$1@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
+              echo "  OK   $1@${version}"
+            else
+              echo "  MISS $1@${version}"
+              failed=1
+            fi
+          }
+          check '@aptx-js/frontend-tk-binding'
+          deps=$(node -e '
+            const p = require("./crates/node_binding/package.json");
+            console.log(Object.keys(p.optionalDependencies || {}).join(" "));
+          ')
+          for dep in ${deps}; do check "${dep}"; done
+          exit "${failed}"
+
+  publish-packages:
+    name: Publish TS packages
+    needs: publish-bindings
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_REGISTRY: ${{ env.NPM_REGISTRY }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build TypeScript packages
+        run: pnpm -r --filter './packages/*' run build
+
+      # 逐个发布，已存在的版本跳过（重跑同一 tag 时用于补发）。
+      - name: Publish packages
+        run: |
+          set -uo pipefail
+          failed=0
+          for dir in packages/*/; do
+            [ -f "${dir}package.json" ] || continue
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            if pnpm view "${name}@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
+              echo "SKIP: ${name}@${version} 已存在"
+            elif pnpm publish --dir "${dir}" --access public --provenance --no-git-checks --ignore-scripts \
+                   --registry "${{ env.NPM_REGISTRY }}"; then
+              echo "PUBLISHED: ${name}@${version}"
+            else
+              echo "FAILED: ${name}@${version}"
+              failed=1
+            fi
+          done
+          exit "${failed}"
+
+      - name: Verify published packages
+        run: |
+          set -uo pipefail
+          failed=0
+          for dir in packages/*/; do
+            [ -f "${dir}package.json" ] || continue
+            name=$(node -p "require('./${dir}package.json').name")
+            version=$(node -p "require('./${dir}package.json').version")
+            if pnpm view "${name}@${version}" version --registry="${{ env.NPM_REGISTRY }}" >/dev/null 2>&1; then
+              echo "  OK   ${name}@${version}"
+            else
+              echo "  MISS ${name}@${version}"
+              failed=1
+            fi
+          done
+          exit "${failed}"
+
+  # 放最后：只有所有包都确认发出去了，才创建对外的 release。
+  # 否则会出现"release 已挂出但包没发成"的假象。
+  github-release:
+    name: GitHub Release
+    needs: [preflight, publish-packages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect binaries
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          for dir in artifacts/bindings-*; do
+            [ -d "$dir" ] || continue
+            for file in "$dir"/*.node; do
+              [ -f "$file" ] || continue
+              cp "$file" release/
+            done
+          done
+          ls -la release/
+          count=$(ls release/*.node 2>/dev/null | wc -l)
+          if [ "${count}" -ne 9 ]; then
+            echo "ERROR: 期望 9 个 .node，实际 ${count} 个"
+            exit 1
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.preflight.outputs.release_tag }}
+          files: release/*.node
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

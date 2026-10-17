@@ -10,6 +10,11 @@
     "aptx"
   ],
   "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaibaraAiAPTX/frontend_tk_rs.git",
+    "directory": "packages/frontend-tk-plugin-aptx"
+  },
   "license": "ISC",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

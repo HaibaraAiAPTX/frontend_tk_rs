@@ -17,7 +17,12 @@
       "x86_64-unknown-linux-gnu",
       "x86_64-unknown-linux-musl"
     ]
+  },  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaibaraAiAPTX/frontend_tk_rs.git",
+    "directory": "crates/node_binding"
   },
+
   "license": "MIT",
   "devDependencies": {
     "@napi-rs/cli": "^3.5.1",
