@@ -6,4 +6,7 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.210", features = ["derive"]}
 serde_json = "1.0.131"
+# 报错要带字段路径（`components.schemas.Order`），而不是单行压缩 spec 里
+# 毫无意义的 `line 2 column 17000`。见 `open_api_object.rs`。
+serde_path_to_error = "0.1"
 swagger_macro = { version = "0.1.0", path = "../swagger_macro" }

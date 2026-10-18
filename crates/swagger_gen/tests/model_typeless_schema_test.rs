@@ -2,8 +2,9 @@
 //!
 //! 背景：`additionalProperties: {}` 这类**没有 `type`** 的 schema 是合法 OpenAPI，
 //! 但 `SchemaEnum` 原先强制要求 `type`，导致 `SchemaObjectAdditionalProperties`
-//! 的 untagged 分支全部失配、**整份 spec 反序列化失败**（`ERR: data did not match any
-//! variant of untagged enum SchemaObjectAdditionalProperties`）。
+//! 的 untagged 分支全部失配、**整份 spec 反序列化失败**。
+//! （该枚举现已改为手写 `Deserialize`，报错会带 `components.schemas.<Name>` 路径与具体原因，
+//! 见 `crates/swagger_tk/src/model/schema/schema_object_additional_properties.rs`。）
 //!
 //! `swagger_tk` 侧的推断规则见 `crates/swagger_tk/src/model/schema/schema_enum.rs`；
 //! 本文件锁住的是**推断结果进入模型 IR / 产物**后的形态，防止下游把「任意值」读成

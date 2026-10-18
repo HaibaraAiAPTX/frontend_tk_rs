@@ -5,22 +5,26 @@
 //! `{}` / 无 `type` 的 schema，整份 spec 都解析失败，且错误信息不指向具体位置。
 //!
 //! 这里固定「无 `type` 时」的推断规则，并确认既有显式 `type` 的分支没有被改动。
+//! 另外钉住 `OpenAPIObject::from_str` 的**报错可定位性**（`frontend_tk_rs#2`）。
 
 use std::str::FromStr;
 
 use swagger_tk::model::{
-    OpenAPIObject, SchemaEnum, SchemaObjectAdditionalProperties, SchemaTypeEnum,
+    OpenAPIObject, OpenAPIParseError, SchemaEnum, SchemaObjectAdditionalProperties, SchemaTypeEnum,
 };
 
 fn parse(text: &str) -> OpenAPIObject {
     OpenAPIObject::from_str(text).unwrap_or_else(|err| panic!("parse fail: {err}"))
 }
 
-/// 整份 spec 解析失败时的报错文案（用于钉住「缓冲层会吞掉内层诊断」这一限制）。
+/// 整份 spec 解析失败时的报错文案。
 fn parse_error(text: &str) -> String {
-    OpenAPIObject::from_str(text)
-        .expect_err("spec should fail to parse")
-        .to_string()
+    parse_error_object(text).to_string()
+}
+
+/// 整份 spec 解析失败时的错误对象，用于断言 `path()` 等结构化信息。
+fn parse_error_object(text: &str) -> OpenAPIParseError {
+    OpenAPIObject::from_str(text).expect_err("spec should fail to parse")
 }
 
 /// 把一段 schema JSON 包进最小 spec 的 `components.schemas`。
@@ -235,35 +239,217 @@ fn rejects_boolean_schema_with_enum() {
     );
 }
 
-/// **已知限制（已实测，不是猜测）**：`additionalProperties` 里的 schema 报错会丢文案。
+/// 非法 `additionalProperties` schema 的报错必须**指向所属 schema**并带上具体原因。
 ///
-/// `SchemaObjectAdditionalProperties` 是 `#[serde(untagged)]`，serde 缓冲成 `Content` 时
-/// 不保留内层 `D::Error`，所以 `SchemaEnum` 写的诊断在整份 spec 路径上不可见，只剩
-/// `data did not match any variant of untagged enum……`。这里把现状钉住：**能失败**（不会静默
-/// 放过非法 schema），**但文案不可定位**。哪天改成带 `components.schemas.X` 路径的报错，
-/// 这条测试会失败并提示同时更新本注释与 `schema_object_additional_properties.rs` 的说明。
+/// 历史问题：`SchemaObjectAdditionalProperties` 用了 `#[serde(untagged)]`，serde 把输入缓冲成
+/// `Content` 后逐个变体试，缓冲区不保留内层 `D::Error`，于是 `SchemaEnum` 写的诊断被整体替换成
+/// `data did not match any variant of untagged enum……`，`line 2 column 61` 对单行压缩的
+/// 真实 spec 毫无用处。
+///
+/// 现在两道保险都要在：
+/// 1. `SchemaObjectAdditionalProperties` 手写 `Deserialize`（按 `Value` 分派），内层诊断不再被吞；
+/// 2. `OpenAPIObject::from_str` 走 `serde_path_to_error`，报错带上 `components.schemas.<Name>`。
 #[test]
-fn documents_error_text_loss_on_buffered_path() {
+fn locates_invalid_additional_properties_schema() {
     let err = parse_error(
         r#"{"openapi":"3.1.0","info":{"title":"t","version":"1.0.0"},"paths":{},
-            "components":{"schemas":{"A":{"type":"object","additionalProperties":{"type":["string","null"]}}}}}"#,
+            "components":{"schemas":{"Order":{"type":"object","additionalProperties":{"type":["string","null"]}}}}}"#,
     );
     assert!(
-        err.contains("untagged enum SchemaObjectAdditionalProperties"),
-        "缓冲路径的报错形态已变，请同步更新本测试的注释：{err}"
+        err.contains("components.schemas.Order"),
+        "报错应指向所属 schema，got: {err}"
     );
     assert!(
-        !err.contains("neither a string nor absent"),
-        "内层诊断已能透传，可以删掉这条限制说明了：{err}"
+        err.contains("neither a string nor absent"),
+        "报错应带上内层诊断，got: {err}"
     );
+    assert!(
+        !err.contains("untagged enum SchemaObjectAdditionalProperties"),
+        "缓冲层的默认文案不应再出现，got: {err}"
+    );
+}
 
-    // 对照组：同一个 schema 直接反序列化时，文案是完整、可定位的。
-    // 说明「诊断写对了」，丢的只是缓冲层。
+/// 对照：同一个 schema 直接反序列化时文案完整——证明诊断本身写对了，丢的只是外层上下文。
+#[test]
+fn reports_full_diagnostic_when_schema_is_deserialized_directly() {
     let direct = schema_error(r#"{ "type": ["string", "null"] }"#);
     assert!(
         direct.contains("neither a string nor absent"),
         "got: {direct}"
     );
+}
+
+/// `OpenAPIParseError::path()` 是给消费方拼前缀用的结构化入口，必须与 `Display` 一致。
+///
+/// 语法错误的路径为空（它只有行列号，没有字段路径）。
+#[test]
+fn exposes_structured_error_path() {
+    let err = parse_error_object(
+        r#"{"openapi":"3.1.0","info":{"title":"t","version":"1.0.0"},"paths":{},
+            "components":{"schemas":{"Order":{"type":"object","additionalProperties":{"type":["string","null"]}}}}}"#,
+    );
+    assert_eq!(err.path(), "components.schemas.Order");
+
+    let syntax = parse_error_object(r#"{"openapi": "3.1.0", "info": }"#);
+    assert_eq!(
+        syntax.path(),
+        "",
+        "语法错误没有字段路径，got: {:?}",
+        syntax.path()
+    );
+}
+
+/// 非 schema 错误（纯语法错）仍要给出准确的行列号，不能被路径包装吃掉。
+#[test]
+fn keeps_position_for_syntax_errors() {
+    let err = parse_error(r#"{"openapi": "3.1.0", "info": }"#);
+    assert!(err.contains("line 1 column"), "got: {err}");
+}
+
+/// 截断的输入（`Category::Eof`）也要按语法错误报，不能挂半截路径。
+///
+/// `serde_path_to_error` 走到 `info` 才遇到 EOF，会留下 `info.?` 这种带 `?` 的路径。
+/// 「文件没写完」的唯一有用坐标是原文行列号，所以这类错误必须与语法错误同样处理。
+#[test]
+fn reports_truncated_input_without_partial_path() {
+    let err = parse_error(r#"{"openapi": "3.1.0", "info": {"title":"t""#);
+    assert!(err.contains("EOF while parsing"), "got: {err}");
+    assert!(
+        !err.contains("info.?"),
+        "截断输入不应挂半截路径，got: {err}"
+    );
+}
+
+/// 文档末尾的多余内容必须继续被拒绝（`serde_json::from_str` 的既有行为）。
+///
+/// 手动驱动 `serde_json::Deserializer` 时 `from_str` 的「读完即结束」检查不会自动发生，
+/// 少了 `end()` 就会把 `{...}{...}` 静默当成第一段解析成功。
+#[test]
+fn rejects_trailing_content_after_document() {
+    let err = parse_error(
+        r#"{"openapi":"3.1.0","info":{"title":"t","version":"1.0.0"},"paths":{}}{"x":1}"#,
+    );
+    assert!(err.contains("trailing characters"), "got: {err}");
+}
+
+/// `additionalProperties` 是非 bool / 非对象的 JSON 类型时，报错要说清「允许什么」。
+///
+/// 手写 `Deserialize` 之前，这类输入同样只剩 untagged 的默认文案。
+///
+/// 不含 `null`：`Option<SchemaObjectAdditionalProperties>` 把 `null` 读成 `None`，
+/// 与「字段缺失」不可区分。这是 serde `Option` 的既有语义，本次不改。
+#[test]
+fn rejects_additional_properties_that_is_neither_bool_nor_schema() {
+    for (json, kind) in [
+        (r#""nope""#, "string"),
+        (r#"3"#, "number"),
+        (r#"[]"#, "array"),
+    ] {
+        let err = parse_error(&format!(
+            r#"{{"openapi":"3.1.0","info":{{"title":"t","version":"1.0.0"}},"paths":{{}},
+                "components":{{"schemas":{{"Order":{{"type":"object","additionalProperties":{json}}}}}}}}}"#
+        ));
+        assert!(
+            err.contains("must be a boolean or a schema object"),
+            "additionalProperties={json} 应被明确拒绝，got: {err}"
+        );
+        assert!(err.contains(kind), "报错应点明实际类型 {kind}，got: {err}");
+        assert!(
+            err.contains("components.schemas.Order"),
+            "报错应指向所属 schema，got: {err}"
+        );
+    }
+}
+
+/// `additionalProperties` 里的非法 schema 报错要同时给出**字段名**与**具体原因**。
+///
+/// `serde_path_to_error` 只能追到宿主结构体（`components.schemas.Order`），追不到字段，
+/// 所以字段名由 `SchemaObjectAdditionalProperties` 自己补——这条测试钉住两侧都在。
+#[test]
+fn names_the_additional_properties_field_in_the_error() {
+    let err = parse_error(
+        r#"{"openapi":"3.1.0","info":{"title":"t","version":"1.0.0"},"paths":{},
+            "components":{"schemas":{"Order":{"type":"object","additionalProperties":{"type":"boolean","enum":[true]}}}}}"#,
+    );
+    assert!(
+        err.contains("components.schemas.Order"),
+        "报错应指向所属 schema，got: {err}"
+    );
+    assert!(
+        err.contains("`additionalProperties`"),
+        "报错应点明字段名，got: {err}"
+    );
+    assert!(
+        err.contains("`SchemaBool` has no `enum` field"),
+        "报错应带上内层诊断，got: {err}"
+    );
+}
+
+/// 嵌在 `properties` → `items` 深处的 `additionalProperties` 也要能定位到**所属 schema**。
+///
+/// 路径**停在 schema 名**（`components.schemas.Page`）而不是继续下沉到
+/// `properties.rows.items`：`SchemaEnum::deserialize` 会把整段 schema 缓冲成 `Value`
+/// 再分派，`serde_path_to_error` 的链到那里就断了。所属 schema 名 + 具体原因已经满足
+/// 「可定位」的口径（见 `docs/llm/frontend_tk_rs_model_ir.md` §2.3.1）。
+#[test]
+fn locates_additional_properties_nested_in_items() {
+    let err = parse_error(
+        r#"{"openapi":"3.1.0","info":{"title":"t","version":"1.0.0"},"paths":{},
+            "components":{"schemas":{"Page":{"type":"object","properties":{"rows":{"type":"array","items":{"type":"object","additionalProperties":{"type":["string","null"]}}}}}}}}"#,
+    );
+    assert!(
+        err.contains("components.schemas.Page"),
+        "报错应指向所属 schema，got: {err}"
+    );
+    assert!(
+        err.contains("`additionalProperties`"),
+        "报错应点明字段名，got: {err}"
+    );
+    assert!(
+        err.contains("neither a string nor absent"),
+        "报错应带上内层诊断，got: {err}"
+    );
+}
+
+/// `properties` 里的 schema 报错同样要带所属 schema 名（回归：这条路径本来就可见）。
+#[test]
+fn locates_schema_errors_under_properties() {
+    let err = parse_error(
+        r#"{"openapi":"3.1.0","info":{"title":"t","version":"1.0.0"},"paths":{},
+            "components":{"schemas":{"Page":{"type":"object","properties":{"rows":{"type":["string","null"]}}}}}}"#,
+    );
+    assert!(
+        err.contains("components.schemas.Page"),
+        "报错应指向所属 schema，got: {err}"
+    );
+    assert!(
+        err.contains("neither a string nor absent"),
+        "报错应带上内层诊断，got: {err}"
+    );
+}
+
+/// 合法 spec 仍然正常解析（路径包装不得改变成功路径）。
+#[test]
+fn still_parses_valid_specs() {
+    let open_api = parse(
+        r#"{"openapi":"3.1.0","info":{"title":"t","version":"1.0.0"},"paths":{},
+            "components":{"schemas":{"Order":{"type":"object","additionalProperties":{"type":"string"}}}}}"#,
+    );
+    let schemas = open_api
+        .components
+        .expect("components")
+        .schemas
+        .expect("schemas");
+    let SchemaEnum::Object(order) = schemas.get("Order").expect("Order") else {
+        panic!("Order should be an object schema");
+    };
+    let Some(SchemaObjectAdditionalProperties::Schema(value)) = &order.additional_properties else {
+        panic!(
+            "expected schema-valued additionalProperties, got {:?}",
+            order.additional_properties
+        );
+    };
+    assert!(matches!(**value, SchemaEnum::String(_)));
 }
 
 /// 显式 `type` 的分支不得受推断影响（回归护栏）。
